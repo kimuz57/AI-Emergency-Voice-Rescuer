@@ -18,7 +18,7 @@ Guardian AI is an **IoT-based emergency voice detection system** that monitors e
 | Member | Component | Technology Stack |
 |--------|-----------|------------------|
 | **Kit** | Backend | Go, Fiber, PostgreSQL, MQTT, Gorm |
-| **You** | AI/ML | Python, scikit-learn, librosa, Flask |
+| **Nont** | AI/ML | Python, scikit-learn, librosa, Flask |
 | **Ball** | Mobile + Hardware | Flutter, ESP32 (C/IDF), MQTT |
 
 ---
@@ -148,10 +148,10 @@ Content-Type: application/json
 ##  AI Module Milestones
 
 ### Week 1-2: Preparation
-- [ ] Install Python dependencies
-- [ ] Collect/prepare training dataset (LOTUSDIS + emergency samples)
-- [ ] Understand dataset structure
-- [ ] Setup and test feature extraction
+- [x] Install Python dependencies
+- [x] Collect/prepare training dataset (LOTUSDIS + emergency samples)
+- [x] Understand dataset structure
+- [x] Setup and test feature extraction
 
 ### Week 3-4: Model Development
 - [ ] Implement feature extraction pipeline
@@ -170,6 +170,16 @@ Content-Type: application/json
 - [ ] Document code and API
 - [ ] Final accuracy improvements
 - [ ] Prepare for deployment
+
+---
+
+##  Current Progress
+
+- Dataset download: completed with LOTUSDIS train/dev/test and annotation archive
+- Dataset combination: completed into `backend_ai/datasets/combined_dataset.csv`
+- Data quality check: completed with no missing values and no duplicate rows
+- Prepared train/dev/test split files are available in `backend_ai/datasets`
+- Next step: select and prepare 20 emergency keywords and normal speech set for model refinement
 
 ---
 
