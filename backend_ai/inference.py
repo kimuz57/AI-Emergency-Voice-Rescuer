@@ -25,23 +25,39 @@ except ImportError:
 app = Flask(__name__)
 
 class AIInference:
-    def __init__(self, model_path='models/model.pkl'):
+    def __init__(self, model_path='models/trained_model_v3.pkl'):
         self.model = None
         self.scaler = None
+        self.label_encoder = None
         self.load_model(model_path)
         
     def load_model(self, model_path):
         """Load trained model"""
         if not os.path.exists(model_path):
+            fallback = 'models/model.pkl'
             print(f"⚠️  Model not found: {model_path}")
-            return False
+            if os.path.exists(fallback):
+                print(f"🔁 Falling back to default model: {fallback}")
+                model_path = fallback
+            else:
+                return False
         
         try:
             with open(model_path, 'rb') as f:
                 data = pickle.load(f)
-                self.model = data['model']
-                self.scaler = data['scaler']
-            print(f"✓ Model loaded successfully")
+
+            # Support both direct estimator and dictionary payloads
+            if isinstance(data, dict):
+                self.model = data.get('model') or data.get('estimator')
+                self.scaler = data.get('scaler')
+                self.label_encoder = data.get('label_encoder')
+            else:
+                self.model = data
+
+            if self.model is None:
+                raise ValueError('Loaded object does not contain a valid model')
+
+            print(f"✓ Model loaded successfully from {model_path}")
             return True
         except Exception as e:
             print(f"❌ Error loading model: {e}")
@@ -111,12 +127,13 @@ class AIInference:
                     "error": "Feature extraction failed"
                 }
             
-            # Normalize features
-            features_scaled = self.scaler.transform(features)
+            # Normalize features if scaler is available
+            if self.scaler is not None:
+                features = self.scaler.transform(features)
             
             # Predict
-            prediction = self.model.predict(features_scaled)[0]
-            probability = self.model.predict_proba(features_scaled)[0]
+            prediction = self.model.predict(features)[0]
+            probability = self.model.predict_proba(features)[0]
             
             # Determine alert level
             is_alert = int(prediction)

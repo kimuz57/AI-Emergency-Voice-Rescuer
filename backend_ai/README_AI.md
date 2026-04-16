@@ -1,6 +1,6 @@
 # Guardian AI Module - README
 
-## 🎯 Overview
+##  Overview
 
 This is the **AI Module** for the Guardian AI Emergency Voice Detection System. It handles:
 - Audio processing and feature extraction
@@ -13,7 +13,7 @@ This is the **AI Module** for the Guardian AI Emergency Voice Detection System. 
 
 ---
 
-## 📂 Project Structure
+##  Project Structure
 
 ```
 backend_ai/
@@ -22,7 +22,8 @@ backend_ai/
 │   ├── normal/              ← Normal audio samples
 │   └── custom/              ← Additional training data
 ├── models/                  ← Trained models
-│   └── model.pkl            ← Serialized model
+│   ├── trained_model_v3.pkl  ← Serialized deployment model
+│   └── trained_model_v3_labels.pkl  ← Label encoder for the model
 ├── train.py                 ← Training script (main)
 ├── inference.py             ← Inference server & API
 ├── utils.py                 ← Utility functions
@@ -32,7 +33,7 @@ backend_ai/
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### 1. Install Dependencies
 
@@ -76,12 +77,12 @@ Output:
   - Normal: 75
   - Emergency: 75
 
-📊 Training model...
+ Training model...
 
 ✓ Training complete!
-  - Train accuracy: 92.50%
-  - Test accuracy: 88.00%
-✓ Model saved to models/model.pkl
+  - Train accuracy: 100.00%
+  - Validation accuracy: 100.00%
+✓ Model saved to models/trained_model_v3.pkl
 ```
 
 ### 4. Run Inference Server
@@ -94,7 +95,7 @@ Server listens on `http://localhost:3000`
 
 ---
 
-## 📊 API Specification
+##  API Specification
 
 ### Health Check
 
@@ -162,13 +163,18 @@ Content-Type: application/json
 
 ---
 
-## 🧠 Model Architecture
+##  Model Architecture
 
-Current implementation uses **Random Forest** with:
-- **Features:** MFCC (13 coefficients) + Spectral features
-- **Training:** 80/20 train/test split
-- **Trees:** 100 estimators
-- **Max Depth:** 15 levels
+Current deployment model uses **Gradient Boosting (v3)** with:
+- **Features:** 15 text-derived features for Thai voice patterns
+- **Training:** train/validation/test split via `datasets/splits`
+- **Boosting:** 200 estimators
+- **Max Depth:** 8 levels
+- **Regularization:** subsample=0.8, min_samples_split=5, min_samples_leaf=2
+
+### Current performance
+- **Final test accuracy:** 71.14%
+- **Target goal:** 80-90% for production-ready emergency detection
 
 ### Future Improvements:
 - [ ] Switch to Deep Learning (CNN/LSTM)
@@ -178,7 +184,7 @@ Current implementation uses **Random Forest** with:
 
 ---
 
-## 📈 Training & Validation
+##  Training & Validation
 
 ### Commands
 
@@ -208,7 +214,32 @@ curl -X POST http://localhost:3000/api/v1/audio/analyze \
 
 ---
 
-## 🔗 Integration with Backend
+##  Step 11: API Deployment
+
+This project has reached the API deployment stage with the inference server ready for backend integration.
+
+### Deployed API
+- `GET /health` — health check
+- `POST /api/v1/audio/analyze` — audio inference endpoint
+
+### Server command
+```bash
+cd backend_ai
+python inference.py --server 3000
+```
+
+### Current coverage
+- Model loaded from `models/trained_model_v3.pkl`
+- Base64 WAV audio accepted via JSON
+- Returns alert score, keyword, severity level, and confidence
+- Lightweight Flask server for backend integration
+
+### Notes
+- Current model accuracy is **71.14%** on the held-out test set
+- Improvement needed for production-scale reliability
+- Next task: add real audio validation and stronger keyword spotting
+
+##  Integration with Backend
 
 The Backend (Kittiwat) will call the AI API when receiving audio via MQTT:
 
@@ -226,7 +257,7 @@ saveEventSound(analysisResult)
 
 ---
 
-## 📝 Work Log / Milestones
+##  Work Log / Milestones
 
 - [ ] Dataset preparation (target: 200+ samples per class)
 - [ ] Model training v1 (target: >80% accuracy)
@@ -238,7 +269,7 @@ saveEventSound(analysisResult)
 
 ---
 
-## 🐛 Troubleshooting
+##  Troubleshooting
 
 ### Issue: "No module named 'librosa'"
 ```bash
@@ -264,7 +295,7 @@ python train.py
 
 ---
 
-## 📞 Team Communication
+##  Team Communication
 
 **Backend (Kittiwat):**
 - Ensures AI API is called after receiving MQTT audio
@@ -283,7 +314,7 @@ python train.py
 
 ---
 
-## 📚 References
+##  References
 
 - [LOTUSDIS Dataset](https://lotus.kucc.ku.ac.th/) - Thai speech database
 - [Librosa Documentation](https://librosa.org/)
@@ -292,7 +323,7 @@ python train.py
 
 ---
 
-## 🔒 Important Notes
+##  Important Notes
 
 1. **API Contract:** The response format in `inference.py` is **FIXED** - don't change it unless all team members agree
 2. **Processing Time:** Aim for < 500ms for backend to not timeout
