@@ -189,6 +189,9 @@ Current deployment model uses **Gradient Boosting (v3)** with:
 ### Commands
 
 ```bash
+# Prepare dataset and splits for task list 2
+python task2_dataset_prep.py
+
 # Train model
 python train.py
 
