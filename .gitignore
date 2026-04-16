@@ -47,6 +47,10 @@ LOTUSDIS_dev/
 LOTUSDIS_test/
 LOTUSDIS_train.zipn3az4l1l.part
 LOTUSDIS_train
+/LOTUSDIS/
+/LOTUSDIS_annotations_extracted/
+/datasets/
+/backend_ai/datasets/task2_splits/
 
 # Training data and artifacts
 backend_ai/uploads/

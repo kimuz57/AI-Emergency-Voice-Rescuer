@@ -38,6 +38,12 @@ datasets/emergency/*.wav
 datasets/normal/*.wav
 datasets/custom/*.wav
 
+# Raw dataset folders
+/LOTUSDIS/
+/LOTUSDIS_annotations_extracted/
+/datasets/
+/backend_ai/datasets/task2_splits/
+
 # Logs
 logs/
 *.log
