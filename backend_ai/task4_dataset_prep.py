@@ -22,10 +22,34 @@ def load_data():
     df = pd.read_csv(csv_path, engine='python', encoding_errors='ignore')
     return df
 
+def clean_data(df):
+    """ทำความสะอาดข้อมูล dirty speakers ก่อนวิเคราะห์"""
+    print("=" * 60)
+    print("  Task 4 - Data Cleaning: แก้ไข dirty speakers")
+    print("=" * 60)
+    
+    before = len(df)
+    
+    # 1) F32฿F33 → F32&F33 (฿ เป็น typo ของ &, ควรเป็น multi-speaker)
+    mask1 = df['speaker'] == 'F32฿F33'
+    n1 = mask1.sum()
+    df.loc[mask1, 'speaker'] = 'F32&F33'
+    print(f"   🔧 F32฿F33 → F32&F33  ({n1} samples → multi-speaker)")
+    
+    # 2) M4 → M04 (typo ขาด 0)
+    mask2 = df['speaker'] == 'M4'
+    n2 = mask2.sum()
+    df.loc[mask2, 'speaker'] = 'M04'
+    print(f"   🔧 M4 → M04           ({n2} samples → merge กับ M04)")
+    
+    print(f"   ✅ ข้อมูลทั้งหมด: {before} → {len(df)} samples (ไม่มีการลบ, แค่แก้ label)")
+    return df
+
+
 def analyze_basic_stats(df):
     """วิเคราะห์สถิติพื้นฐานของ dataset"""
     
-    print("=" * 60)
+    print("\n" + "=" * 60)
     print("  Task 4 - ขั้นตอนที่ 1a: สถิติพื้นฐานของ Dataset")
     print("=" * 60)
     
@@ -510,6 +534,7 @@ def export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, s
 # ============================================================
 if __name__ == '__main__':
     df = load_data()
+    df = clean_data(df)
     single_df, multi_df = analyze_basic_stats(df)
     top50, word_counts = select_top50_keywords(single_df)
     target_vocab, sub_freq = merge_top50_and_kws(top50, word_counts, single_df)

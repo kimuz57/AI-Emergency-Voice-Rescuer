@@ -1,6 +1,6 @@
 {
   "task": "Task 4 - Dataset Preparation (advisor methodology)",
-  "date": "2026-04-18 21:46",
+  "date": "2026-04-18 21:52",
   "target_vocabulary": {
     "total_keywords": 64,
     "from_top50": 50,
@@ -74,9 +74,9 @@
   },
   "splits": {
     "test": {
-      "num_samples": 24480,
+      "num_samples": 24485,
       "num_speakers": 20,
-      "num_keywords": 4745,
+      "num_keywords": 4746,
       "speakers": [
         "F02",
         "F05",
@@ -102,11 +102,10 @@
       "has_multi_speaker": false
     },
     "validation": {
-      "num_samples": 11575,
+      "num_samples": 10630,
       "num_speakers": 10,
-      "num_keywords": 2236,
+      "num_keywords": 2051,
       "speakers": [
-        "F08",
         "F14",
         "F16",
         "F23",
@@ -114,15 +113,16 @@
         "M05",
         "M06",
         "M12",
+        "M27",
         "M34",
         "M35"
       ],
       "has_multi_speaker": false
     },
     "train": {
-      "num_samples": 52845,
-      "num_speakers": 213,
-      "num_keywords": 10341,
+      "num_samples": 53010,
+      "num_speakers": 199,
+      "num_keywords": 10371,
       "has_multi_speaker": true
     }
   },

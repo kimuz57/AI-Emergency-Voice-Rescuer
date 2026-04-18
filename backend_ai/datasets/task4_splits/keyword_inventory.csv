@@ -1,11 +1,11 @@
 rank,keyword,substring_count,num_speakers,source
-1,อย่าง,16860,91,top50_frequency
+1,อย่าง,16860,90,top50_frequency
 2,เรา,14570,89,top50_frequency
 3,มา,13280,90,emergency_kws
 4,กิน,9545,89,top50_frequency
-5,แต่,9500,91,top50_frequency
+5,แต่,9495,90,top50_frequency
 6,อา,8745,90,top50_frequency
-7,ถ้า,7355,91,top50_frequency
+7,ถ้า,7350,90,top50_frequency
 8,เหมือน,5900,88,top50_frequency
 9,ชอบ,5740,90,top50_frequency
 10,ต้อง,4955,88,top50_frequency
@@ -21,7 +21,7 @@ rank,keyword,substring_count,num_speakers,source
 20,ครับผม,1640,28,top50_frequency
 21,ใช่มั้ย,1330,67,top50_frequency
 22,ก็แบบ,1265,62,top50_frequency
-23,เป็นแบบ,1070,64,top50_frequency
+23,เป็นแบบ,1065,63,top50_frequency
 24,เหรอ,870,52,top50_frequency
 25,ไปเที่ยว,825,48,top50_frequency
 26,คือแบบ,810,46,top50_frequency
