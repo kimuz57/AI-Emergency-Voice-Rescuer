@@ -76,13 +76,59 @@ def analyze_basic_stats(df):
     return single_df, multi_df
 
 # ============================================================
+# ขั้นตอนที่ 1b: เลือก Top 50 keywords (ไม่รวม filler)
+# ============================================================
+
+# Filler words ที่ต้องตัดออก - คำที่ไม่มีความหมายเชิงเนื้อหา
+FILLER_WORDS = {
+    'อืม', 'เอ่อ', 'เออ', 'ก็', 'ใช่', 'อื๋ม', 'อ่า', 'แล้วก็',
+    'คือ', 'แล้ว', 'แต่ว่า', 'อ๋อ', 'ค่ะ', 'เพราะว่า', 'แบบ',
+    'มัน', 'ก็คือ', 'นะครับ', 'ครับ', 'อะ', 'ฮะ', 'ฮ่ะ', 'น่ะ',
+    'นะ', 'จ้ะ', 'จ๊ะ', 'ค่า', 'คะ', 'ล่ะ', 'เนาะ', 'เนอะ',
+    'อืมม', 'อะครับ', 'อ่าา', 'ฮึ', 'เห้อ', 'เฮ้ย',
+    'อะไรอย่างนี้', 'ว่า', 'ที่', 'ไม่', 'ได้', 'มี', 'เป็น',
+    'ให้', 'จะ', 'ของ', 'กัน', 'กับ', 'ไป', 'มา', 'แล้วก็',
+}
+# หมายเหตุ: 'มา' อยู่ใน filler ตอนนี้ แต่จะถูกเพิ่มกลับมาใน emergency KWS ทีหลัง
+
+def select_top50_keywords(single_df):
+    """เลือก Top 50 keywords จากความถี่ (ไม่รวม filler words)"""
+    
+    print("\n" + "=" * 60)
+    print("  Task 4 - ขั้นตอนที่ 1b: เลือก Top 50 Keywords")
+    print("=" * 60)
+    
+    # นับความถี่แต่ละคำ
+    word_counts = single_df['sentence'].value_counts()
+    
+    # กรอง filler words ออก
+    filtered = word_counts[~word_counts.index.isin(FILLER_WORDS)]
+    
+    # เอา top 50
+    top50 = filtered.head(50)
+    
+    print(f"\n📋 Top 50 Keywords (หลังกรอง filler {len(FILLER_WORDS)} คำ):")
+    print(f"   (กรอง filler ออกไป: {len(word_counts) - len(filtered)} คำ)")
+    print()
+    
+    for i, (word, count) in enumerate(top50.items()):
+        n_speakers = single_df[single_df['sentence'] == word]['speaker'].nunique()
+        print(f"   {i+1:2d}. {word:<20s}  count={count:4d}  speakers={n_speakers}")
+    
+    top50_list = list(top50.index)
+    print(f"\n✅ เลือก {len(top50_list)} keywords จาก top frequency")
+    
+    return top50_list, word_counts
+
+# ============================================================
 # Main
 # ============================================================
 if __name__ == '__main__':
     df = load_data()
     single_df, multi_df = analyze_basic_stats(df)
+    top50, word_counts = select_top50_keywords(single_df)
     
     print("\n" + "=" * 60)
-    print("  ขั้นตอนที่ 1a เสร็จสิ้น ✓")
-    print("  ขั้นตอนถัดไป: 1b - เลือก Top 50 keywords")
+    print("  ขั้นตอนที่ 1b เสร็จสิ้น ✓")
+    print("  ขั้นตอนถัดไป: 1c - กำหนด Emergency KWS keywords")
     print("=" * 60)
