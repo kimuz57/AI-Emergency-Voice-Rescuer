@@ -185,6 +185,56 @@ def merge_top50_and_kws(top50_list, word_counts, single_df):
     return merged
 
 # ============================================================
+# ขั้นตอนที่ 1d: สร้างตาราง Speaker × Keyword count matrix
+# ============================================================
+
+def build_speaker_keyword_matrix(single_df, target_vocab):
+    """สร้างตารางนับ: แต่ละ speaker พูดคำเป้าหมายแต่ละคำกี่ครั้ง"""
+    
+    print("\n" + "=" * 60)
+    print("  Task 4 - ขั้นตอนที่ 1d: Speaker × Keyword Matrix")
+    print("=" * 60)
+    
+    # กรองเฉพาะ rows ที่มีคำอยู่ใน target vocab
+    target_df = single_df[single_df['sentence'].isin(target_vocab)].copy()
+    print(f"\n📊 Samples ที่ตรงกับ target vocabulary: {len(target_df)}")
+    
+    # สร้าง pivot table: speaker × keyword → count
+    matrix = target_df.groupby(['speaker', 'sentence']).size().unstack(fill_value=0)
+    
+    # เรียง columns ตามลำดับ target vocab
+    cols_in_matrix = [w for w in target_vocab if w in matrix.columns]
+    matrix = matrix[cols_in_matrix]
+    
+    print(f"   - Matrix shape: {matrix.shape[0]} speakers × {matrix.shape[1]} keywords")
+    
+    # คำนวณ coverage: แต่ละ speaker ครอบคลุมกี่คำจาก target vocab
+    coverage = (matrix > 0).sum(axis=1)  # จำนวนคำที่ speaker พูด
+    total_tokens = matrix.sum(axis=1)     # จำนวน sample รวมของ speaker
+    
+    # สร้าง speaker ranking table
+    speaker_stats = pd.DataFrame({
+        'speaker': matrix.index,
+        'vocab_coverage': coverage.values,
+        'total_target_tokens': total_tokens.values,
+        'coverage_pct': (coverage.values / len(target_vocab) * 100).round(1)
+    }).sort_values('vocab_coverage', ascending=False).reset_index(drop=True)
+    
+    print(f"\n👤 Speaker Ranking (by vocab coverage):")
+    print(f"   {'Rank':<5} {'Speaker':<10} {'Coverage':<10} {'Tokens':<10} {'Coverage%':<10}")
+    print(f"   {'─'*5} {'─'*10} {'─'*10} {'─'*10} {'─'*10}")
+    
+    for i, row in speaker_stats.iterrows():
+        marker = ""
+        if i < 20:
+            marker = "← TEST"
+        elif i < 30:
+            marker = "← VAL"
+        print(f"   {i+1:<5} {row['speaker']:<10} {row['vocab_coverage']:<10} {row['total_target_tokens']:<10} {row['coverage_pct']:<10} {marker}")
+    
+    return matrix, speaker_stats
+
+# ============================================================
 # Main
 # ============================================================
 if __name__ == '__main__':
@@ -192,8 +242,9 @@ if __name__ == '__main__':
     single_df, multi_df = analyze_basic_stats(df)
     top50, word_counts = select_top50_keywords(single_df)
     target_vocab = merge_top50_and_kws(top50, word_counts, single_df)
+    matrix, speaker_stats = build_speaker_keyword_matrix(single_df, target_vocab)
     
     print("\n" + "=" * 60)
-    print("  ขั้นตอนที่ 1c เสร็จสิ้น ✓")
-    print("  ขั้นตอนถัดไป: 1d - สร้างตาราง Speaker × Keyword")
+    print("  ขั้นตอนที่ 1d เสร็จสิ้น ✓")
+    print("  ขั้นตอนถัดไป: 1e - แบ่ง speaker เป็น test/val/train")
     print("=" * 60)
