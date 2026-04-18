@@ -91,6 +91,28 @@ FILLER_WORDS = {
 }
 # หมายเหตุ: 'มา' อยู่ใน filler ตอนนี้ แต่จะถูกเพิ่มกลับมาใน emergency KWS ทีหลัง
 
+# ============================================================
+# Helper: Substring matching functions
+# ============================================================
+
+def count_keyword_substring(sentences, keyword):
+    """นับจำนวน sentences ที่มี keyword อยู่ข้างใน (substring match)"""
+    return sentences.str.contains(keyword, na=False, regex=False).sum()
+
+def sentence_contains_any_keyword(sentence, keywords):
+    """ตรวจว่า sentence มี keyword ใดๆ อยู่ข้างในหรือไม่"""
+    s = str(sentence)
+    return any(kw in s for kw in keywords)
+
+def get_substring_counts(sentences, keywords):
+    """นับ substring frequency ของทุก keywords
+    Returns: dict {keyword: count}
+    """
+    counts = {}
+    for kw in keywords:
+        counts[kw] = sentences.str.contains(kw, na=False, regex=False).sum()
+    return counts
+
 def select_top50_keywords(single_df):
     """เลือก Top 50 keywords จากความถี่ (ไม่รวม filler words)"""
     
@@ -133,39 +155,50 @@ EMERGENCY_KWS = [
 ]
 
 def merge_top50_and_kws(top50_list, word_counts, single_df):
-    """รวม top50 + emergency KWS, ตัดซ้ำ, เรียงตามความถี่"""
+    """รวม top50 + emergency KWS, ตัดซ้ำ, เรียงตามความถี่
+    ใช้ SUBSTRING matching ตรวจว่า keyword มีอยู่ในข้อมูลหรือไม่
+    """
     
     print("\n" + "=" * 60)
     print("  Task 4 - ขั้นตอนที่ 1c: รวม Top50 + Emergency KWS")
+    print("  (ใช้ Substring Matching)")
     print("=" * 60)
     
-    # แสดงสถานะ emergency keywords ใน dataset
+    all_sentences = single_df['sentence']
+    
+    # แสดงสถานะ emergency keywords ใน dataset (ใช้ substring matching)
     print(f"\n🚨 Emergency KWS keywords ({len(EMERGENCY_KWS)} คำ):")
     found_in_data = []
     not_found = []
     
     for kw in EMERGENCY_KWS:
-        if kw in word_counts.index:
-            count = word_counts[kw]
-            n_speakers = single_df[single_df['sentence'] == kw]['speaker'].nunique()
+        sub_count = count_keyword_substring(all_sentences, kw)
+        if sub_count > 0:
+            # นับ speakers ที่มีประโยคที่มีคำนี้อยู่
+            mask = all_sentences.str.contains(kw, na=False, regex=False)
+            n_speakers = single_df[mask]['speaker'].nunique()
             found_in_data.append(kw)
             already = "← อยู่ใน top50 แล้ว" if kw in top50_list else ""
-            print(f"   ✅ {kw:<15s}  count={count:4d}  speakers={n_speakers}  {already}")
+            print(f"   ✅ {kw:<15s}  substring_count={sub_count:5d}  speakers={n_speakers:2d}  {already}")
         else:
             not_found.append(kw)
-            print(f"   ❌ {kw:<15s}  ไม่มีในข้อมูล")
+            print(f"   ❌ {kw:<15s}  ไม่มีในข้อมูล (ทั้ง exact และ substring)")
     
-    # รวม top50 + KWS (ไม่ซ้ำ)
+    # รวม top50 + KWS (ไม่ซ้ำ) — เพิ่ม KWS ที่เจอใน data (substring)
     merged = list(top50_list)  # เริ่มจาก top50
     added_from_kws = []
     
     for kw in EMERGENCY_KWS:
-        if kw in word_counts.index and kw not in merged:
+        sub_count = count_keyword_substring(all_sentences, kw)
+        if sub_count > 0 and kw not in merged:
             merged.append(kw)
             added_from_kws.append(kw)
     
-    # เรียงตามความถี่ (มากไปน้อย)
-    merged.sort(key=lambda w: word_counts.get(w, 0), reverse=True)
+    # คำนวณ substring frequency สำหรับ merged vocab
+    sub_freq = get_substring_counts(all_sentences, merged)
+    
+    # เรียงตาม substring frequency (มากไปน้อย)
+    merged.sort(key=lambda w: sub_freq.get(w, 0), reverse=True)
     
     print(f"\n📊 สรุป:")
     print(f"   - Top 50 keywords        : {len(top50_list)}")
@@ -174,38 +207,55 @@ def merge_top50_and_kws(top50_list, word_counts, single_df):
     print(f"   - เพิ่มจาก KWS (ไม่ซ้ำ)   : {len(added_from_kws)} → {added_from_kws}")
     print(f"   - Target vocabulary รวม   : {len(merged)} คำ")
     
-    print(f"\n📋 Target Vocabulary ทั้งหมด ({len(merged)} คำ) เรียงตามความถี่:")
+    print(f"\n📋 Target Vocabulary ทั้งหมด ({len(merged)} คำ) เรียงตาม substring frequency:")
     for i, word in enumerate(merged):
-        count = word_counts.get(word, 0)
-        n_speakers = single_df[single_df['sentence'] == word]['speaker'].nunique()
+        s_count = sub_freq.get(word, 0)
+        mask = all_sentences.str.contains(word, na=False, regex=False)
+        n_speakers = single_df[mask]['speaker'].nunique()
         source = "KWS" if word in EMERGENCY_KWS else "TOP50"
         is_both = " +KWS" if word in EMERGENCY_KWS and word in top50_list else ""
-        print(f"   {i+1:2d}. {word:<20s}  count={count:4d}  speakers={n_speakers:2d}  [{source}{is_both}]")
+        print(f"   {i+1:2d}. {word:<20s}  sub_count={s_count:5d}  speakers={n_speakers:2d}  [{source}{is_both}]")
     
-    return merged
+    return merged, sub_freq
 
 # ============================================================
 # ขั้นตอนที่ 1d: สร้างตาราง Speaker × Keyword count matrix
 # ============================================================
 
 def build_speaker_keyword_matrix(single_df, target_vocab):
-    """สร้างตารางนับ: แต่ละ speaker พูดคำเป้าหมายแต่ละคำกี่ครั้ง"""
+    """สร้างตารางนับ: แต่ละ speaker มีประโยคที่มี keyword แต่ละตัวกี่ครั้ง
+    ใช้ SUBSTRING matching — ถ้า keyword อยู่ในประโยค ก็นับ
+    """
     
     print("\n" + "=" * 60)
     print("  Task 4 - ขั้นตอนที่ 1d: Speaker × Keyword Matrix")
+    print("  (ใช้ Substring Matching)")
     print("=" * 60)
     
-    # กรองเฉพาะ rows ที่มีคำอยู่ใน target vocab
-    target_df = single_df[single_df['sentence'].isin(target_vocab)].copy()
-    print(f"\n📊 Samples ที่ตรงกับ target vocabulary: {len(target_df)}")
+    # สร้าง matrix ด้วย substring matching
+    print(f"\n⏳ กำลัง scan {len(single_df)} sentences × {len(target_vocab)} keywords...")
     
-    # สร้าง pivot table: speaker × keyword → count
-    matrix = target_df.groupby(['speaker', 'sentence']).size().unstack(fill_value=0)
+    results = {}
+    for kw in target_vocab:
+        # หา rows ที่ sentence มี keyword อยู่ข้างใน
+        mask = single_df['sentence'].str.contains(kw, na=False, regex=False)
+        matched = single_df[mask]
+        # นับจำนวน rows ต่อ speaker
+        kw_counts = matched.groupby('speaker').size()
+        results[kw] = kw_counts
+    
+    matrix = pd.DataFrame(results).fillna(0).astype(int)
     
     # เรียง columns ตามลำดับ target vocab
     cols_in_matrix = [w for w in target_vocab if w in matrix.columns]
     matrix = matrix[cols_in_matrix]
     
+    # นับจำนวน sentences ที่มี keyword อย่างน้อย 1 ตัว (สำหรับแสดงผล)
+    has_any_kw = single_df['sentence'].apply(
+        lambda s: sentence_contains_any_keyword(s, target_vocab)
+    )
+    total_matching = has_any_kw.sum()
+    print(f"📊 Sentences ที่มี target keyword อย่างน้อย 1 ตัว: {total_matching}")
     print(f"   - Matrix shape: {matrix.shape[0]} speakers × {matrix.shape[1]} keywords")
     
     # คำนวณ coverage: แต่ละ speaker ครอบคลุมกี่คำจาก target vocab
@@ -266,27 +316,30 @@ def assign_speaker_splits(speaker_stats, single_df, multi_df, target_vocab):
     print(f"   TRAIN ({len(train_speakers):2d} speakers): {sorted(train_speakers)}")
     
     # === สร้าง TEST split ===
-    # เฉพาะ single-speaker + target vocab เท่านั้น
-    test_df = single_df[
+    # เฉพาะ single-speaker + ประโยคที่มี target keyword อยู่ข้างใน (substring)
+    test_mask = (
         single_df['speaker'].isin(test_speakers) &
-        single_df['sentence'].isin(target_vocab)
-    ].copy()
+        single_df['sentence'].apply(lambda s: sentence_contains_any_keyword(s, target_vocab))
+    )
+    test_df = single_df[test_mask].copy()
     test_df['split'] = 'test'
     
     # === สร้าง VAL split ===
-    # เฉพาะ single-speaker + target vocab เท่านั้น
-    val_df = single_df[
+    # เฉพาะ single-speaker + ประโยคที่มี target keyword อยู่ข้างใน (substring)
+    val_mask = (
         single_df['speaker'].isin(val_speakers) &
-        single_df['sentence'].isin(target_vocab)
-    ].copy()
+        single_df['sentence'].apply(lambda s: sentence_contains_any_keyword(s, target_vocab))
+    )
+    val_df = single_df[val_mask].copy()
     val_df['split'] = 'validation'
     
     # === สร้าง TRAIN split ===
-    # 1) single-speaker ของ train speakers + target vocab
-    train_single = single_df[
+    # 1) single-speaker ของ train speakers + ประโยคที่มี target keyword (substring)
+    train_single_mask = (
         single_df['speaker'].isin(train_speakers) &
-        single_df['sentence'].isin(target_vocab)
-    ].copy()
+        single_df['sentence'].apply(lambda s: sentence_contains_any_keyword(s, target_vocab))
+    )
+    train_single = single_df[train_single_mask].copy()
     
     # 2) multi-speaker: เอาได้ แต่ต้องไม่มี test/val speakers ปน
     forbidden_speakers = test_speakers | val_speakers
@@ -298,7 +351,7 @@ def assign_speaker_splits(speaker_stats, single_df, multi_df, target_vocab):
     
     safe_multi = multi_df[
         multi_df['speaker'].apply(is_safe_multi) &
-        multi_df['sentence'].isin(target_vocab)
+        multi_df['sentence'].apply(lambda s: sentence_contains_any_keyword(s, target_vocab))
     ].copy()
     
     train_df = pd.concat([train_single, safe_multi], ignore_index=True)
@@ -351,7 +404,7 @@ def assign_speaker_splits(speaker_stats, single_df, multi_df, target_vocab):
 # ขั้นตอนที่ 1f: Export ไฟล์ทั้งหมด
 # ============================================================
 
-def export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, word_counts, single_df):
+def export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, sub_freq, single_df):
     """บันทึกไฟล์ทั้งหมดลง datasets/task4_splits/"""
     
     import json
@@ -371,16 +424,18 @@ def export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, w
     print(f"   ✅ validation.csv ({len(val_df)} rows)")
     print(f"   ✅ test.csv ({len(test_df)} rows)")
     
-    # 2) Keyword Inventory
+    # 2) Keyword Inventory (ใช้ substring counts)
+    all_sentences = single_df['sentence']
     kw_data = []
     for i, word in enumerate(target_vocab):
-        count = int(word_counts.get(word, 0))
-        n_speakers = int(single_df[single_df['sentence'] == word]['speaker'].nunique())
+        s_count = sub_freq.get(word, 0)
+        mask = all_sentences.str.contains(word, na=False, regex=False)
+        n_speakers = single_df[mask]['speaker'].nunique()
         source = 'emergency_kws' if word in EMERGENCY_KWS else 'top50_frequency'
         kw_data.append({
             'rank': i + 1,
             'keyword': word,
-            'total_count': count,
+            'substring_count': s_count,
             'num_speakers': n_speakers,
             'source': source
         })
@@ -437,8 +492,9 @@ def export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, w
         },
         'emergency_kws_status': {
             'defined': EMERGENCY_KWS,
-            'found_in_data': [kw for kw in EMERGENCY_KWS if kw in word_counts.index],
-            'not_found': [kw for kw in EMERGENCY_KWS if kw not in word_counts.index],
+            'found_in_data': [kw for kw in EMERGENCY_KWS if sub_freq.get(kw, 0) > 0],
+            'not_found': [kw for kw in EMERGENCY_KWS if sub_freq.get(kw, 0) == 0],
+            'matching_method': 'substring',
         }
     }
     
@@ -456,10 +512,10 @@ if __name__ == '__main__':
     df = load_data()
     single_df, multi_df = analyze_basic_stats(df)
     top50, word_counts = select_top50_keywords(single_df)
-    target_vocab = merge_top50_and_kws(top50, word_counts, single_df)
+    target_vocab, sub_freq = merge_top50_and_kws(top50, word_counts, single_df)
     matrix, speaker_stats = build_speaker_keyword_matrix(single_df, target_vocab)
     train_df, val_df, test_df = assign_speaker_splits(speaker_stats, single_df, multi_df, target_vocab)
-    output_dir = export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, word_counts, single_df)
+    output_dir = export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, sub_freq, single_df)
     
     print("\n" + "=" * 60)
     print("  ✅ Task 4 - ขั้นตอนที่ 1 เสร็จสิ้นทั้งหมด!")
