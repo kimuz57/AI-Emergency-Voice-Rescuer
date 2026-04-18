@@ -4,6 +4,7 @@ Step 8: Test Model on Final Test Set
 Evaluate the trained model on the held-out test split.
 """
 
+import hashlib
 import pandas as pd
 import numpy as np
 import pickle
@@ -47,7 +48,7 @@ class TestEvaluator:
             sentence_text.count(' '),
             len([c for c in sentence_text if c in 'คกขค']),
             len([c for c in sentence_text if c in 'เแโไ']),
-            hash(sentence_text) % 256,
+            int(hashlib.sha256(sentence_text.encode('utf-8')).hexdigest(), 16) % 256,
         ]
         return np.array(features, dtype=float)
     

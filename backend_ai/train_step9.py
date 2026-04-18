@@ -4,6 +4,7 @@ Step 9: Improved Training with Better Features
 Optimize model to reduce overfitting and improve test accuracy.
 """
 
+import hashlib
 import pandas as pd
 import numpy as np
 import os
@@ -50,7 +51,7 @@ class ImprovedTrainer:
         consonants = len([c for c in sentence_text if c in 'กขคงจฉชซญทฎธนบปพฟภมยรลวศษส'])
         
         # Hash values สำหรับ uniqueness
-        sentence_hash = abs(hash(sentence_text)) % 1000
+        sentence_hash = int(hashlib.sha256(sentence_text.encode('utf-8')).hexdigest(), 16) % 1000
         
         # Entropy (ความ diverse)
         from collections import Counter

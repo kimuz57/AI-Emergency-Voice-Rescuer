@@ -4,6 +4,7 @@ Step 10: Final Evaluation with Improved Model
 Test the improved model (v3) on the held-out test set.
 """
 
+import hashlib
 import pandas as pd
 import numpy as np
 import pickle
@@ -46,7 +47,7 @@ class FinalEvaluator:
         
         repetition = sum(1 for i in range(len(sentence_text)-1) if sentence_text[i] == sentence_text[i+1])
         consonants = len([c for c in sentence_text if c in 'กขคงจฉชซญทฎธนบปพฟภมยรลวศษส'])
-        sentence_hash = abs(hash(sentence_text)) % 1000
+        sentence_hash = int(hashlib.sha256(sentence_text.encode('utf-8')).hexdigest(), 16) % 1000
         
         from collections import Counter
         char_counts = Counter(sentence_text)
