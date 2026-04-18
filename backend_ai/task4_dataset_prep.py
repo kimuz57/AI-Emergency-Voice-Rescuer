@@ -121,14 +121,79 @@ def select_top50_keywords(single_df):
     return top50_list, word_counts
 
 # ============================================================
+# ขั้นตอนที่ 1c: กำหนด Emergency KWS keywords + รวมกับ Top 50
+# ============================================================
+
+# คำที่เกี่ยวข้องกับเหตุฉุกเฉิน (ตามที่อาจารย์กำหนด)
+EMERGENCY_KWS = [
+    'ช่วย', 'ด้วย', 'มา', 'เร็ว', 'ตอนนี้',
+    'เจ็บ', 'หายใจ', 'ปวด', 'เลือด', 'ล้ม',
+    'อุบัติเหตุ', 'ไฟไหม้', 'หมดสติ', 'ฉุกเฉิน',
+    'โทร', 'หมอ', 'โรงพยาบาล', 'รถพยาบาล',
+]
+
+def merge_top50_and_kws(top50_list, word_counts, single_df):
+    """รวม top50 + emergency KWS, ตัดซ้ำ, เรียงตามความถี่"""
+    
+    print("\n" + "=" * 60)
+    print("  Task 4 - ขั้นตอนที่ 1c: รวม Top50 + Emergency KWS")
+    print("=" * 60)
+    
+    # แสดงสถานะ emergency keywords ใน dataset
+    print(f"\n🚨 Emergency KWS keywords ({len(EMERGENCY_KWS)} คำ):")
+    found_in_data = []
+    not_found = []
+    
+    for kw in EMERGENCY_KWS:
+        if kw in word_counts.index:
+            count = word_counts[kw]
+            n_speakers = single_df[single_df['sentence'] == kw]['speaker'].nunique()
+            found_in_data.append(kw)
+            already = "← อยู่ใน top50 แล้ว" if kw in top50_list else ""
+            print(f"   ✅ {kw:<15s}  count={count:4d}  speakers={n_speakers}  {already}")
+        else:
+            not_found.append(kw)
+            print(f"   ❌ {kw:<15s}  ไม่มีในข้อมูล")
+    
+    # รวม top50 + KWS (ไม่ซ้ำ)
+    merged = list(top50_list)  # เริ่มจาก top50
+    added_from_kws = []
+    
+    for kw in EMERGENCY_KWS:
+        if kw in word_counts.index and kw not in merged:
+            merged.append(kw)
+            added_from_kws.append(kw)
+    
+    # เรียงตามความถี่ (มากไปน้อย)
+    merged.sort(key=lambda w: word_counts.get(w, 0), reverse=True)
+    
+    print(f"\n📊 สรุป:")
+    print(f"   - Top 50 keywords        : {len(top50_list)}")
+    print(f"   - Emergency KWS ที่เจอ     : {len(found_in_data)}")
+    print(f"   - Emergency KWS ที่ไม่เจอ  : {len(not_found)} → {not_found}")
+    print(f"   - เพิ่มจาก KWS (ไม่ซ้ำ)   : {len(added_from_kws)} → {added_from_kws}")
+    print(f"   - Target vocabulary รวม   : {len(merged)} คำ")
+    
+    print(f"\n📋 Target Vocabulary ทั้งหมด ({len(merged)} คำ) เรียงตามความถี่:")
+    for i, word in enumerate(merged):
+        count = word_counts.get(word, 0)
+        n_speakers = single_df[single_df['sentence'] == word]['speaker'].nunique()
+        source = "KWS" if word in EMERGENCY_KWS else "TOP50"
+        is_both = " +KWS" if word in EMERGENCY_KWS and word in top50_list else ""
+        print(f"   {i+1:2d}. {word:<20s}  count={count:4d}  speakers={n_speakers:2d}  [{source}{is_both}]")
+    
+    return merged
+
+# ============================================================
 # Main
 # ============================================================
 if __name__ == '__main__':
     df = load_data()
     single_df, multi_df = analyze_basic_stats(df)
     top50, word_counts = select_top50_keywords(single_df)
+    target_vocab = merge_top50_and_kws(top50, word_counts, single_df)
     
     print("\n" + "=" * 60)
-    print("  ขั้นตอนที่ 1b เสร็จสิ้น ✓")
-    print("  ขั้นตอนถัดไป: 1c - กำหนด Emergency KWS keywords")
+    print("  ขั้นตอนที่ 1c เสร็จสิ้น ✓")
+    print("  ขั้นตอนถัดไป: 1d - สร้างตาราง Speaker × Keyword")
     print("=" * 60)
