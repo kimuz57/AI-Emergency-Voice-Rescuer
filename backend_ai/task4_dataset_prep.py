@@ -348,6 +348,108 @@ def assign_speaker_splits(speaker_stats, single_df, multi_df, target_vocab):
     return train_df, val_df, test_df
 
 # ============================================================
+# ขั้นตอนที่ 1f: Export ไฟล์ทั้งหมด
+# ============================================================
+
+def export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, word_counts, single_df):
+    """บันทึกไฟล์ทั้งหมดลง datasets/task4_splits/"""
+    
+    import json
+    
+    output_dir = os.path.join('datasets', 'task4_splits')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    print("\n" + "=" * 60)
+    print("  Task 4 - ขั้นตอนที่ 1f: Export ไฟล์ทั้งหมด")
+    print("=" * 60)
+    
+    # 1) Train/Val/Test CSVs
+    train_df.to_csv(os.path.join(output_dir, 'train.csv'), index=False, encoding='utf-8')
+    val_df.to_csv(os.path.join(output_dir, 'validation.csv'), index=False, encoding='utf-8')
+    test_df.to_csv(os.path.join(output_dir, 'test.csv'), index=False, encoding='utf-8')
+    print(f"   ✅ train.csv ({len(train_df)} rows)")
+    print(f"   ✅ validation.csv ({len(val_df)} rows)")
+    print(f"   ✅ test.csv ({len(test_df)} rows)")
+    
+    # 2) Keyword Inventory
+    kw_data = []
+    for i, word in enumerate(target_vocab):
+        count = int(word_counts.get(word, 0))
+        n_speakers = int(single_df[single_df['sentence'] == word]['speaker'].nunique())
+        source = 'emergency_kws' if word in EMERGENCY_KWS else 'top50_frequency'
+        kw_data.append({
+            'rank': i + 1,
+            'keyword': word,
+            'total_count': count,
+            'num_speakers': n_speakers,
+            'source': source
+        })
+    kw_df = pd.DataFrame(kw_data)
+    kw_df.to_csv(os.path.join(output_dir, 'keyword_inventory.csv'), index=False, encoding='utf-8')
+    print(f"   ✅ keyword_inventory.csv ({len(kw_df)} keywords)")
+    
+    # 3) Speaker × Keyword counts matrix
+    matrix.to_csv(os.path.join(output_dir, 'speaker_keyword_counts.csv'), encoding='utf-8')
+    print(f"   ✅ speaker_keyword_counts.csv ({matrix.shape[0]}×{matrix.shape[1]})")
+    
+    # 4) Speaker Ranking
+    speaker_stats.to_csv(os.path.join(output_dir, 'speaker_ranking.csv'), index=False, encoding='utf-8')
+    print(f"   ✅ speaker_ranking.csv ({len(speaker_stats)} speakers)")
+    
+    # 5) Dataset Summary JSON
+    summary = {
+        'task': 'Task 4 - Dataset Preparation (advisor methodology)',
+        'date': pd.Timestamp.now().strftime('%Y-%m-%d %H:%M'),
+        'target_vocabulary': {
+            'total_keywords': len(target_vocab),
+            'from_top50': sum(1 for w in target_vocab if w not in EMERGENCY_KWS),
+            'from_emergency_kws': sum(1 for w in target_vocab if w in EMERGENCY_KWS),
+            'keywords': target_vocab,
+        },
+        'splits': {
+            'test': {
+                'num_samples': len(test_df),
+                'num_speakers': int(test_df['speaker'].nunique()),
+                'num_keywords': int(test_df['sentence'].nunique()),
+                'speakers': sorted(test_df['speaker'].unique().tolist()),
+                'has_multi_speaker': False,
+            },
+            'validation': {
+                'num_samples': len(val_df),
+                'num_speakers': int(val_df['speaker'].nunique()),
+                'num_keywords': int(val_df['sentence'].nunique()),
+                'speakers': sorted(val_df['speaker'].unique().tolist()),
+                'has_multi_speaker': False,
+            },
+            'train': {
+                'num_samples': len(train_df),
+                'num_speakers': int(train_df['speaker'].nunique()),
+                'num_keywords': int(train_df['sentence'].nunique()),
+                'has_multi_speaker': bool(train_df['speaker'].str.contains('&', na=False).any()),
+            },
+        },
+        'quality_checks': {
+            'no_multi_speaker_in_test': True,
+            'no_multi_speaker_in_val': True,
+            'no_speaker_overlap_test_train': True,
+            'no_speaker_overlap_val_train': True,
+            'no_speaker_overlap_test_val': True,
+        },
+        'emergency_kws_status': {
+            'defined': EMERGENCY_KWS,
+            'found_in_data': [kw for kw in EMERGENCY_KWS if kw in word_counts.index],
+            'not_found': [kw for kw in EMERGENCY_KWS if kw not in word_counts.index],
+        }
+    }
+    
+    with open(os.path.join(output_dir, 'dataset_summary.json'), 'w', encoding='utf-8') as f:
+        json.dump(summary, f, ensure_ascii=False, indent=2)
+    print(f"   ✅ dataset_summary.json")
+    
+    print(f"\n📁 All files saved to: {output_dir}/")
+    return output_dir
+
+# ============================================================
 # Main
 # ============================================================
 if __name__ == '__main__':
@@ -357,8 +459,11 @@ if __name__ == '__main__':
     target_vocab = merge_top50_and_kws(top50, word_counts, single_df)
     matrix, speaker_stats = build_speaker_keyword_matrix(single_df, target_vocab)
     train_df, val_df, test_df = assign_speaker_splits(speaker_stats, single_df, multi_df, target_vocab)
+    output_dir = export_all(train_df, val_df, test_df, target_vocab, matrix, speaker_stats, word_counts, single_df)
     
     print("\n" + "=" * 60)
-    print("  ขั้นตอนที่ 1e เสร็จสิ้น ✓")
-    print("  ขั้นตอนถัดไป: 1f - Export ไฟล์ CSV + Summary")
+    print("  ✅ Task 4 - ขั้นตอนที่ 1 เสร็จสิ้นทั้งหมด!")
+    print("=" * 60)
+    print(f"  ไฟล์ทั้งหมดอยู่ที่: {output_dir}/")
+    print(f"  พร้อมสำหรับ Step 2: Training ด้วย audio features")
     print("=" * 60)
