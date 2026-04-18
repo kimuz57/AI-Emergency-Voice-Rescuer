@@ -235,6 +235,119 @@ def build_speaker_keyword_matrix(single_df, target_vocab):
     return matrix, speaker_stats
 
 # ============================================================
+# ขั้นตอนที่ 1e: แบ่ง speakers → test / val / train
+# ============================================================
+
+def assign_speaker_splits(speaker_stats, single_df, multi_df, target_vocab):
+    """แบ่ง speakers ตามกติกาอาจารย์:
+    - test  = top 20 speakers (by coverage) → single-speaker only
+    - val   = next 10 speakers             → single-speaker only
+    - train = ที่เหลือ + multi-speaker (ที่ไม่มี test/val speakers ปน)
+    """
+    
+    print("\n" + "=" * 60)
+    print("  Task 4 - ขั้นตอนที่ 1e: แบ่ง Speakers → Test/Val/Train")
+    print("=" * 60)
+    
+    # แบ่ง speakers
+    all_speakers = list(speaker_stats['speaker'])
+    test_speakers = set(all_speakers[:20])
+    val_speakers = set(all_speakers[20:30])
+    train_speakers = set(all_speakers[30:])
+    
+    # เพิ่ม speakers ที่ไม่มีใน target vocab เข้า train
+    all_single_speakers = set(single_df['speaker'].unique())
+    speakers_not_in_matrix = all_single_speakers - test_speakers - val_speakers - train_speakers
+    train_speakers = train_speakers | speakers_not_in_matrix
+    
+    print(f"\n👥 Speaker Assignment:")
+    print(f"   TEST  ({len(test_speakers):2d} speakers): {sorted(test_speakers)}")
+    print(f"   VAL   ({len(val_speakers):2d} speakers): {sorted(val_speakers)}")
+    print(f"   TRAIN ({len(train_speakers):2d} speakers): {sorted(train_speakers)}")
+    
+    # === สร้าง TEST split ===
+    # เฉพาะ single-speaker + target vocab เท่านั้น
+    test_df = single_df[
+        single_df['speaker'].isin(test_speakers) &
+        single_df['sentence'].isin(target_vocab)
+    ].copy()
+    test_df['split'] = 'test'
+    
+    # === สร้าง VAL split ===
+    # เฉพาะ single-speaker + target vocab เท่านั้น
+    val_df = single_df[
+        single_df['speaker'].isin(val_speakers) &
+        single_df['sentence'].isin(target_vocab)
+    ].copy()
+    val_df['split'] = 'validation'
+    
+    # === สร้าง TRAIN split ===
+    # 1) single-speaker ของ train speakers + target vocab
+    train_single = single_df[
+        single_df['speaker'].isin(train_speakers) &
+        single_df['sentence'].isin(target_vocab)
+    ].copy()
+    
+    # 2) multi-speaker: เอาได้ แต่ต้องไม่มี test/val speakers ปน
+    forbidden_speakers = test_speakers | val_speakers
+    
+    def is_safe_multi(speaker_str):
+        """ตรวจว่า multi-speaker string ไม่มี test/val speakers ปน"""
+        speakers_in_file = set(speaker_str.split('&'))
+        return len(speakers_in_file & forbidden_speakers) == 0
+    
+    safe_multi = multi_df[
+        multi_df['speaker'].apply(is_safe_multi) &
+        multi_df['sentence'].isin(target_vocab)
+    ].copy()
+    
+    train_df = pd.concat([train_single, safe_multi], ignore_index=True)
+    train_df['split'] = 'train'
+    
+    # === สรุป ===
+    print(f"\n📊 Split Results:")
+    print(f"   {'Split':<12} {'Samples':<10} {'Speakers':<10} {'Keywords':<10}")
+    print(f"   {'─'*12} {'─'*10} {'─'*10} {'─'*10}")
+    
+    for name, split_df in [('TRAIN', train_df), ('VAL', val_df), ('TEST', test_df)]:
+        n_samples = len(split_df)
+        n_speakers = split_df['speaker'].nunique()
+        n_keywords = split_df['sentence'].nunique()
+        print(f"   {name:<12} {n_samples:<10} {n_speakers:<10} {n_keywords:<10}")
+    
+    total = len(train_df) + len(val_df) + len(test_df)
+    print(f"   {'─'*12} {'─'*10}")
+    print(f"   {'TOTAL':<12} {total:<10}")
+    
+    # ตรวจสอบว่า test/val ไม่มี multi-speaker
+    test_multi = test_df[test_df['speaker'].str.contains('&', na=False)]
+    val_multi = val_df[val_df['speaker'].str.contains('&', na=False)]
+    print(f"\n✅ Multi-speaker in TEST: {len(test_multi)} (ต้องเป็น 0)")
+    print(f"✅ Multi-speaker in VAL : {len(val_multi)} (ต้องเป็น 0)")
+    
+    # ตรวจ speaker overlap
+    test_spk = set(test_df['speaker'].unique())
+    val_spk = set(val_df['speaker'].unique())
+    train_spk = set(train_df['speaker'].unique())
+    
+    # สำหรับ multi-speaker ใน train ต้อง expand ออกก่อนเช็ค
+    train_individual_spk = set()
+    for s in train_spk:
+        for part in s.split('&'):
+            train_individual_spk.add(part)
+    
+    overlap_test_train = test_spk & train_individual_spk
+    overlap_val_train = val_spk & train_individual_spk
+    overlap_test_val = test_spk & val_spk
+    
+    print(f"\n🔍 Speaker Overlap Check:")
+    print(f"   TEST ∩ TRAIN : {len(overlap_test_train)} speakers {'✅' if len(overlap_test_train) == 0 else '❌ ' + str(overlap_test_train)}")
+    print(f"   VAL  ∩ TRAIN : {len(overlap_val_train)} speakers {'✅' if len(overlap_val_train) == 0 else '❌ ' + str(overlap_val_train)}")
+    print(f"   TEST ∩ VAL   : {len(overlap_test_val)} speakers {'✅' if len(overlap_test_val) == 0 else '❌ ' + str(overlap_test_val)}")
+    
+    return train_df, val_df, test_df
+
+# ============================================================
 # Main
 # ============================================================
 if __name__ == '__main__':
@@ -243,8 +356,9 @@ if __name__ == '__main__':
     top50, word_counts = select_top50_keywords(single_df)
     target_vocab = merge_top50_and_kws(top50, word_counts, single_df)
     matrix, speaker_stats = build_speaker_keyword_matrix(single_df, target_vocab)
+    train_df, val_df, test_df = assign_speaker_splits(speaker_stats, single_df, multi_df, target_vocab)
     
     print("\n" + "=" * 60)
-    print("  ขั้นตอนที่ 1d เสร็จสิ้น ✓")
-    print("  ขั้นตอนถัดไป: 1e - แบ่ง speaker เป็น test/val/train")
+    print("  ขั้นตอนที่ 1e เสร็จสิ้น ✓")
+    print("  ขั้นตอนถัดไป: 1f - Export ไฟล์ CSV + Summary")
     print("=" * 60)
