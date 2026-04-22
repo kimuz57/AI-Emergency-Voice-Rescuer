@@ -44,6 +44,11 @@ datasets/custom/*.wav
 /datasets/
 /backend_ai/datasets/task2_splits/
 
+# Allow task5 splits (CSV splits only, not raw audio)
+!datasets/task5_splits/
+!datasets/task5_splits/*.csv
+!datasets/task5_splits/*.json
+
 # Logs
 logs/
 *.log
