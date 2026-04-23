@@ -35,7 +35,7 @@ from sklearn.metrics import (
 # Config
 # ==============================================================
 BASE_DIR = Path(__file__).resolve().parent.parent  # main_smartvoice/
-SPLITS_DIR = Path(__file__).resolve().parent / 'datasets' / 'task4_splits'
+SPLITS_DIR = Path(__file__).resolve().parent / 'datasets' / 'task5_splits'
 CACHE_DIR = Path(__file__).resolve().parent / 'datasets' / 'features_cache'
 MODEL_DIR = Path(__file__).resolve().parent / 'models'
 
@@ -87,11 +87,15 @@ def build_file_index():
 # 2. Load keyword list from dataset_summary.json
 # ==============================================================
 def load_target_keywords():
-    """Load the 64 target keywords from dataset_summary.json."""
+    """Load the target keywords from dataset_summary.json."""
     summary_path = SPLITS_DIR / 'dataset_summary.json'
     with open(summary_path, 'r', encoding='utf-8') as f:
         summary = json.load(f)
-    keywords = summary['target_vocabulary']['keywords']
+    # Support both task4 and task5 summary formats
+    if 'target_vocabulary' in summary:
+        keywords = summary['target_vocabulary']['keywords']
+    else:
+        keywords = summary['target_vocab']
     print(f"  📋 Loaded {len(keywords)} target keywords")
     return keywords
 
@@ -252,7 +256,7 @@ def extract_features_for_split(df, file_index, keywords_sorted, split_name):
 # 5. Training
 # ==============================================================
 def train_models(X_train, y_train, X_val, y_val, label_type='keyword'):
-    """Train GradientBoosting + RandomForest, pick best on validation."""
+    """Train models — RF only for keyword (64 class), GB+RF for binary."""
 
     print(f"\n{'='*70}")
     print(f"  Step 5: Training ({label_type} classification)")
@@ -268,44 +272,53 @@ def train_models(X_train, y_train, X_val, y_val, label_type='keyword'):
 
     results = {}
 
-    # --- GradientBoosting ---
-    print(f"\n  🌳 Training GradientBoosting...")
-    t0 = time.time()
-    gb = GradientBoostingClassifier(
-        n_estimators=200,
-        max_depth=8,
-        learning_rate=0.1,
-        subsample=0.8,
-        random_state=42,
-    )
-    gb.fit(X_train, y_train_enc)
-    gb_time = time.time() - t0
+    # --- GradientBoosting (binary only — too slow for 64-class) ---
+    if label_type != 'keyword':
+        print(f"\n  🌳 Training GradientBoosting...")
+        t0 = time.time()
+        emg_count = int((np.array(y_train) == 'emergency').sum())
+        nor_count = len(y_train) - emg_count
+        weights = np.where(np.array(y_train) == 'emergency',
+                           nor_count / max(emg_count, 1), 1.0)
+        gb = GradientBoostingClassifier(
+            n_estimators=200,
+            max_depth=5,
+            learning_rate=0.1,
+            subsample=0.8,
+            random_state=42,
+        )
+        gb.fit(X_train, y_train_enc, sample_weight=weights)
+        gb_time = time.time() - t0
 
-    gb_train_acc = accuracy_score(y_train_enc, gb.predict(X_train))
-    gb_val_pred = gb.predict(X_val)
-    gb_val_acc = accuracy_score(y_val_enc, gb_val_pred)
-    gb_val_f1 = f1_score(y_val_enc, gb_val_pred, average='weighted', zero_division=0)
+        gb_train_acc = accuracy_score(y_train_enc, gb.predict(X_train))
+        gb_val_pred = gb.predict(X_val)
+        gb_val_acc = accuracy_score(y_val_enc, gb_val_pred)
+        gb_val_f1 = f1_score(y_val_enc, gb_val_pred, average='macro', zero_division=0)
 
-    print(f"     Train Acc: {gb_train_acc*100:.2f}%")
-    print(f"     Val Acc:   {gb_val_acc*100:.2f}%")
-    print(f"     Val F1:    {gb_val_f1*100:.2f}%")
-    print(f"     Time:      {gb_time:.0f}s")
+        print(f"     Train Acc: {gb_train_acc*100:.2f}%")
+        print(f"     Val Acc:   {gb_val_acc*100:.2f}%")
+        print(f"     Val F1 (macro): {gb_val_f1*100:.2f}%")
+        print(f"     Time:      {gb_time:.0f}s")
 
-    results['GradientBoosting'] = {
-        'model': gb, 'le': le,
-        'train_acc': gb_train_acc, 'val_acc': gb_val_acc, 'val_f1': gb_val_f1,
-        'time': gb_time,
-    }
+        results['GradientBoosting'] = {
+            'model': gb, 'le': le,
+            'train_acc': gb_train_acc, 'val_acc': gb_val_acc, 'val_f1': gb_val_f1,
+            'time': gb_time,
+        }
+    else:
+        print(f"\n  ⏭ Skipping GradientBoosting for 64-class keyword task (too slow)")
 
     # --- RandomForest ---
     print(f"\n  🌲 Training RandomForest...")
     t0 = time.time()
+    rf_kw = dict(class_weight='balanced') if label_type != 'keyword' else {}
     rf = RandomForestClassifier(
         n_estimators=300,
         max_depth=25,
         min_samples_split=5,
         random_state=42,
         n_jobs=-1,
+        **rf_kw,
     )
     rf.fit(X_train, y_train_enc)
     rf_time = time.time() - t0
@@ -313,7 +326,8 @@ def train_models(X_train, y_train, X_val, y_val, label_type='keyword'):
     rf_train_acc = accuracy_score(y_train_enc, rf.predict(X_train))
     rf_val_pred = rf.predict(X_val)
     rf_val_acc = accuracy_score(y_val_enc, rf_val_pred)
-    rf_val_f1 = f1_score(y_val_enc, rf_val_pred, average='weighted', zero_division=0)
+    avg = 'macro' if label_type != 'keyword' else 'weighted'
+    rf_val_f1 = f1_score(y_val_enc, rf_val_pred, average=avg, zero_division=0)
 
     print(f"     Train Acc: {rf_train_acc*100:.2f}%")
     print(f"     Val Acc:   {rf_val_acc*100:.2f}%")
@@ -356,15 +370,19 @@ def evaluate_on_test(model, le, X_test, y_test, model_name, label_type='keyword'
     print(f"  Test Recall:    {rec*100:.2f}%")
     print(f"  Test F1:        {f1*100:.2f}%")
 
-    # Per-class report (top 20 classes by support)
+    # Per-class report — use only labels present in test set
+    present_labels = sorted(set(y_test_enc) | set(y_pred))
+    present_names  = le.inverse_transform(present_labels)
     report_dict = classification_report(
         y_test_enc, y_pred,
-        target_names=le.classes_,
+        labels=present_labels,
+        target_names=present_names,
         output_dict=True, zero_division=0
     )
     report_str = classification_report(
         y_test_enc, y_pred,
-        target_names=le.classes_,
+        labels=present_labels,
+        target_names=present_names,
         zero_division=0
     )
     print(f"\n  Classification Report:\n{report_str}")
