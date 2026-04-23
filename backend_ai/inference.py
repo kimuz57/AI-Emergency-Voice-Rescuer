@@ -332,10 +332,52 @@ def run_server(host='0.0.0.0', port=3000):
     
     app.run(host=host, port=port, debug=False)
 
-if __name__ == "__main__":
+def run_cli():
+    """CLI mode: python inference.py --infer <wav_file> [--output <json_file>]"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description='AI Emergency Voice Inference')
+    sub = parser.add_subparsers(dest='command')
+
+    server_p = sub.add_parser('--server', help='Start Flask API server')
+    server_p.add_argument('port', nargs='?', type=int, default=3000)
+
+    infer_p = sub.add_parser('--infer', help='Analyse a single WAV file')
+    infer_p.add_argument('input', help='Path to .wav file')
+    infer_p.add_argument('--output', default=None, help='Write JSON result to file')
+
+    # Support legacy bare --server usage
     if len(sys.argv) > 1 and sys.argv[1] == '--server':
-        run_server(port=int(sys.argv[2]) if len(sys.argv) > 2 else 3000)
+        port = int(sys.argv[2]) if len(sys.argv) > 2 else 3000
+        run_server(port=port)
+        return
+
+    args = parser.parse_args()
+
+    if args.command == '--infer':
+        wav_path = args.input
+        if not os.path.exists(wav_path):
+            print(f"File not found: {wav_path}")
+            sys.exit(1)
+
+        ai = AIInference()
+        with open(wav_path, 'rb') as f:
+            audio_bytes = f.read()
+
+        result = ai.analyze_audio(audio_bytes)
+        output_json = json.dumps(result, ensure_ascii=False, indent=2)
+        print(output_json)
+
+        if args.output:
+            with open(args.output, 'w', encoding='utf-8') as f:
+                f.write(output_json)
+            print(f"\nResult written to {args.output}")
     else:
         print("Usage:")
-        print("  python inference.py --server [port]")
-        print("  python inference.py --server 3000")
+        print("  python inference.py --server [port]        # Start API server")
+        print("  python inference.py --infer audio.wav      # Analyse a WAV file")
+        print("  python inference.py --infer audio.wav --output result.json")
+
+
+if __name__ == "__main__":
+    run_cli()

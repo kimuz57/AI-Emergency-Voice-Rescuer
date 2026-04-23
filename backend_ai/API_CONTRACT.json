@@ -1,0 +1,210 @@
+{
+  "_description": "AI Emergency Voice Detection — Interface Contract v1.0",
+  "_updated": "2026-04-23",
+  "_owner": "AI team (นนท์)",
+  "_note": "ทุกทีมใช้ contract นี้เป็นหลักในการ connect ระบบ Backend ต้อง mock response นี้ก่อนที่ AI service จะ deploy จริง",
+
+  "service": {
+    "name": "AI Inference Service",
+    "base_url": "http://localhost:3000",
+    "version": "v1"
+  },
+
+  "endpoints": {
+    "health_check": {
+      "method": "GET",
+      "path": "/health",
+      "description": "ตรวจสอบว่า AI service ทำงานอยู่ไหม",
+      "response_200": {
+        "status": "healthy",
+        "service": "Guardian AI Inference",
+        "models": {
+          "binary": true,
+          "keyword": true,
+          "emergency_threshold": 0.35
+        },
+        "timestamp": "2026-04-23T18:00:00.000000"
+      }
+    },
+
+    "analyze_audio": {
+      "method": "POST",
+      "path": "/api/v1/audio/analyze",
+      "description": "รับไฟล์เสียงจากอุปกรณ์ → คืนผลการตรวจจับเสียงฉุกเฉิน",
+
+      "request": {
+        "content_type": "application/json",
+        "fields": {
+          "audioBuffer": {
+            "type": "string",
+            "encoding": "base64",
+            "required": true,
+            "description": "ไฟล์เสียง WAV (16kHz, mono) encode ด้วย base64"
+          },
+          "deviceId": {
+            "type": "string",
+            "required": false,
+            "example": "ESP32-001",
+            "description": "ID ของอุปกรณ์ที่ส่งเสียงมา (ใช้ log และ tracking)"
+          },
+          "sampleRate": {
+            "type": "integer",
+            "required": false,
+            "default": 16000,
+            "description": "Sample rate ของเสียง (Hz)"
+          },
+          "duration": {
+            "type": "number",
+            "required": false,
+            "example": 3.5,
+            "description": "ความยาวเสียงเป็นวินาที (optional, ใช้ log เท่านั้น)"
+          }
+        },
+        "example": {
+          "audioBuffer": "<base64-encoded-wav-bytes>",
+          "deviceId": "ESP32-001",
+          "sampleRate": 16000,
+          "duration": 3.5
+        }
+      },
+
+      "response": {
+        "content_type": "application/json",
+        "fields": {
+          "success": {
+            "type": "boolean",
+            "description": "true = AI ประมวลผลสำเร็จ, false = เกิด error"
+          },
+          "isAlert": {
+            "type": "integer",
+            "values": [0, 1],
+            "description": "1 = ตรวจพบเสียงฉุกเฉิน, 0 = ไม่ฉุกเฉิน"
+          },
+          "keyword": {
+            "type": "string",
+            "description": "คำที่ตรวจพบ (ภาษาไทย) เช่น ช่วย, เจ็บ, ปวด หรือ 'normal'",
+            "example": "ช่วย"
+          },
+          "level": {
+            "type": "integer",
+            "values": [1, 2, 3, 4],
+            "description": "ระดับความรุนแรง: 1=ปกติ, 2=เฝ้าระวัง, 3=สูง, 4=วิกฤต"
+          },
+          "confidence": {
+            "type": "number",
+            "range": "0.0 – 1.0",
+            "description": "ความมั่นใจของโมเดล (0 = ไม่แน่ใจ, 1 = มั่นใจมาก)"
+          },
+          "transcribedText": {
+            "type": "string",
+            "description": "ข้อความสรุปผลการตรวจจับ (ไม่ใช่ ASR จริง)"
+          },
+          "processingTime": {
+            "type": "integer",
+            "unit": "milliseconds",
+            "description": "เวลาที่ใช้ประมวลผล (ms)"
+          },
+          "error": {
+            "type": "string",
+            "description": "มีเฉพาะเมื่อ success=false ระบุสาเหตุ error"
+          }
+        },
+
+        "example_normal": {
+          "success": true,
+          "isAlert": 0,
+          "keyword": "กิน",
+          "level": 1,
+          "confidence": 0.9123,
+          "transcribedText": "Detected: กิน",
+          "processingTime": 187
+        },
+
+        "example_emergency": {
+          "success": true,
+          "isAlert": 1,
+          "keyword": "ช่วย",
+          "level": 3,
+          "confidence": 0.7841,
+          "transcribedText": "Detected: ช่วย",
+          "processingTime": 201
+        },
+
+        "example_error": {
+          "success": false,
+          "isAlert": 0,
+          "keyword": "",
+          "level": 0,
+          "confidence": 0,
+          "transcribedText": "",
+          "processingTime": 5,
+          "error": "Feature extraction failed"
+        }
+      },
+
+      "curl_example": "curl -X POST http://localhost:3000/api/v1/audio/analyze -H 'Content-Type: application/json' -d '{\"audioBuffer\": \"<base64>\", \"deviceId\": \"ESP32-001\"}'"
+    }
+  },
+
+  "audio_requirements": {
+    "format": "WAV",
+    "sample_rate": 16000,
+    "channels": 1,
+    "bit_depth": "16-bit PCM or float32",
+    "min_duration_sec": 0.05,
+    "recommended_duration_sec": 1.0,
+    "max_recommended_duration_sec": 10.0,
+    "encoding_for_http": "base64"
+  },
+
+  "level_definitions": {
+    "1": {
+      "label": "normal",
+      "color": "green",
+      "action": "บันทึกประวัติเท่านั้น ไม่แจ้งเตือน"
+    },
+    "2": {
+      "label": "alert",
+      "color": "yellow",
+      "action": "แสดงใน dashboard แต่ไม่ push notification"
+    },
+    "3": {
+      "label": "urgent",
+      "color": "orange",
+      "action": "push notification ไปที่มือถือดูแลผู้ป่วย"
+    },
+    "4": {
+      "label": "critical",
+      "color": "red",
+      "action": "push notification + เสียงเตือน + ขึ้น popup"
+    }
+  },
+
+  "cli_usage": {
+    "description": "รัน AI inference จาก command line โดยไม่ต้องเปิด server",
+    "examples": [
+      "python backend_ai/inference.py --infer audio.wav",
+      "python backend_ai/inference.py --infer audio.wav --output result.json",
+      "python backend_ai/inference.py --server 3000"
+    ]
+  },
+
+  "mock_data_for_teams": {
+    "_note": "Backend และ Mobile ใช้ข้อมูลนี้ mock ได้ก่อนที่ AI service พร้อม",
+    "normal_event": {
+      "success": true, "isAlert": 0, "keyword": "อย่าง",
+      "level": 1, "confidence": 0.9234, "transcribedText": "Detected: อย่าง",
+      "processingTime": 145
+    },
+    "emergency_event": {
+      "success": true, "isAlert": 1, "keyword": "ช่วย",
+      "level": 3, "confidence": 0.7612, "transcribedText": "Detected: ช่วย",
+      "processingTime": 198
+    },
+    "critical_event": {
+      "success": true, "isAlert": 1, "keyword": "หายใจ",
+      "level": 4, "confidence": 0.9567, "transcribedText": "Detected: หายใจ",
+      "processingTime": 203
+    }
+  }
+}
