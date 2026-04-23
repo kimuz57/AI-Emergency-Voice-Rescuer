@@ -35,12 +35,17 @@ y_test_str = to_str(y_test)
 y_val_enc  = le.transform(y_val_str)
 y_test_enc = le.transform(y_test_str)
 
-# emergency class index
-emg_idx = list(le.classes_).index('emergency')
+# Encoded class ids from label encoder
+emergency_encoded = int(le.transform(['emergency'])[0])
+normal_encoded = int(le.transform(['normal'])[0])
+
+# Probability column index for emergency class in estimator output
+model_classes = model.classes_
+emg_proba_idx = int(np.where(model_classes == emergency_encoded)[0][0])
 
 # Get probabilities
-val_proba  = model.predict_proba(X_val)[:, emg_idx]
-test_proba = model.predict_proba(X_test)[:, emg_idx]
+val_proba  = model.predict_proba(X_val)[:, emg_proba_idx]
+test_proba = model.predict_proba(X_test)[:, emg_proba_idx]
 
 print("=" * 65)
 print("  Threshold Tuning (Val set)")
@@ -52,11 +57,11 @@ best_threshold = 0.5
 best_f1 = 0.0
 
 for thr in np.arange(0.05, 0.55, 0.05):
-    y_pred = (val_proba >= thr).astype(int)
+    y_pred = np.where(val_proba >= thr, emergency_encoded, normal_encoded)
     acc    = accuracy_score(y_val_enc, y_pred)
-    prec   = precision_score(y_val_enc, y_pred, pos_label=emg_idx, zero_division=0)
-    rec    = recall_score(y_val_enc, y_pred, pos_label=emg_idx, zero_division=0)
-    f1     = f1_score(y_val_enc, y_pred, pos_label=emg_idx, zero_division=0)
+    prec   = precision_score(y_val_enc, y_pred, pos_label=emergency_encoded, zero_division=0)
+    rec    = recall_score(y_val_enc, y_pred, pos_label=emergency_encoded, zero_division=0)
+    f1     = f1_score(y_val_enc, y_pred, pos_label=emergency_encoded, zero_division=0)
     marker = " ◀" if f1 > best_f1 else ""
     if f1 > best_f1:
         best_f1 = f1
@@ -70,7 +75,7 @@ print("\n" + "=" * 65)
 print(f"  Test Evaluation — threshold={best_threshold:.2f}")
 print("=" * 65)
 
-y_test_pred = (test_proba >= best_threshold).astype(int)
+y_test_pred = np.where(test_proba >= best_threshold, emergency_encoded, normal_encoded)
 print(classification_report(y_test_enc, y_test_pred, target_names=le.classes_, zero_division=0))
 
 # Save best threshold to report
@@ -78,14 +83,14 @@ report_path = MODEL_DIR / 'audio_binary_report.json'
 with open(report_path, 'r', encoding='utf-8') as f:
     report = json.load(f)
 
-y_test_pred_full = (test_proba >= best_threshold).astype(int)
+y_test_pred_full = np.where(test_proba >= best_threshold, emergency_encoded, normal_encoded)
 report['best_threshold'] = float(best_threshold)
 report['test_evaluation_at_best_threshold'] = {
     'threshold': float(best_threshold),
     'accuracy': float(accuracy_score(y_test_enc, y_test_pred_full)),
-    'emergency_precision': float(precision_score(y_test_enc, y_test_pred_full, pos_label=emg_idx, zero_division=0)),
-    'emergency_recall':    float(recall_score(y_test_enc, y_test_pred_full, pos_label=emg_idx, zero_division=0)),
-    'emergency_f1':        float(f1_score(y_test_enc, y_test_pred_full, pos_label=emg_idx, zero_division=0)),
+    'emergency_precision': float(precision_score(y_test_enc, y_test_pred_full, pos_label=emergency_encoded, zero_division=0)),
+    'emergency_recall':    float(recall_score(y_test_enc, y_test_pred_full, pos_label=emergency_encoded, zero_division=0)),
+    'emergency_f1':        float(f1_score(y_test_enc, y_test_pred_full, pos_label=emergency_encoded, zero_division=0)),
 }
 
 with open(report_path, 'w', encoding='utf-8') as f:

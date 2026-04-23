@@ -58,5 +58,13 @@
         "support": 17434.0
       }
     }
+  },
+  "best_threshold": 0.35000000000000003,
+  "test_evaluation_at_best_threshold": {
+    "threshold": 0.35000000000000003,
+    "accuracy": 0.38315934381094413,
+    "emergency_precision": 0.09767112370494997,
+    "emergency_recall": 0.6616676664667066,
+    "emergency_f1": 0.17021604938271606
   }
 }
