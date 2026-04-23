@@ -153,6 +153,8 @@ def extract_split_binary(df, file_index, keywords_sorted, split_name, limit_rows
     cache_suffix = '_quick' if limit_rows is not None else ''
     cache_X = CACHE_DIR / f'{split_name}_X_v2{cache_suffix}.npy'
     cache_y = CACHE_DIR / f'{split_name}_y_binary_v2{cache_suffix}.npy'
+    chunks_dir = CACHE_DIR / 'chunks' / f'{split_name}{cache_suffix}'
+    chunks_dir.mkdir(parents=True, exist_ok=True)
 
     if cache_X.exists() and cache_y.exists():
         X = np.load(cache_X)
@@ -175,32 +177,70 @@ def extract_split_binary(df, file_index, keywords_sorted, split_name, limit_rows
         work_items.append((len(work_items), path))
         labels.append(1 if kw in EMERGENCY_KWS else 0)
 
-    feats = [None] * len(work_items)
-    ok = 0
-    bad = 0
+    chunk_size = 2000 if limit_rows is None else 1000
+    total = len(work_items)
+    done = 0
     t0 = time.time()
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        futures = [pool.submit(_extract_worker, it) for it in work_items]
-        for i, fut in enumerate(as_completed(futures), start=1):
-            idx, f = fut.result()
-            if f is None:
-                bad += 1
-            else:
-                feats[idx] = f
-                ok += 1
-            if i % 2000 == 0 or i == len(work_items):
-                elapsed = max(time.time() - t0, 1e-6)
-                print(f"{split_name}: {i}/{len(work_items)} ok={ok} bad={bad} rate={i/elapsed:.1f}/s")
+
+    for chunk_start in range(0, total, chunk_size):
+        chunk_end = min(chunk_start + chunk_size, total)
+        chunk_x_path = chunks_dir / f'chunk_{chunk_start}_{chunk_end}_X.npy'
+        chunk_y_path = chunks_dir / f'chunk_{chunk_start}_{chunk_end}_y.npy'
+
+        if chunk_x_path.exists() and chunk_y_path.exists():
+            done += (chunk_end - chunk_start)
+            elapsed = max(time.time() - t0, 1e-6)
+            print(f"{split_name}: reuse chunk {chunk_start}-{chunk_end} ({done}/{total}, {done/elapsed:.1f}/s)")
+            continue
+
+        feats = [None] * (chunk_end - chunk_start)
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
+            futures = {
+                pool.submit(_extract_worker, (i - chunk_start, work_items[i][1])): i
+                for i in range(chunk_start, chunk_end)
+            }
+            for fut in as_completed(futures):
+                global_i = futures[fut]
+                local_i, feat = fut.result()
+                feats[local_i] = feat
+
+        X_chunk = []
+        y_chunk = []
+        for offset, feat in enumerate(feats):
+            if feat is None:
+                continue
+            global_i = chunk_start + offset
+            X_chunk.append(feat)
+            y_chunk.append(labels[global_i])
+
+        X_chunk = np.array(X_chunk, dtype=np.float32)
+        y_chunk = np.array(y_chunk, dtype=np.int32)
+        np.save(chunk_x_path, X_chunk)
+        np.save(chunk_y_path, y_chunk)
+
+        done += (chunk_end - chunk_start)
+        elapsed = max(time.time() - t0, 1e-6)
+        print(f"{split_name}: {done}/{total} prepared ({done/elapsed:.1f}/s)")
 
     X = []
     y = []
-    for i, f in enumerate(feats):
-        if f is not None:
-            X.append(f)
-            y.append(labels[i])
+    chunk_files = sorted(chunks_dir.glob('chunk_*_X.npy'))
+    for x_path in chunk_files:
+        y_path = x_path.with_name(x_path.name.replace('_X.npy', '_y.npy'))
+        if not y_path.exists():
+            continue
+        X_part = np.load(x_path)
+        y_part = np.load(y_path)
+        if len(X_part) == 0:
+            continue
+        X.append(X_part)
+        y.append(y_part)
 
-    X = np.array(X, dtype=np.float32)
-    y = np.array(y, dtype=np.int32)
+    if not X:
+        return np.empty((0, 50), dtype=np.float32), []
+
+    X = np.concatenate(X, axis=0).astype(np.float32)
+    y = np.concatenate(y, axis=0).astype(np.int32)
 
     np.save(cache_X, X)
     np.save(cache_y, y)
