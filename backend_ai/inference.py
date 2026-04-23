@@ -24,74 +24,152 @@ except ImportError:
 
 app = Flask(__name__)
 
+SR = 16000
+N_MFCC = 13
+DEFAULT_EMERGENCY_THRESHOLD = 0.35
+MODEL_DIR = Path(__file__).resolve().parent / 'models'
+
 class AIInference:
-    def __init__(self, model_path='models/trained_model_v3.pkl'):
-        self.model = None
-        self.scaler = None
-        self.label_encoder = None
-        self.load_model(model_path)
+    def __init__(self):
+        self.binary_model = None
+        self.binary_label_encoder = None
+        self.keyword_model = None
+        self.keyword_label_encoder = None
+        self.emergency_threshold = DEFAULT_EMERGENCY_THRESHOLD
+        self._load_models()
         
-    def load_model(self, model_path):
-        """Load trained model"""
-        if not os.path.exists(model_path):
-            fallback = 'models/model.pkl'
-            print(f"⚠️  Model not found: {model_path}")
-            if os.path.exists(fallback):
-                print(f"🔁 Falling back to default model: {fallback}")
-                model_path = fallback
-            else:
-                return False
-        
+    def _load_pickle_model(self, model_path):
+        """Load estimator from pickle. Supports plain estimator or dict payload."""
         try:
             with open(model_path, 'rb') as f:
                 data = pickle.load(f)
-
-            # Support both direct estimator and dictionary payloads
             if isinstance(data, dict):
-                self.model = data.get('model') or data.get('estimator')
-                self.scaler = data.get('scaler')
-                self.label_encoder = data.get('label_encoder')
+                model = data.get('model') or data.get('estimator')
             else:
-                self.model = data
+                model = data
 
-            if self.model is None:
+            if model is None:
                 raise ValueError('Loaded object does not contain a valid model')
-
-            print(f"✓ Model loaded successfully from {model_path}")
-            return True
+            return model
         except Exception as e:
-            print(f"❌ Error loading model: {e}")
-            return False
-    
+            print(f"❌ Error loading model {model_path}: {e}")
+            return None
+
+    def _load_models(self):
+        """Load binary and keyword models produced by train_audio.py."""
+        binary_model_path = MODEL_DIR / 'audio_binary_model.pkl'
+        binary_le_path = MODEL_DIR / 'audio_binary_label_encoder.pkl'
+        keyword_model_path = MODEL_DIR / 'audio_keyword_model.pkl'
+        keyword_le_path = MODEL_DIR / 'audio_keyword_label_encoder.pkl'
+
+        if binary_model_path.exists() and binary_le_path.exists():
+            self.binary_model = self._load_pickle_model(binary_model_path)
+            try:
+                with open(binary_le_path, 'rb') as f:
+                    self.binary_label_encoder = pickle.load(f)
+                print(f"✓ Binary model loaded: {binary_model_path}")
+            except Exception as e:
+                print(f"❌ Error loading binary label encoder: {e}")
+
+        if keyword_model_path.exists() and keyword_le_path.exists():
+            self.keyword_model = self._load_pickle_model(keyword_model_path)
+            try:
+                with open(keyword_le_path, 'rb') as f:
+                    self.keyword_label_encoder = pickle.load(f)
+                print(f"✓ Keyword model loaded: {keyword_model_path}")
+            except Exception as e:
+                print(f"❌ Error loading keyword label encoder: {e}")
+
+        if self.binary_model is None:
+            print(f"⚠️  Binary model not available at {binary_model_path}")
+        if self.keyword_model is None:
+            print(f"⚠️  Keyword model not available at {keyword_model_path}")
+
+        report_path = MODEL_DIR / 'audio_binary_report.json'
+        if report_path.exists():
+            try:
+                with open(report_path, 'r', encoding='utf-8') as f:
+                    report = json.load(f)
+                tuned = report.get('best_threshold')
+                if tuned is not None:
+                    self.emergency_threshold = float(tuned)
+                    print(f"✓ Loaded tuned emergency threshold: {self.emergency_threshold:.2f}")
+            except Exception as e:
+                print(f"⚠️  Could not load threshold from report: {e}")
+
+        return self.binary_model is not None
+
     def extract_features(self, audio_data, sr=16000):
-        """Extract features from audio buffer"""
+        """Extract the same 43-dim feature vector used during training."""
         try:
-            # Load audio data
             if isinstance(audio_data, bytes):
-                y, sr = librosa.load(io.BytesIO(audio_data), sr=sr, mono=True)
+                try:
+                    # Primary path: bytes contain encoded WAV/MP3 container data.
+                    y, sr = librosa.load(io.BytesIO(audio_data), sr=SR, mono=True)
+                except Exception:
+                    # Fallback path: bytes are raw float32 PCM from client.
+                    y = np.frombuffer(audio_data, dtype=np.float32)
+                    sr = SR
             else:
                 y = np.frombuffer(audio_data, dtype=np.float32)
-            
-            # MFCC features
-            mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+
+            if len(y) < SR * 0.05:
+                return None
+
+            # MFCC + delta + delta2
+            mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=N_MFCC)
             mfcc_mean = np.mean(mfcc, axis=1)
-            
+            delta = librosa.feature.delta(mfcc)
+            delta_mean = np.mean(delta, axis=1)
+            delta2 = librosa.feature.delta(mfcc, order=2)
+            delta2_mean = np.mean(delta2, axis=1)
+
             # Spectral features
-            spectral_centroid = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
-            zero_crossing_rate = librosa.feature.zero_crossing_rate(y)[0]
-            
-            # Combine features
+            sc = np.mean(librosa.feature.spectral_centroid(y=y, sr=sr))
+            sb = np.mean(librosa.feature.spectral_bandwidth(y=y, sr=sr))
+            zcr = np.mean(librosa.feature.zero_crossing_rate(y))
+            rms = np.mean(librosa.feature.rms(y=y))
+
             features = np.concatenate([
                 mfcc_mean,
-                [np.mean(spectral_centroid)],
-                [np.mean(zero_crossing_rate)]
+                delta_mean,
+                delta2_mean,
+                [sc, sb, zcr, rms],
             ])
-            
+
             return features.reshape(1, -1)
-            
+
         except Exception as e:
             print(f"Error extracting features: {e}")
             return None
+
+    def _predict_keyword(self, features):
+        if self.keyword_model is None or self.keyword_label_encoder is None:
+            return ""
+        try:
+            pred = self.keyword_model.predict(features)[0]
+            return str(self.keyword_label_encoder.inverse_transform([pred])[0])
+        except Exception as e:
+            print(f"Keyword prediction error: {e}")
+            return ""
+
+    def _predict_emergency(self, features):
+        if self.binary_model is None or self.binary_label_encoder is None:
+            return 0, 0.0
+
+        proba = self.binary_model.predict_proba(features)[0]
+        emergency_encoded = int(self.binary_label_encoder.transform(['emergency'])[0])
+
+        model_classes = getattr(self.binary_model, 'classes_', None)
+        if model_classes is None:
+            return 0, 0.0
+
+        emg_idx = int(np.where(model_classes == emergency_encoded)[0][0])
+        emergency_prob = float(proba[emg_idx])
+
+        is_alert = int(emergency_prob >= self.emergency_threshold)
+        confidence = emergency_prob if is_alert else (1.0 - emergency_prob)
+        return is_alert, confidence
     
     def analyze_audio(self, audio_buffer, **kwargs):
         """
@@ -127,36 +205,27 @@ class AIInference:
                     "error": "Feature extraction failed"
                 }
             
-            # Normalize features if scaler is available
-            if self.scaler is not None:
-                features = self.scaler.transform(features)
-            
-            # Predict
-            prediction = self.model.predict(features)[0]
-            probability = self.model.predict_proba(features)[0]
-            
-            # Determine alert level
-            is_alert = int(prediction)
-            confidence = float(probability[1]) if is_alert else float(probability[0])
+            is_alert, confidence = self._predict_emergency(features)
+            keyword_pred = self._predict_keyword(features)
             
             # Assign level based on confidence
             if not is_alert:
                 level = 1  # Low priority
-                keyword = "normal"
+                keyword = keyword_pred or "normal"
             else:
                 # Simple heuristic: confidence determines severity
                 if confidence >= 0.95:
                     level = 4  # Critical
-                    keyword = "emergency"
+                    keyword = keyword_pred or "emergency"
                 elif confidence >= 0.85:
                     level = 3  # High
-                    keyword = "urgent"
+                    keyword = keyword_pred or "urgent"
                 elif confidence >= 0.70:
                     level = 2  # Medium
-                    keyword = "alert"
+                    keyword = keyword_pred or "alert"
                 else:
                     level = 1  # Low
-                    keyword = "caution"
+                    keyword = keyword_pred or "caution"
             
             processing_time = int((datetime.now() - start_time).total_seconds() * 1000)
             
@@ -193,6 +262,11 @@ def health():
     return jsonify({
         "status": "healthy",
         "service": "Guardian AI Inference",
+        "models": {
+            "binary": inference.binary_model is not None,
+            "keyword": inference.keyword_model is not None,
+            "emergency_threshold": inference.emergency_threshold,
+        },
         "timestamp": datetime.now().isoformat()
     })
 
