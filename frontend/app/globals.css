@@ -1,0 +1,404 @@
+@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* ============================================
+   Theme Configuration (Tailwind v4)
+   ============================================ */
+@theme inline {
+  --color-primary: #2b6cee;
+  --color-primary-light: #5a8ef5;
+  --color-primary-dark: #1a4fc0;
+  --color-alert-red: #ef4444;
+  --color-alert-orange: #f97316;
+  --color-glass: rgba(255, 255, 255, 0.45);
+  --color-glass-border: rgba(255, 255, 255, 0.4);
+  --color-glass-inner: rgba(255, 255, 255, 0.3);
+
+  --font-sans: var(--font-inter);
+
+  --radius-glass: 24px;
+  --radius-glass-lg: 32px;
+  --radius-glass-xl: 40px;
+}
+
+/* ============================================
+   Base Styles
+   ============================================ */
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: radial-gradient(circle at 0% 0%, #e0eafc 0%, #cfdef3 100%);
+  background-attachment: fixed;
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(43, 108, 238, 0.05) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(43, 108, 238, 0.03) 0px, transparent 50%);
+}
+
+/* ============================================
+   Lucid Glass System
+   ============================================ */
+.lucid-glass {
+  background: rgba(255, 255, 255, 0.45);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lucid-glass:hover {
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.12),
+              0 0 0 1px rgba(255, 255, 255, 0.5),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.lucid-glass-inner {
+  background: rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.03);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05),
+              0 20px 50px -12px rgba(0, 0, 0, 0.15),
+              inset 0 1px 0 0 rgba(255, 255, 255, 0.3);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.4);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ============================================
+   Shadows & Effects
+   ============================================ */
+.deep-shadow {
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
+}
+
+.floating-layer {
+  transition: transform 0.4s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+.floating-layer:hover {
+  transform: translateY(-4px);
+}
+
+/* ============================================
+   Input Styles
+   ============================================ */
+.input-lucid {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(10px);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.input-lucid:focus {
+  background: rgba(255, 255, 255, 0.4);
+  border-color: #2b6cee;
+  box-shadow: 0 0 0 4px rgba(43, 108, 238, 0.1);
+  transform: scale(1.01);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-input:focus {
+  transform: scale(1.01);
+  background: rgba(255, 255, 255, 0.5);
+  border-color: #2b6cee;
+  box-shadow: 0 0 0 4px rgba(43, 108, 238, 0.1);
+}
+
+/* ============================================
+   Animations — Alert Pulse
+   ============================================ */
+.alert-pulse {
+  animation: soft-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.9; transform: scale(1.005); }
+}
+
+/* ============================================
+   Animations — Glass Entrance
+   ============================================ */
+.glass-entrance {
+  animation: glassEntrance 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes glassEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.96);
+    backdrop-filter: blur(0px);
+  }
+  60% { backdrop-filter: blur(20px); }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    backdrop-filter: blur(40px) saturate(180%);
+  }
+}
+
+/* ============================================
+   Animations — Ambient Floating Orbs
+   ============================================ */
+.ambient-orbs {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  overflow: hidden;
+}
+
+.ambient-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  opacity: 0.15;
+}
+
+.orb-1 {
+  width: 500px; height: 500px;
+  background: #2b6cee;
+  top: -10%; left: -5%;
+  animation: orbFloat1 20s ease-in-out infinite;
+}
+
+.orb-2 {
+  width: 400px; height: 400px;
+  background: #7c3aed;
+  bottom: -10%; right: -5%;
+  animation: orbFloat2 25s ease-in-out infinite;
+}
+
+.orb-3 {
+  width: 300px; height: 300px;
+  background: #06b6d4;
+  top: 40%; left: 50%;
+  animation: orbFloat3 18s ease-in-out infinite;
+}
+
+@keyframes orbFloat1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(80px, 60px) scale(1.1); }
+  50% { transform: translate(40px, 120px) scale(0.95); }
+  75% { transform: translate(-30px, 50px) scale(1.05); }
+}
+
+@keyframes orbFloat2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  25% { transform: translate(-60px, -40px) scale(1.08); }
+  50% { transform: translate(-100px, -80px) scale(0.92); }
+  75% { transform: translate(-40px, -20px) scale(1.03); }
+}
+
+@keyframes orbFloat3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(100px, -60px) scale(1.15); }
+  66% { transform: translate(-60px, 80px) scale(0.9); }
+}
+
+/* ============================================
+   Animations — Scroll Reveal
+   ============================================ */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================
+   Toggle Switch
+   ============================================ */
+.toggle-switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #cbd5e1;
+  border-radius: 999px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+  background: #2b6cee;
+}
+
+.toggle-switch input:checked + .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+/* ============================================
+   Settings Page
+   ============================================ */
+.settings-section {
+  padding: 28px 32px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.settings-section:last-child {
+  border-bottom: none;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+}
+
+.settings-row + .settings-row {
+  border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.danger-zone {
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.03);
+}
+
+/* ============================================
+   Mobile Bottom Navigation
+   ============================================ */
+.mobile-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border-top: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.06);
+  padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+.mobile-bottom-nav .nav-items {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.mobile-bottom-nav .nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 10px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.mobile-bottom-nav .nav-item.active {
+  color: #2b6cee;
+}
+
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: block;
+  }
+
+  body {
+    padding-bottom: 80px;
+  }
+}
+
+/* ============================================
+   Logout Button
+   ============================================ */
+.logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.08);
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.logout-btn:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+@layer utilities {
+  .lucid-glass {
+    @apply bg-white/60 backdrop-blur-lg border border-white/50 shadow-md;
+  }
+  .lucid-glass-inner {
+    @apply bg-blue-50/50 shadow-inner border border-white/60;
+  }
+  .deep-shadow {
+    @apply shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)];
+  }
+  .text-primary {
+    @apply text-blue-600;
+  }
+  .bg-primary {
+    @apply bg-blue-600;
+  }
+}
