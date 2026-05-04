@@ -1,0 +1,23 @@
+package database
+
+import (
+	"fmt"
+	"log"
+	"go_backend/models" // อ้างอิงตามชื่อ module ของคุณใน go.mod
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+)
+
+var DB *gorm.DB
+
+func ConnectDB() {
+	dsn := "host=localhost user=postgres password=postgres dbname=godb port=5433 sslmode=disable"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatal("Failed to connect to database:", err)
+	}
+	
+	db.AutoMigrate(&models.User{})
+	DB = db
+	fmt.Println("Database connected!")
+}

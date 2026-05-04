@@ -1,0 +1,8 @@
+# global
+node_modules
+.env
+.DS_Store
+
+# กันพลาด (เผื่อมีโฟลเดอร์ซ้อน)
+**/node_modules
+**/.next
