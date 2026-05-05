@@ -1,58 +1,114 @@
-import sys
 import json
-import os
-
-def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({
-            "success": False,
-            "error": "No file provided"
-        }))
-        return
-
-    file_path = sys.argv[1]
+import re
+import sys
+import time
+import wave
+from pathlib import Path
 
 
-    if not os.path.exists(file_path):
-        print(json.dumps({
-            "success": False,
-            "error": "File not found" 
-        }))
-        return
-    
-    if not file_path.endswith(".wav"):
-        print(json.dumps({
-            "success": False,
-            "error": "Invalid file type"
-        }))
-        return
-    
-    file_size = os.path.getsize(file_path)
-    if file_size < 1000:
-        print(json.dumps({
-            "success": False,
-            "error": "audio too short"
-        }))
-        return
-    
-    text = "ช่วยด้วย"
+KEYWORDS_BY_LEVEL = {
+    4: ["หายใจ", "หมดสติ", "ไฟไหม้", "เลือด", "breathing", "unconscious", "fire", "blood"],
+    3: ["ช่วยด้วย", "ช่วย", "เจ็บ", "ปวด", "ล้ม", "ฉุกเฉิน", "โรงพยาบาล", "รถพยาบาล", "help", "hurt", "pain", "fall", "emergency", "hospital", "ambulance"],
+    2: ["ไม่สบาย", "ยา", "หมอ", "sick", "medicine", "doctor"],
+}
 
-    if "ช่วยด้วย" in text:
-        risk = 3
-        keyword = "ช่วยด้วย"
-    else:
-        risk = 1
-        keyword = None
 
-    result = {
-        "success": True,
-        "transcribedText": text,
-        "keyword": keyword,
-        "riskLevel": risk,
-        "error": None
+def normalize_text(text: str) -> str:
+    text = text.replace("_", " ").replace("-", " ")
+    text = re.sub(r"\s+", " ", text.strip().lower())
+    return text
+
+
+def make_error(error_message: str) -> dict:
+    return {
+        "success": False,
+        "transcribedText": "",
+        "keyword": "",
+        "riskLevel": 0,
+        "error": error_message,
     }
 
-    print(json.dumps(result, ensure_ascii=False))
+
+def read_wav_info(audio_path: Path) -> dict:
+    with wave.open(str(audio_path), "rb") as wav_file:
+        frames = wav_file.getnframes()
+        sample_rate = wav_file.getframerate()
+        channels = wav_file.getnchannels()
+        duration = frames / float(sample_rate) if sample_rate else 0.0
+
+    return {
+        "frames": frames,
+        "sampleRate": sample_rate,
+        "channels": channels,
+        "duration": duration,
+    }
+
+
+def placeholder_transcription(audio_path: Path) -> str:
+    # เวอร์ชันแรกยังไม่ใช้ Whisper จริง
+    # ใช้ชื่อไฟล์เป็นข้อความแทน เพื่อพิสูจน์ pipeline ก่อน
+    return normalize_text(audio_path.stem)
+
+
+def detect_keyword_and_level(text: str) -> tuple[str, int]:
+    for level in sorted(KEYWORDS_BY_LEVEL.keys(), reverse=True):
+        for keyword in KEYWORDS_BY_LEVEL[level]:
+            if keyword in text:
+                return keyword, level
+    return "normal", 1
+
+
+def analyze_audio(audio_path: Path) -> dict:
+    if not audio_path.exists():
+        return make_error("File not found")
+
+    if not audio_path.is_file():
+        return make_error("Input path is not a file")
+
+    if audio_path.suffix.lower() != ".wav":
+        return make_error("Only .wav files are supported in milestone 1")
+
+    try:
+        wav_info = read_wav_info(audio_path)
+    except wave.Error:
+        return make_error("Unreadable or unsupported WAV file")
+    except Exception as exc:
+        return make_error(f"Failed to read audio: {exc}")
+
+    if wav_info["duration"] < 0.05:
+        return make_error("Audio is too short")
+
+    transcribed_text = placeholder_transcription(audio_path)
+    keyword, risk_level = detect_keyword_and_level(transcribed_text)
+
+    return {
+        "success": True,
+        "transcribedText": transcribed_text,
+        "keyword": keyword,
+        "riskLevel": risk_level,
+    }
+
+
+def main() -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
+
+    start_time = time.perf_counter()
+
+    if len(sys.argv) != 2:
+        result = make_error("Usage: python backend_ai/detect.py <audio.wav>")
+        print(json.dumps(result, ensure_ascii=False, indent=2))
+        return 1
+
+    audio_path = Path(sys.argv[1])
+    result = analyze_audio(audio_path)
+
+    elapsed_ms = int((time.perf_counter() - start_time) * 1000)
+    result["processingTime"] = elapsed_ms
+
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+    return 0 if result["success"] else 1
+
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
