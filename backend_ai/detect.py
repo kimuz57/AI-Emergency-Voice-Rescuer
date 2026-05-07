@@ -8,8 +8,19 @@ from pathlib import Path
 
 KEYWORDS_BY_LEVEL = {
     4: ["หายใจ", "หมดสติ", "ไฟไหม้", "เลือด", "breathing", "unconscious", "fire", "blood"],
-    3: ["ช่วยด้วย", "ช่วย", "เจ็บ", "ปวด", "ล้ม", "ฉุกเฉิน", "โรงพยาบาล", "รถพยาบาล", "help", "hurt", "pain", "fall", "emergency", "hospital", "ambulance"],
+    3: [
+        "ช่วยด้วย", "ช่วย", "เจ็บ", "ปวด", "ล้ม", "ฉุกเฉิน",
+        "โรงพยาบาล", "รถพยาบาล", "help", "hurt", "pain",
+        "fall", "emergency", "hospital", "ambulance",
+    ],
     2: ["ไม่สบาย", "ยา", "หมอ", "sick", "medicine", "doctor"],
+}
+
+CONFIDENCE_BY_LEVEL = {
+    4: 0.95,
+    3: 0.85,
+    2: 0.70,
+    1: 0.30,
 }
 
 
@@ -22,9 +33,11 @@ def normalize_text(text: str) -> str:
 def make_error(error_message: str) -> dict:
     return {
         "success": False,
-        "transcribedText": "",
+        "isAlert": 0,
         "keyword": "",
-        "riskLevel": 0,
+        "level": 0,
+        "confidence": 0.0,
+        "transcribedText": "",
         "error": error_message,
     }
 
@@ -45,8 +58,6 @@ def read_wav_info(audio_path: Path) -> dict:
 
 
 def placeholder_transcription(audio_path: Path) -> str:
-    # เวอร์ชันแรกยังไม่ใช้ Whisper จริง
-    # ใช้ชื่อไฟล์เป็นข้อความแทน เพื่อพิสูจน์ pipeline ก่อน
     return normalize_text(audio_path.stem)
 
 
@@ -56,6 +67,17 @@ def detect_keyword_and_level(text: str) -> tuple[str, int]:
             if keyword in text:
                 return keyword, level
     return "normal", 1
+
+
+def build_success_result(transcribed_text: str, keyword: str, level: int) -> dict:
+    return {
+        "success": True,
+        "isAlert": 1 if level >= 3 else 0,
+        "keyword": keyword,
+        "level": level,
+        "confidence": CONFIDENCE_BY_LEVEL.get(level, 0.30),
+        "transcribedText": transcribed_text,
+    }
 
 
 def analyze_audio(audio_path: Path) -> dict:
@@ -79,14 +101,8 @@ def analyze_audio(audio_path: Path) -> dict:
         return make_error("Audio is too short")
 
     transcribed_text = placeholder_transcription(audio_path)
-    keyword, risk_level = detect_keyword_and_level(transcribed_text)
-
-    return {
-        "success": True,
-        "transcribedText": transcribed_text,
-        "keyword": keyword,
-        "riskLevel": risk_level,
-    }
+    keyword, level = detect_keyword_and_level(transcribed_text)
+    return build_success_result(transcribed_text, keyword, level)
 
 
 def main() -> int:
@@ -97,14 +113,13 @@ def main() -> int:
 
     if len(sys.argv) != 2:
         result = make_error("Usage: python backend_ai/detect.py <audio.wav>")
+        result["processingTime"] = int((time.perf_counter() - start_time) * 1000)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 1
 
     audio_path = Path(sys.argv[1])
     result = analyze_audio(audio_path)
-
-    elapsed_ms = int((time.perf_counter() - start_time) * 1000)
-    result["processingTime"] = elapsed_ms
+    result["processingTime"] = int((time.perf_counter() - start_time) * 1000)
 
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result["success"] else 1
