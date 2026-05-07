@@ -18,7 +18,7 @@ func SetupRoutes(app *fiber.App) {
     app.Get("/test-ai", func(c *fiber.Ctx) error {
         audioPath := filepath.Join("..", "backend_ai", "samples", "help.wav")
 
-        result, err := services.RunDetect(audioPath)
+        result, err := services.ProcessAudioFile(audioPath)
         if err != nil {
             return c.Status(500).JSON(fiber.Map{
                 "success": false,
