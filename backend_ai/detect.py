@@ -5,6 +5,8 @@ import time
 import wave
 from pathlib import Path
 
+from faster_whisper import WhisperModel
+
 
 KEYWORDS_BY_LEVEL = {
     4: ["หายใจ", "หมดสติ", "ไฟไหม้", "เลือด", "breathing", "unconscious", "fire", "blood"],
@@ -22,6 +24,9 @@ CONFIDENCE_BY_LEVEL = {
     2: 0.70,
     1: 0.30,
 }
+
+MODEL_SIZE = "base"
+_model = None
 
 
 def normalize_text(text: str) -> str:
@@ -57,8 +62,26 @@ def read_wav_info(audio_path: Path) -> dict:
     }
 
 
-def placeholder_transcription(audio_path: Path) -> str:
-    return normalize_text(audio_path.stem)
+def get_model() -> WhisperModel:
+    global _model
+    if _model is None:
+        _model = WhisperModel(
+            MODEL_SIZE,
+            device="cpu",
+            compute_type="int8",
+        )
+    return _model
+
+
+def transcribe_audio(audio_path: Path) -> str:
+    model = get_model()
+    segments, _ = model.transcribe(
+        str(audio_path),
+        beam_size=1,
+        vad_filter=True,
+    )
+    text = " ".join(segment.text.strip() for segment in segments if segment.text.strip())
+    return normalize_text(text)
 
 
 def detect_keyword_and_level(text: str) -> tuple[str, int]:
@@ -100,7 +123,14 @@ def analyze_audio(audio_path: Path) -> dict:
     if wav_info["duration"] < 0.05:
         return make_error("Audio is too short")
 
-    transcribed_text = placeholder_transcription(audio_path)
+    try:
+        transcribed_text = transcribe_audio(audio_path)
+    except Exception as exc:
+        return make_error(f"Transcription failed: {exc}")
+
+    if not transcribed_text:
+        transcribed_text = "normal"
+
     keyword, level = detect_keyword_and_level(transcribed_text)
     return build_success_result(transcribed_text, keyword, level)
 

@@ -5,6 +5,7 @@ import (
     "fmt"
     "log"
     "os"
+    "strings"
     "time"
 
     mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -54,6 +55,18 @@ func ProcessAudioFile(audioPath string) (DetectResult, error) {
     return result, nil
 }
 
+func topicLabel(topic string) string {
+    label := strings.TrimPrefix(topic, "voice/audio/")
+    label = strings.ReplaceAll(label, "/", "_")
+    label = strings.ReplaceAll(label, " ", "_")
+
+    if label == "" {
+        label = "unknown"
+    }
+
+    return label
+}
+
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
     topic := msg.Topic()
     payload := msg.Payload()
@@ -66,7 +79,8 @@ var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Me
         return
     }
 
-    filename := fmt.Sprintf("uploads/audio/audio_%d.wav", time.Now().Unix())
+    label := topicLabel(topic)
+	filename := fmt.Sprintf("uploads/audio/audio_%s_%d.wav", label, time.Now().Unix())
 
     dataSize := uint32(len(payload))
     wavHeader := createWAVHeader(dataSize)

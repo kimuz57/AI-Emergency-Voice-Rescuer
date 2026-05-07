@@ -54,6 +54,7 @@ LOTUSDIS_train
 
 # Training data and artifacts
 backend_ai/uploads/
+go_backend/uploads/
 backend_ai/models/*.pkl
 backend_ai/__pycache__/
 backend_ai/datasets/*.wav
@@ -71,3 +72,6 @@ LOTUSDIS_textgrid.zip
 # OS files
 .DS_Store
 Thumbs.db
+
+backend_ai_legacy 
+

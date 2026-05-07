@@ -1,196 +1,193 @@
 # AI Emergency Voice Detection System
 
-**Project Deadline:** 29 May 2026 (50 days remaining)
+AI Emergency Voice Detection System is an IoT-based emergency voice alert system for elderly care and distress monitoring.
 
-##  Overview
+The current repository is focused on the core demo path:
 
-Guardian AI is an **IoT-based emergency voice detection system** that monitors elderly patients or people in distress using:
-- **Hardware:** ESP32 + INMP441 microphone
-- **Backend:** Go + Fiber + PostgreSQL
-- **AI:** Python ML model for emergency keyword detection
-- **Mobile:** Flutter application for monitoring
-- **Real-time Alerts:** LINE Notify integration
+1. audio arrives as WAV or raw PCM
+2. MQTT sends audio to the Go backend
+3. Go wraps raw audio into WAV and calls Python
+4. Python transcribes speech and maps keywords to alert levels
+5. the backend can forward the result to future dashboard, database, and mobile flows
 
----
+## Current Stack
 
-##  Team & Responsibilities
+- Hardware: ESP32 + INMP441
+- Broker: Mosquitto MQTT on port 1883
+- Backend: Go + Fiber + MQTT client
+- AI: Python + faster-whisper + keyword rules
+- Frontend: web dashboard work in progress
+- Mobile: Flutter planned for later integration
 
-| Member | Component | Technology Stack |
-|--------|-----------|------------------|
-| **Kit** | Backend | Go, Fiber, PostgreSQL, MQTT, Gorm |
-| **Nont** | AI/ML | Python, scikit-learn, librosa, Flask |
-| **Ball** | Mobile + Hardware | Flutter, ESP32 (C/IDF), MQTT |
+## Current Repository Layout
 
----
-
-##  Project Structure
-
-```
+```text
 main_smartvoice/
-├── backend_ai/              ← AI Training & Inference (YOUR PART)
-│   ├── datasets/
-│   │   ├── emergency/
-│   │   ├── normal/
-│   │   └── custom/
-│   ├── models/
-│   ├── train.py            ← Training script
-│   ├── inference.py        ← Inference API server
-│   ├── utils.py            ← Helper functions
-│   ├── requirements.txt    ← Python dependencies
-│   └── README_AI.md
-│
-├── esp32/                   ← Firmware (Ball's responsibility)
-│   └── main/
-│       └── voice_recorder.c
-│
-├── PROJECT_SPEC.md         ← Complete API & Architecture Spec
-└── README.md               ← This file
+|-- backend_ai/
+|   |-- detect.py
+|   |-- requirements.txt
+|   |-- samples/
+|   `-- uploads/
+|-- backend_ai_legacy/
+|-- esp32/
+|-- frontend/
+|-- go_backend/
+|-- my-awesome-app/
+|-- static/
+|-- PROJECT_SPEC.md
+`-- README.md
 ```
 
----
+## What Works Today
 
-##  Getting Started
+- `backend_ai/detect.py` accepts a WAV file and returns the agreed JSON shape.
+- `backend_ai/detect.py` now uses local `faster-whisper` on CPU for transcription.
+- `go_backend/services/ai_runner.go` can call the Python detector and parse the JSON response.
+- `GET /test-ai` in the Go backend can exercise the Python detection path.
+- local Mosquitto publish to `voice/audio/#` has been validated end-to-end.
+- incoming MQTT audio is saved as WAV under `go_backend/uploads/audio/` before AI analysis.
 
-### AI Module Setup (Your Part)
+## Current Limitations
 
-```bash
-cd backend_ai
+- PostgreSQL is not part of the active local demo flow yet.
+- alert persistence and dashboard updates are still pending.
+- keyword detection is rule-based after transcription, not a trained alert classifier yet.
+- real-world accuracy still needs validation with recorded speech samples.
+- `backend_ai_legacy/` contains older LOTUSDIS experiments and is not the active path.
 
-# Install dependencies
-pip install -r requirements.txt
+## Quick Start
 
-# Prepare dataset
-# Add emergency audio to: datasets/emergency/
-# Add normal audio to: datasets/normal/
+### 1. Python Setup
 
-# Train model
-python train.py
+From the repository root:
 
-# Run inference server
-python inference.py --server 3000
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r backend_ai\requirements.txt
 ```
 
-### Backend Setup (Kittiwat's Part)
+### 2. Test AI from CLI
 
-```bash
-# Kittiwat will set up in separate Go project
-# Backend will call your AI API at: http://localhost:3000/api/v1/audio/analyze
+```powershell
+python backend_ai\detect.py backend_ai\samples\help.wav
 ```
 
-### Mobile Setup (Ball's Part)
+Expected response shape:
 
-```bash
-# Flutter project
-flutter pub get
-flutter run
-```
-
----
-
-##  Data Flow
-
-```
-ESP32 (Microphone)
-    │ MQTT (WiFi)
-    ▼
-MQTT Broker (1883)
-    │ voice/audio/device001
-    ▼
-Backend API (Kittiwat)
-    │ POST /api/v1/audio/analyze
-    ▼
-AI Service (You) ← Processing happens here
-    │ Response: {isAlert, keyword, level, confidence}
-    ▼
-Backend stores in PostgreSQL
-    │
-    ├──→ Update Dashboard (Ball's Mobile App)
-    │
-    └──→ Send LINE Notify Alert
-```
-
----
-
-##  API Contract (CRITICAL - DO NOT CHANGE)
-
-### AI Analysis Endpoint
-
-**Request:**
-```
-POST /api/v1/audio/analyze
-Content-Type: application/json
-
-{
-    "audioBuffer": "base64_encoded_wav",
-    "deviceId": "device001",
-    "sampleRate": 16000,
-    "duration": 3.5
-}
-```
-
-**Response:**
 ```json
 {
-    "success": true,
-    "isAlert": 1,
-    "keyword": "help",
-    "level": 4,
-    "confidence": 0.95,
-    "transcribedText": "help me please",
-    "processingTime": 234
+  "success": true,
+  "isAlert": 1,
+  "keyword": "help",
+  "level": 3,
+  "confidence": 0.85,
+  "transcribedText": "help",
+  "processingTime": 234
 }
 ```
 
-**This response format is the contract between your AI module and Kittiwat's backend.**
+Use a real recorded WAV file for meaningful STT validation.
 
----
+### 3. Start Mosquitto Broker
 
-##  AI Module Milestones
+If Mosquitto is installed in `C:\Program Files\Mosquitto`:
 
-### Week 1-2: Preparation
-- [x] Install Python dependencies
-- [x] Collect/prepare training dataset (LOTUSDIS + emergency samples)
-- [x] Understand dataset structure
-- [x] Setup and test feature extraction
+```powershell
+$env:Path += ";C:\Program Files\Mosquitto"
+mosquitto.exe -v
+```
 
-### Week 3-4: Model Development
-- [ ] Implement feature extraction pipeline
-- [ ] Train baseline model
-- [ ] Achieve >80% accuracy on test set
-- [ ] Optimize hyperparameters
+### 4. Start Go Backend
 
-### Week 5-6: API & Integration
-- [ ] Implement Flask inference server
-- [ ] Test API endpoints
-- [ ] Integration testing with backend
-- [ ] Performance optimization
+Open a second terminal:
 
-### Week 7-8: Final Polish
-- [ ] Add error handling and logging
-- [ ] Document code and API
-- [ ] Final accuracy improvements
-- [ ] Prepare for deployment
+```powershell
+Set-Location .\go_backend
+go run .
+```
 
----
+If the broker is already running, the backend should log that MQTT connected successfully and that it subscribed to `voice/audio/#`.
 
-##  Current Progress
+### 5. Publish Test Audio Over MQTT
 
-- Dataset download: completed with LOTUSDIS train/dev/test and annotation archive
-- Dataset combination: completed into `backend_ai/datasets/combined_dataset.csv`
-- Data quality check: completed with no missing values and no duplicate rows
-- Prepared train/dev/test split files are available in `backend_ai/datasets`
-- Next step: select and prepare 20 emergency keywords and normal speech set for model refinement
+Open a third terminal:
 
----
+```powershell
+$env:Path += ";C:\Program Files\Mosquitto"
+mosquitto_pub.exe -h localhost -p 1883 -t voice/audio/help -f backend_ai\samples\help.raw
+```
 
-##  Documentation Files
+The Go backend should log:
 
-- **`PROJECT_SPEC.md`** - Complete system specification (read this first!)
-- **`README_AI.md`** - Detailed AI module documentation
-- **`esp32/README.md`** (Ball) - Firmware documentation
-- Code comments and docstrings throughout
+- the topic and payload size
+- saved WAV path
+- AI result JSON summary
+- mapped alert level
 
----
+## Active Data Flow
 
-**Last Updated:** 10 April 2026  
-**Status:** 🟢 Active Development Phase
+```text
+ESP32 or local publisher
+    |
+    | MQTT publish to voice/audio/#
+    v
+Mosquitto broker
+    |
+    v
+Go backend
+    |
+    | save payload as WAV
+    | call backend_ai/detect.py
+    v
+Python detection
+    |
+    | transcribe audio
+    | detect emergency keyword
+    v
+JSON result
+```
+
+## AI Response Contract
+
+The Go backend currently expects this JSON shape from Python:
+
+```json
+{
+  "success": true,
+  "isAlert": 1,
+  "keyword": "help",
+  "level": 3,
+  "confidence": 0.85,
+  "transcribedText": "help me please",
+  "processingTime": 234,
+  "error": ""
+}
+```
+
+`error` is omitted on success.
+
+## Current Status
+
+- Done: local MQTT -> Go -> Python integration
+- Done: WAV validation and JSON contract in Python
+- Done: faster-whisper baseline transcription in `backend_ai/detect.py`
+- Next: validate with real recorded emergency and normal speech clips
+- Next: re-enable persistence and connect results to dashboard/mobile flows
+- Next: move from keyword baseline to stronger detection logic if needed
+
+## Notes
+
+- Start Mosquitto before starting the Go backend. The current MQTT setup connects once during startup.
+- `backend_ai/samples/help.raw` is useful for transport testing, not for meaningful speech recognition.
+- For real STT validation, record a spoken WAV file such as `backend_ai/samples/help_real.wav` and run it through `backend_ai/detect.py` first.
+
+## Reference Files
+
+- `PROJECT_SPEC.md`: full system architecture and target API shape
+- `backend_ai/detect.py`: active Python detection entry point
+- `go_backend/services/mqtt_service.go`: MQTT ingestion and WAV wrapping
+- `go_backend/services/ai_runner.go`: Go to Python bridge
+
+Last updated: 8 May 2026
+Status: active prototype
