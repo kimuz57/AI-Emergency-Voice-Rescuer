@@ -1,155 +1,134 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import Link from "next/link";
-import { useUserStore } from "@/stores/userStore";
+import { useRouter } from "next/navigation";
 import AmbientOrbs from "@/components/AmbientOrbs";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const [mounted, setMounted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const login = useUserStore((s) => s.login);
-  const router = useRouter();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     setError("");
-    setIsLoading(true);
-    const success = await login(email, password);
-    if (success) {
-      router.push("/dashboard");
-    } else {
-      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง");
-      setIsLoading(false);
+
+    if (!email.trim() || !password.trim()) {
+      setError("กรุณากรอกอีเมลและรหัสผ่านให้ครบถ้วน");
+      return;
     }
+
+    setIsSubmitting(true);
+    router.push("/dashboard");
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center relative px-6">
+    <div className="guardian-page relative flex min-h-[100dvh] items-center justify-center overflow-hidden px-5 py-10 text-slate-900">
       <AmbientOrbs />
+      <div className="guardian-mesh" />
 
-      {/* Top Bar */}
-      <header className="fixed top-0 left-0 right-0 px-6 py-6 flex items-center justify-between z-50">
-        <div className="flex items-center gap-2 text-slate-900">
-          <div className="bg-primary text-white p-2 rounded-xl shadow-lg shadow-primary/20">
-            <span className="material-symbols-outlined">emergency</span>
-          </div>
-          <h2 className="text-lg font-bold tracking-tight">Guardian AI</h2>
-        </div>
-      </header>
-
-      {/* Login Card */}
-      <main className="w-full max-w-md">
-        <div className="glass-panel rounded-3xl p-8 md:p-10 flex flex-col gap-8">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-semibold text-slate-900 tracking-tight">ยินดีต้อนรับกลับมา</h1>
-            <p className="text-slate-500 text-sm">เข้าถึงแดชบอร์ดฉุกเฉินของคุณอย่างปลอดภัย</p>
-          </div>
-
-          {!mounted ? (
-            <div className="min-h-[300px] flex flex-col items-center justify-center text-primary">
-              <svg className="animate-spin h-10 w-10 mb-4" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-              <p className="text-sm text-slate-500 font-medium">กำลังเตรียมโมดูลความปลอดภัย...</p>
+      <main className="page-rise relative z-10 w-full max-w-[420px]">
+        <div className="glass-card rounded-[32px] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.06)]">
+          <div className="mb-8 flex flex-col items-center text-center">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-white shadow-lg shadow-primary/25">
+              <span className="material-symbols-outlined text-[34px]">shield_person</span>
             </div>
-          ) : (
-            <>
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-600 text-sm text-center animate-in fade-in zoom-in duration-300">
-                  {error}
-                </div>
-              )}
+            <h1 className="text-[32px] font-black tracking-tight text-primary">Guardian AI</h1>
+            <p className="mt-2 text-sm text-slate-500">ดูแลคนที่คุณรักด้วยเทคโนโลยี AI</p>
+          </div>
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          {error ? (
+            <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
+              {error}
+            </div>
+          ) : null}
+
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
-              <label className="text-base text-slate-600 ml-1">ที่อยู่อีเมล</label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">mail</span>
+              <label className="block px-1 text-sm font-semibold text-slate-600" htmlFor="email">
+                อีเมล
+              </label>
+              <div className="relative group">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-slate-400 transition-colors group-focus-within:text-primary">
+                  mail
+                </span>
                 <input
-                  className="glass-input w-full pl-12 pr-4 py-4 rounded-xl text-slate-900 placeholder:text-slate-400 outline-none"
-                  placeholder="name@company.com"
+                  id="email"
+                  className="glass-input h-14 w-full rounded-2xl pl-12 pr-4 outline-none"
+                  placeholder="example@email.com"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
+                  onChange={(event) => setEmail(event.target.value)}
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-base text-slate-600 ml-1">รหัสผ่าน</label>
-                <a className="text-sm text-primary font-medium hover:underline" href="#">ลืมรหัสผ่าน?</a>
-              </div>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">lock</span>
+              <label className="block px-1 text-sm font-semibold text-slate-600" htmlFor="password">
+                รหัสผ่าน
+              </label>
+              <div className="relative group">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[20px] text-slate-400 transition-colors group-focus-within:text-primary">
+                  lock
+                </span>
                 <input
-                  className="glass-input w-full pl-12 pr-12 py-4 rounded-xl text-slate-900 placeholder:text-slate-400 outline-none"
+                  id="password"
+                  className="glass-input h-14 w-full rounded-2xl pl-12 pr-12 outline-none"
                   placeholder="••••••••"
                   type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
+                  onChange={(event) => setPassword(event.target.value)}
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-700"
+                  onClick={() => setShowPassword((value) => !value)}
                 >
-                  <span className="material-symbols-outlined text-xl">
+                  <span className="material-symbols-outlined text-[20px]">
                     {showPassword ? "visibility_off" : "visibility"}
                   </span>
                 </button>
               </div>
             </div>
 
+            <div className="flex items-center justify-between px-1 text-sm">
+              <label className="flex items-center gap-2 text-slate-600">
+                <input
+                  checked={rememberMe}
+                  className="h-5 w-5 rounded border-slate-300 text-primary focus:ring-primary/20"
+                  type="checkbox"
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                />
+                <span className="font-semibold">จดจำฉันไว้</span>
+              </label>
+              <button className="font-semibold text-primary hover:underline" type="button">
+                ลืมรหัสผ่าน?
+              </button>
+            </div>
+
             <button
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-base font-semibold text-white shadow-lg shadow-primary/25 transition-all hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-70"
+              disabled={isSubmitting}
               type="submit"
-              disabled={isLoading}
-              className="w-full bg-primary hover:bg-primary-dark text-white text-lg font-medium py-4 rounded-xl shadow-lg shadow-primary/25 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
             >
-              {isLoading ? (
-                <>
-                  <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                  </svg>
-                  กำลังเข้าสู่ระบบ...
-                </>
-              ) : (
-                "เข้าสู่ระบบ"
-              )}
+              <span>{isSubmitting ? "กำลังเข้าสู่ระบบ" : "เข้าสู่ระบบ"}</span>
+              <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
             </button>
           </form>
-          </>
-          )}
 
-          <div className="text-center">
-            <p className="text-slate-500 text-sm">
-              ขอสิทธิ์การเข้าถึงระบบ{" "}
-              <Link className="text-primary font-semibold hover:underline" href="/register">
-                สร้างบัญชีใหม่
-              </Link>
-            </p>
+          <div className="mt-8 border-t border-slate-200/60 pt-6 text-center text-sm text-slate-500">
+            ยังไม่มีบัญชี?
+            <Link className="ml-1 font-semibold text-primary hover:underline" href="/register">
+              ลงชื่อเข้าใช้งานที่นี่
+            </Link>
           </div>
         </div>
       </main>
-
-      <footer className="mt-12 text-center text-slate-400 text-xs tracking-wide uppercase">
-        <p>© 2024 Guardian AI Emergency Systems</p>
-      </footer>
     </div>
   );
 }

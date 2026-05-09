@@ -1,7 +1,19 @@
-// ตัวอย่างสำหรับ AmbientOrbs.tsx
-export default function AmbientOrbs({ children, className }: { children: React.ReactNode, className?: string }) {
-  return <div className={className} style={{ border: '1px solid rgba(255,255,255,0.2)', borderRadius: '1rem' }}>{children}</div>;
-}
+import type { ReactNode } from "react";
 
-// สำหรับไฟล์อื่นๆ ที่ไม่มี children (เช่น AmbientOrbs)
-// export default function AmbientOrbs() { return <div>AmbientOrbs Placeholder</div>; }
+type AmbientOrbsProps = {
+  children?: ReactNode;
+  className?: string;
+};
+
+export default function AmbientOrbs({ children, className = "" }: AmbientOrbsProps) {
+  return (
+    <>
+      <div aria-hidden className={`ambient-orbs ${className}`.trim()}>
+        <div className="ambient-orb orb-1" />
+        <div className="ambient-orb orb-2" />
+        <div className="ambient-orb orb-3" />
+      </div>
+      {children}
+    </>
+  );
+}

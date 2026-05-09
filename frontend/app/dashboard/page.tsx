@@ -1,171 +1,135 @@
-"use client";
+import Link from "next/link";
+import AmbientOrbs from "@/components/AmbientOrbs";
+import MobileNav from "@/components/MobileNav";
+import { featuredEvent, patientSummaries } from "@/lib/mockAppData";
 
-import { useAuth } from "@/hooks/useAuth";
-import { useEffect } from "react";
+const statusStyles = {
+  normal: {
+    dot: "bg-emerald-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]",
+    label: "ปกติ",
+    text: "text-emerald-600",
+    card: "bg-white/65",
+  },
+  risk: {
+    dot: "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]",
+    label: "เสี่ยง",
+    text: "text-amber-600",
+    card: "bg-amber-50/60 border border-amber-200/70",
+  },
+};
+
+const avatarStyles = {
+  red: "bg-red-100 text-red-600 border-red-200",
+  blue: "bg-blue-100 text-blue-600 border-blue-200",
+  emerald: "bg-emerald-100 text-emerald-600 border-emerald-200",
+  amber: "bg-amber-100 text-amber-600 border-amber-200",
+};
 
 export default function DashboardPage() {
-  const { isLoading } = useAuth(); // ดึงสถานะโหลดมาใช้ถ้าต้องการ
-
-  if (isLoading) {
-    return <div className="min-h-screen flex items-center justify-center">กำลังตรวจสอบสิทธิ์...</div>;
-  }
+  const criticalPatient = patientSummaries[0];
+  const monitoredPatients = patientSummaries.slice(1);
 
   return (
-    <main className="flex-1 max-w-7xl mx-auto w-full px-10 py-12 grid grid-cols-1 lg:grid-cols-12 gap-10">
-      
-      {/* Left Column: Primary Monitoring */}
-      <div className="lg:col-span-8 flex flex-col gap-10">
-        
-        {/* Alert Banner */}
-        <div className="bg-red-500/10 border border-red-500/20 backdrop-blur-xl p-8 rounded-3xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4 alert-pulse deep-shadow">
-          <div className="flex items-center gap-5">
-            <div className="size-14 rounded-2xl bg-red-500 flex items-center justify-center text-white shadow-lg shadow-red-500/30 shrink-0">
-              <span className="material-symbols-outlined text-2xl fill-1">emergency</span>
-            </div>
-            <div>
-              <h3 className="text-xl font-bold text-red-600 mb-0.5">การแจ้งเตือนวิกฤต</h3>
-              <p className="text-base text-red-600/80">ตรวจพบเสียงขอความช่วยเหลือในห้องนั่งเล่น</p>
-            </div>
-          </div>
-          <button className="bg-red-600 text-white px-8 py-3.5 rounded-2xl font-semibold text-base transition-all hover:bg-red-700 hover:shadow-lg hover:shadow-red-600/20 active:scale-95 whitespace-nowrap">
-            ส่งความช่วยเหลือ
+    <div className="guardian-page relative min-h-[100dvh] overflow-hidden pb-32 text-slate-900">
+      <AmbientOrbs />
+
+      <header className="fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between border-b border-white/40 bg-white/70 px-5 backdrop-blur-xl shadow-sm">
+        <div className="flex items-center gap-4">
+          <button className="text-primary transition-transform active:scale-95" type="button">
+            <span className="material-symbols-outlined">arrow_back</span>
           </button>
+          <h1 className="text-lg font-bold">ผู้ป่วยของคุณ</h1>
         </div>
-
-        {/* Main Detection Visualization */}
-        <div className="lucid-glass rounded-3xl p-16 flex flex-col items-center justify-center min-h-[540px] relative overflow-hidden deep-shadow floating-layer">
-          {/* Subtle Inner Glow Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent pointer-events-none" />
-          
-          <div className="flex flex-col items-center text-center relative z-10">
-            {/* Microphone Icon */}
-            <div className="size-36 rounded-full lucid-glass-inner flex items-center justify-center mb-10 transition-transform duration-700 hover:scale-110">
-              <span className="material-symbols-outlined text-6xl text-primary drop-shadow-[0_0_10px_rgba(0,113,227,0.3)]">
-                mic
-              </span>
-            </div>
-            <span className="text-xs text-primary font-bold uppercase tracking-[0.25em] mb-6">
-              กำลังรับฟัง...
-            </span>
-            <h1 className="text-4xl md:text-5xl font-bold mb-6 tracking-tight text-gray-900">
-              "ช่วยเหลือ"
-            </h1>
-            <p className="text-lg text-gray-500/80">ระดับความมั่นใจ 92%</p>
-          </div>
-
-          {/* Enhanced Waveform (Static HTML Version) */}
-          <div className="absolute bottom-16 inset-x-0 h-16 flex items-center justify-center gap-2 opacity-30">
-            <div className="w-1.5 bg-primary rounded-full h-4"></div>
-            <div className="w-1.5 bg-primary rounded-full h-12"></div>
-            <div className="w-1.5 bg-primary rounded-full h-6"></div>
-            <div className="w-1.5 bg-primary rounded-full h-16"></div>
-            <div className="w-1.5 bg-primary rounded-full h-20"></div>
-            <div className="w-1.5 bg-primary rounded-full h-12"></div>
-            <div className="w-1.5 bg-primary rounded-full h-8"></div>
-            <div className="w-1.5 bg-primary rounded-full h-10"></div>
+        <div className="flex items-center gap-3">
+          <button className="text-slate-500" type="button">
+            <span className="material-symbols-outlined">search</span>
+          </button>
+          <div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white/80 text-xs font-bold text-primary">
+            GA
           </div>
         </div>
+      </header>
 
-        {/* Secondary Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="lucid-glass p-8 rounded-3xl flex items-center gap-6 floating-layer">
-            <div className="size-16 rounded-2xl lucid-glass-inner flex items-center justify-center text-gray-400">
-              <span className="material-symbols-outlined text-3xl">volume_up</span>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium mb-1">ระดับเดซิเบล</p>
-              <p className="text-2xl font-bold text-gray-900">
-                74 dB <span className="text-base text-green-500 font-semibold ml-2">ปกติ</span>
-              </p>
-            </div>
-          </div>
-          <div className="lucid-glass p-8 rounded-3xl flex items-center gap-6 floating-layer">
-            <div className="size-16 rounded-2xl lucid-glass-inner flex items-center justify-center text-gray-400">
-              <span className="material-symbols-outlined text-3xl">event_available</span>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 font-medium mb-1">เหตุการณ์ล่าสุด</p>
-              <p className="text-2xl font-bold text-gray-900">4 วันที่แล้ว</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Right Column: System Status */}
-      <div className="lg:col-span-4 flex flex-col gap-10">
-        
-        {/* Status List */}
-        <div className="lucid-glass p-8 rounded-3xl deep-shadow">
-          <h3 className="text-2xl font-bold mb-8 tracking-tight text-gray-900">กิจกรรมของระบบ</h3>
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between py-5 border-b border-white/20">
-              <div className="flex items-center gap-4">
-                <span className="material-symbols-outlined text-gray-500 text-2xl">keyboard_voice</span>
-                <span className="text-base font-medium text-gray-800">การจดจำเสียง</span>
-              </div>
-              <span className="text-xs text-green-500 uppercase tracking-widest font-bold">เปิดใช้งาน</span>
-            </div>
-            <div className="flex items-center justify-between py-5 border-b border-white/20">
-              <div className="flex items-center gap-4">
-                <span className="material-symbols-outlined text-gray-500 text-2xl">sensors</span>
-                <span className="text-base font-medium text-gray-800">เซนเซอร์ตรวจจับ</span>
-              </div>
-              <span className="text-xs text-gray-400 uppercase tracking-widest font-bold">สแตนด์บาย</span>
-            </div>
-          </div>
-
-          <div className="mt-10">
-            <p className="text-xs text-gray-500 uppercase tracking-[0.15em] mb-6 font-bold">
-              โครงข่ายอุปกรณ์
-            </p>
-            <div className="space-y-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="size-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                  <span className="text-base text-gray-700 font-medium">โหนดห้องนั่งเล่น</span>
+      <main className="page-rise mx-auto flex w-full max-w-md flex-col gap-4 px-5 pt-24">
+        <Link
+          className="glass-card attention-pulse rounded-[26px] border border-red-200/70 bg-red-50/65 p-5 transition-transform active:scale-[0.98]"
+          href="/event-details"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-red-300 bg-white text-xl font-black text-red-600 shadow-sm">
+                  {criticalPatient.initials}
                 </div>
-                <span className="text-sm font-medium text-gray-500">12ms</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="size-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                  <span className="text-base text-gray-700 font-medium">เซนเซอร์ห้องครัว</span>
+                <div className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 text-white">
+                  <span className="material-symbols-outlined text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    priority_high
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-gray-500">18ms</span>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <span className="size-2.5 rounded-full bg-red-400 shadow-[0_0_8px_rgba(248,113,113,0.4)]" />
-                  <span className="text-base text-gray-400">ฮับนอกชาน</span>
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">{criticalPatient.name}</h2>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full bg-red-500 px-3 py-1 font-bold text-white">ฉุกเฉิน</span>
+                  <span className="text-slate-500">{criticalPatient.relativeTime}</span>
                 </div>
-                <span className="text-[10px] text-red-400 font-bold uppercase">ออฟไลน์</span>
               </div>
             </div>
+            <div className="rounded-2xl bg-red-500 px-3 py-2 text-sm font-semibold text-white shadow-lg shadow-red-500/25">
+              ช่วยเหลือด่วน
+            </div>
           </div>
-        </div>
 
-        {/* Map View */}
-        <div className="relative overflow-hidden rounded-3xl h-64 lucid-glass deep-shadow floating-layer">
-          <div 
-            className="absolute inset-0 bg-cover bg-center grayscale brightness-90 transition-transform duration-1000 hover:scale-105"
-            style={{ backgroundImage: 'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAxBCCJoxB5R2JXH9edpCNLHJdJ48GBRurFgS8q52N813-zf4PG_NNzt0gGS9jY3xMDW7lnAB6g2IZ9zZXVZqvdkK0Z4-HZDBHfubdivtJlx3SWEMnoznPEP8QX5meO0eVebHEA3QbVGM-y6v6h5-X3ZB8H-v9xOCbunce4k5U0Y3TDtDpbTmiTAO_gVhOtyJGUPTS4Lob3Sz_eyeXaNrRFQ_OD8Q1avSG9Ccb-Oy9IpaS_G8lVkCFJYgTk5AWLfo0YppXgcnQM30A")' }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-white/20 to-transparent flex flex-col justify-end p-8">
-            <h4 className="text-gray-900 text-xl mb-1 font-semibold">กิจกรรมตามโซน</h4>
-            <p className="text-sm text-gray-700 font-medium">กำลังตรวจสอบฮับซานฟรานซิสโก</p>
+          <div className="mt-4 rounded-2xl bg-white/70 px-4 py-3 text-sm text-slate-600">
+            <p className="font-semibold text-red-600">ข้อความล่าสุด: “{featuredEvent.transcript}”</p>
+            <p className="mt-1">ตำแหน่ง: {featuredEvent.location}</p>
           </div>
-          <div className="absolute top-6 right-6 size-11 rounded-full bg-primary flex items-center justify-center text-white shadow-lg shadow-primary/30">
-            <span className="material-symbols-outlined text-xl">location_on</span>
+        </Link>
+
+        <section className="space-y-3 pt-2">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-lg font-bold">สถานะปกติ</h3>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Live Feed</p>
           </div>
-        </div>
 
-        {/* System Health Check */}
-        <button className="w-full py-5 rounded-2xl lucid-glass text-gray-900 font-bold text-base border border-white/40 hover:bg-white/50 transition-all active:scale-[0.97] deep-shadow">
-          ตรวจสอบสุขภาพของระบบ
-        </button>
+          {monitoredPatients.map((patient) => {
+            const status = statusStyles[patient.status as "normal" | "risk"];
 
-      </div>
-    </main>
+            return (
+              <Link
+                key={patient.id}
+                className={`glass-card flex items-center justify-between rounded-[24px] p-4 transition-all active:scale-[0.98] ${status.card}`.trim()}
+                href={patient.status === "risk" ? "/history" : "/event-details"}
+              >
+                <div className="flex items-center gap-4">
+                  <div className={`flex h-12 w-12 items-center justify-center rounded-full border text-lg font-black ${avatarStyles[patient.accent]}`}>
+                    {patient.initials}
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-slate-900">{patient.name}</h4>
+                    <div className="mt-1 flex items-center gap-2 text-xs">
+                      <span className={`h-2 w-2 rounded-full ${status.dot}`} />
+                      <span className={`font-semibold ${status.text}`}>{status.label}</span>
+                      <span className="text-slate-400">• {patient.relativeTime}</span>
+                    </div>
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-slate-400">chevron_right</span>
+              </Link>
+            );
+          })}
+        </section>
+      </main>
+
+      <Link
+        aria-label="เพิ่มผู้ป่วย"
+        className="fixed bottom-28 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30 transition-transform active:scale-90"
+        href="/add-patient"
+      >
+        <span className="material-symbols-outlined text-[28px]">person_add</span>
+      </Link>
+
+      <MobileNav current="dashboard" />
+    </div>
   );
 }

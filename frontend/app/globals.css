@@ -353,6 +353,56 @@ body {
   color: #2b6cee;
 }
 
+.guardian-page {
+  min-height: 100dvh;
+  background:
+    radial-gradient(circle at top left, rgba(212, 227, 255, 0.8) 0%, rgba(248, 249, 255, 0.94) 48%, rgba(225, 226, 233, 0.82) 100%),
+    linear-gradient(180deg, #f8f9ff 0%, #eef4ff 100%);
+}
+
+.guardian-mesh {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.45) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.45) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(circle at center, black 40%, transparent 90%);
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+.attention-pulse {
+  animation: attentionPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes attentionPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(186, 26, 26, 0.18);
+  }
+  70% {
+    box-shadow: 0 0 0 20px rgba(186, 26, 26, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(186, 26, 26, 0);
+  }
+}
+
+.page-rise {
+  animation: pageRise 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes pageRise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 768px) {
   .mobile-bottom-nav {
     display: block;
