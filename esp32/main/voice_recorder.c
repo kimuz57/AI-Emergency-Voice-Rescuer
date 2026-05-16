@@ -22,7 +22,9 @@ static const char *TAG = "VOICE_RECORDER";
 #define I2S_PORT I2S_NUM_0
 #define I2S_SAMPLE_RATE 16000
 #define I2S_CHANNELS 1
-#define I2S_BITS_PER_SAMPLE I2S_BITS_PER_SAMPLE_16BIT
+// INMP441 requires 32-bit I2S frames to output data correctly.
+// We read 32-bit samples and convert to 16-bit PCM for publishing.
+#define I2S_BITS_PER_SAMPLE I2S_BITS_PER_SAMPLE_32BIT
 
 // I2S Pin Configuration (ESP32 DEVKIT V1 + INMP441)
 #define I2S_SCK_PIN 26       // Serial Clock
@@ -47,9 +49,8 @@ static const char *TAG = "VOICE_RECORDER";
 #define MQTT_DEVICE_CODE "ESP32_DEVICE_001"  // Change for each device
 
 // Audio recording parameters
-#define AUDIO_CHUNK_SIZE 2048       // Samples per chunk
-#define RECORDING_DURATION_SEC 5    // Record 5-second clips
-#define SAMPLES_COUNT (I2S_SAMPLE_RATE * RECORDING_DURATION_SEC)
+#define AUDIO_CHUNK_SAMPLES 2048    // Samples per MQTT publish chunk (4 KB per message)
+#define I2S_DMA_BUF_LEN     1024   // DMA buffer length (legacy driver max: 1024)
 
 // Global variables
 static esp_mqtt_client_handle_t mqtt_client = NULL;
@@ -98,8 +99,8 @@ void init_i2s_audio() {
         .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
         .communication_format = I2S_COMM_FORMAT_I2S_MSB,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
-        .dma_buf_count = 4,
-        .dma_buf_len = AUDIO_CHUNK_SIZE,
+        .dma_buf_count = 8,
+        .dma_buf_len = I2S_DMA_BUF_LEN,
         .use_apll = true,
         .tx_desc_auto_clear = false,
         .fixed_mclk = 0
@@ -258,13 +259,26 @@ void init_mqtt() {
 
 void audio_record_task(void *pvParameters) {
     size_t bytes_read = 0;
-    int16_t audio_buffer[SAMPLES_COUNT];
+    // 16-bit output buffer for MQTT publishing
+    int16_t *chunk_buf = (int16_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int16_t));
+    // 32-bit read buffer: INMP441 outputs 24-bit data in 32-bit I2S frames
+    int32_t *raw_buf  = (int32_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int32_t));
+    if (!chunk_buf || !raw_buf) {
+        ESP_LOGE(TAG, "Failed to allocate audio buffers");
+        free(chunk_buf);
+        free(raw_buf);
+        vTaskDelete(NULL);
+        return;
+    }
     char mqtt_topic[100];
-    
+    char status_topic[100];
     snprintf(mqtt_topic, sizeof(mqtt_topic), "voice/audio/%s", MQTT_DEVICE_CODE);
-    
-    ESP_LOGI(TAG, "Audio recording task started");
-    
+    snprintf(status_topic, sizeof(status_topic), "device/status/%s", MQTT_DEVICE_CODE);
+
+    ESP_LOGI(TAG, "Audio streaming task started (chunk=%d samples)", AUDIO_CHUNK_SAMPLES);
+
+    uint32_t chunk_seq = 0;
+
     while (1) {
         // รอให้คอมเชื่อมเข้า AP และ MQTT broker พร้อม
         if (!client_connected || !mqtt_connected) {
@@ -274,51 +288,43 @@ void audio_record_task(void *pvParameters) {
             vTaskDelay(2000 / portTICK_PERIOD_MS);
             continue;
         }
-        
-        ESP_LOGI(TAG, "Recording audio for %d seconds...", RECORDING_DURATION_SEC);
+
         set_record_led(1);
-        
-        // Record audio in chunks
-        int samples_recorded = 0;
-        while (samples_recorded < SAMPLES_COUNT) {
-            int remaining_samples = SAMPLES_COUNT - samples_recorded;
-            int chunk_samples = (remaining_samples < AUDIO_CHUNK_SIZE) 
-                ? remaining_samples 
-                : AUDIO_CHUNK_SIZE;
-            
-            i2s_read(I2S_PORT, 
-                    &audio_buffer[samples_recorded],
-                    chunk_samples * sizeof(int16_t),
-                    &bytes_read,
-                    portMAX_DELAY);
-            
-            samples_recorded += bytes_read / sizeof(int16_t);
-        }
-        
+
+        // Read 32-bit samples from INMP441 (outputs 24-bit data in 32-bit frames)
+        esp_err_t ret = i2s_read(I2S_PORT,
+                                  raw_buf,
+                                  AUDIO_CHUNK_SAMPLES * sizeof(int32_t),
+                                  &bytes_read,
+                                  portMAX_DELAY);
+
         set_record_led(0);
-        ESP_LOGI(TAG, "Recording completed: %d samples", samples_recorded);
-        
-        // Publish raw audio data to MQTT
-        if (mqtt_connected) {
-            ESP_LOGI(TAG, "Publishing audio to MQTT (%d bytes)...", 
-                    samples_recorded * sizeof(int16_t));
-            
+
+        if (ret == ESP_OK && bytes_read > 0 && mqtt_connected) {
+            // Convert 32-bit I2S data → 16-bit PCM
+            // INMP441 data is left-aligned 24-bit in 32-bit word; shift right by 11
+            int num_samples = (int)(bytes_read / sizeof(int32_t));
+            for (int i = 0; i < num_samples; i++) {
+                chunk_buf[i] = (int16_t)(raw_buf[i] >> 11);
+            }
+            int publish_bytes = num_samples * sizeof(int16_t);
+
+            // Publish 16-bit PCM chunk to MQTT (QoS 0, no retain)
             esp_mqtt_client_publish(mqtt_client,
                                    mqtt_topic,
-                                   (char *)audio_buffer,
-                                   samples_recorded * sizeof(int16_t),
-                                   0, 0);  // QoS 0
-            
-            // Device status heartbeat
-            char status_topic[100];
-            snprintf(status_topic, sizeof(status_topic), 
-                    "device/status/%s", MQTT_DEVICE_CODE);
-            esp_mqtt_client_publish(mqtt_client, status_topic, "online", 6, 1, 1);
+                                   (const char *)chunk_buf,
+                                   publish_bytes,
+                                   0, 0);
+            chunk_seq++;
+
+            // Heartbeat every 50 chunks (~5 sec at 16kHz/2048)
+            if (chunk_seq % 50 == 0) {
+                esp_mqtt_client_publish(mqtt_client, status_topic, "online", 6, 1, 1);
+                ESP_LOGI(TAG, "Streamed %lu chunks (%lu bytes total)",
+                         (unsigned long)chunk_seq,
+                         (unsigned long)(chunk_seq * bytes_read));
+            }
         }
-        
-        // Wait before next recording
-        ESP_LOGI(TAG, "Waiting 2 seconds before next recording...");
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
     }
 }
 

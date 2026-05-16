@@ -53,6 +53,7 @@ main_smartvoice/
 - alert persistence and dashboard updates are still pending.
 - keyword detection is rule-based after transcription, not a trained alert classifier yet.
 - real-world accuracy still needs validation with recorded speech samples.
+
 - `backend_ai_legacy/` contains older LOTUSDIS experiments and is not the active path.
 
 ## Quick Start
