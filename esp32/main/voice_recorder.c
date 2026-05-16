@@ -13,6 +13,8 @@
 #include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
+#include "esp_timer.h"
+#include "esp_rom_gpio.h"
 
 static const char *TAG = "VOICE_RECORDER";
 
@@ -32,13 +34,17 @@ static const char *TAG = "VOICE_RECORDER";
 #define STATUS_LED_PIN 2     // Blue LED on ESP32 DEVKIT
 #define RECORD_LED_PIN 4     // Red LED (optional)
 
-// WiFi credentials
-#define WIFI_SSID "YOUR_SSID"
-#define WIFI_PASSWORD "YOUR_PASSWORD"
+// Soft AP Configuration
+// ESP32 จะสร้าง WiFi ชื่อนี้ → คอมเชื่อมเข้ามา → คอมได้ IP 192.168.4.2
+#define AP_SSID        "SmartVoice-ESP32"
+#define AP_PASSWORD    "smartvoice123"
+#define AP_CHANNEL     1
+#define AP_MAX_CONN    4
 
 // MQTT Configuration
-#define MQTT_BROKER_URI "mqtt://YOUR_MQTT_BROKER_IP:1883"
-#define MQTT_DEVICE_CODE "GPS_DEVICE_001"  // Change for each device
+// Broker อยู่บนคอมที่เชื่อมเข้า AP → IP ของคอมคือ 192.168.4.2 (first client)
+#define MQTT_BROKER_URI  "mqtt://192.168.4.2:1883"
+#define MQTT_DEVICE_CODE "ESP32_DEVICE_001"  // Change for each device
 
 // Audio recording parameters
 #define AUDIO_CHUNK_SIZE 2048       // Samples per chunk
@@ -47,20 +53,19 @@ static const char *TAG = "VOICE_RECORDER";
 
 // Global variables
 static esp_mqtt_client_handle_t mqtt_client = NULL;
-static bool wifi_connected = false;
+static bool client_connected = false;  // true เมื่อมีคอมเชื่อมเข้า AP
 static bool mqtt_connected = false;
-static QueueHandle_t audio_queue = NULL;
 
-// ========================================
+
 // LED Control Functions
-// ========================================
+
 void init_led() {
-    gpio_pad_select_gpio(STATUS_LED_PIN);
+    esp_rom_gpio_pad_select_gpio(STATUS_LED_PIN);
     gpio_set_direction(STATUS_LED_PIN, GPIO_MODE_OUTPUT);
-    
-    gpio_pad_select_gpio(RECORD_LED_PIN);
+
+    esp_rom_gpio_pad_select_gpio(RECORD_LED_PIN);
     gpio_set_direction(RECORD_LED_PIN, GPIO_MODE_OUTPUT);
-    
+
     gpio_set_level(STATUS_LED_PIN, 0);
     gpio_set_level(RECORD_LED_PIN, 0);
 }
@@ -82,9 +87,9 @@ void blink_led(int pin, int count) {
     }
 }
 
-// ========================================
+
 // I2S Audio Initialization
-// ========================================
+
 void init_i2s_audio() {
     i2s_config_t i2s_config = {
         .mode = I2S_MODE_MASTER | I2S_MODE_RX,
@@ -114,63 +119,78 @@ void init_i2s_audio() {
     blink_led(STATUS_LED_PIN, 2);
 }
 
-// ========================================
-// WiFi Event Handler
-// ========================================
+
+// WiFi AP Event Handler
+
 static void wifi_event_handler(void* arg, esp_event_base_t event_base,
                                int32_t event_id, void* event_data) {
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        ESP_LOGI(TAG, "WiFi connecting...");
-        esp_wifi_connect();
+    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_START) {
+        ESP_LOGI(TAG, "✓ Soft AP started");
+        ESP_LOGI(TAG, "  SSID    : %s", AP_SSID);
+        ESP_LOGI(TAG, "  Password: %s", AP_PASSWORD);
+        ESP_LOGI(TAG, "  AP IP   : 192.168.4.1");
+        ESP_LOGI(TAG, "  Broker  : %s", MQTT_BROKER_URI);
         set_status_led(1);
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        ESP_LOGW(TAG, "WiFi disconnected, attempting reconnection...");
-        wifi_connected = false;
-        set_status_led(0);
-        esp_wifi_connect();
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-        ESP_LOGI(TAG, "✓ WiFi connected, IP: " IPSTR, IP2STR(&event->ip_info.ip));
-        wifi_connected = true;
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STACONNECTED) {
+        wifi_event_ap_staconnected_t* event = (wifi_event_ap_staconnected_t*) event_data;
+        char mac_str[18];
+        snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
+                 (unsigned)event->mac[0], (unsigned)event->mac[1], (unsigned)event->mac[2],
+                 (unsigned)event->mac[3], (unsigned)event->mac[4], (unsigned)event->mac[5]);
+        ESP_LOGI(TAG, "Client connected - MAC: %s, AID: %d", mac_str, event->aid);
+        client_connected = true;
         blink_led(STATUS_LED_PIN, 3);
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_AP_STADISCONNECTED) {
+        wifi_event_ap_stadisconnected_t* event = (wifi_event_ap_stadisconnected_t*) event_data;
+        char mac_str[18];
+        snprintf(mac_str, sizeof(mac_str), "%02x:%02x:%02x:%02x:%02x:%02x",
+                 (unsigned)event->mac[0], (unsigned)event->mac[1], (unsigned)event->mac[2],
+                 (unsigned)event->mac[3], (unsigned)event->mac[4], (unsigned)event->mac[5]);
+        ESP_LOGW(TAG, "Client disconnected - MAC: %s", mac_str);
+        client_connected = false;
+        mqtt_connected = false;
+        set_record_led(0);
     }
 }
 
-// ========================================
-// WiFi Initialization
-// ========================================
+
+// WiFi Soft AP Initialization
+
 void init_wifi() {
     ESP_ERROR_CHECK(nvs_flash_init());
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    
-    esp_netif_create_sta_default();
-    
+
+    // สร้าง netif สำหรับ AP mode
+    esp_netif_create_default_wifi_ap();
+
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-    
+
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
                                                &wifi_event_handler, NULL));
-    ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP,
-                                               &wifi_event_handler, NULL));
-    
+
     wifi_config_t wifi_config = {
-        .sta = {
-            .ssid = WIFI_SSID,
-            .password = WIFI_PASSWORD,
+        .ap = {
+            .ssid           = AP_SSID,
+            .ssid_len       = strlen(AP_SSID),
+            .channel        = AP_CHANNEL,
+            .password       = AP_PASSWORD,
+            .max_connection = AP_MAX_CONN,
+            .authmode       = WIFI_AUTH_WPA2_PSK,
         },
     };
-    
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(ESP_IF_WIFI_STA, &wifi_config));
+
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
     ESP_ERROR_CHECK(esp_wifi_start());
-    
-    ESP_LOGI(TAG, "WiFi initialization started");
+
+    ESP_LOGI(TAG, "Soft AP initialization done — waiting for client...");
 }
 
-// ========================================
+
 // MQTT Event Handler
-// ========================================
+
 static esp_err_t mqtt_event_handler_cb(esp_mqtt_event_handle_t event) {
     switch (event->event_id) {
         case MQTT_EVENT_CONNECTED:
@@ -204,16 +224,25 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base,
     mqtt_event_handler_cb(event_data);
 }
 
-// ========================================
+
 // MQTT Initialization
-// ========================================
+
 void init_mqtt() {
+    // IDF v5: nested struct config
     const esp_mqtt_client_config_t mqtt_cfg = {
-        .uri = MQTT_BROKER_URI,
-        .lwt_topic = "device/status/" MQTT_DEVICE_CODE,
-        .lwt_msg = "offline",
-        .lwt_qos = 1,
-        .lwt_retain = true,
+        .broker = {
+            .address = {
+                .uri = MQTT_BROKER_URI,
+            },
+        },
+        .session = {
+            .last_will = {
+                .topic = "device/status/" MQTT_DEVICE_CODE,
+                .msg   = "offline",
+                .qos   = 1,
+                .retain = 1,
+            },
+        },
     };
 
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
@@ -224,9 +253,9 @@ void init_mqtt() {
     ESP_LOGI(TAG, "MQTT initialization started");
 }
 
-// ========================================
+
 // Audio Recording and Publishing Task
-// ========================================
+
 void audio_record_task(void *pvParameters) {
     size_t bytes_read = 0;
     int16_t audio_buffer[SAMPLES_COUNT];
@@ -237,9 +266,11 @@ void audio_record_task(void *pvParameters) {
     ESP_LOGI(TAG, "Audio recording task started");
     
     while (1) {
-        // Wait for WiFi and MQTT connection
-        if (!wifi_connected || !mqtt_connected) {
-            ESP_LOGW(TAG, "Waiting for WiFi and MQTT connection...");
+        // รอให้คอมเชื่อมเข้า AP และ MQTT broker พร้อม
+        if (!client_connected || !mqtt_connected) {
+            ESP_LOGW(TAG, "Waiting: client=%s mqtt=%s",
+                     client_connected ? "OK" : "waiting",
+                     mqtt_connected   ? "OK" : "waiting");
             vTaskDelay(2000 / portTICK_PERIOD_MS);
             continue;
         }
@@ -291,13 +322,13 @@ void audio_record_task(void *pvParameters) {
     }
 }
 
-// ========================================
+
 // System Monitor Task
-// ========================================
+
 void system_monitor_task(void *pvParameters) {
     while (1) {
         ESP_LOGI(TAG, "=== System Status ===");
-        ESP_LOGI(TAG, "WiFi: %s", wifi_connected ? "Connected" : "Disconnected");
+        ESP_LOGI(TAG, "AP Client : %s", client_connected ? "Connected" : "No client");
         ESP_LOGI(TAG, "MQTT: %s", mqtt_connected ? "Connected" : "Disconnected");
         ESP_LOGI(TAG, "Free Memory: %lu bytes", esp_get_free_heap_size());
         ESP_LOGI(TAG, "Uptime: %lld ms", esp_timer_get_time() / 1000);
@@ -306,9 +337,9 @@ void system_monitor_task(void *pvParameters) {
     }
 }
 
-// ========================================
+
 // Application Main
-// ========================================
+
 void app_main(void) {
     ESP_LOGI(TAG, "=================================");
     ESP_LOGI(TAG, "  Guardian AI Voice Recorder");
@@ -319,9 +350,9 @@ void app_main(void) {
     init_led();
     init_i2s_audio();
     init_wifi();
-    
-    // Wait for WiFi to connect before initializing MQTT
-    vTaskDelay(3000 / portTICK_PERIOD_MS);
+
+    // รอให้ Soft AP ขึ้นก่อน จากนั้น init MQTT (จะ retry เองถ้า broker ยังไม่พร้อม)
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
     init_mqtt();
     
     // Create tasks
