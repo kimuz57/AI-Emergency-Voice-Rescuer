@@ -261,8 +261,8 @@ void audio_record_task(void *pvParameters) {
     size_t bytes_read = 0;
     // 16-bit output buffer for MQTT publishing
     int16_t *chunk_buf = (int16_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int16_t));
-    // 32-bit read buffer: INMP441 outputs 24-bit data in 32-bit I2S frames
-    int32_t *raw_buf  = (int32_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int32_t));
+    // Read both I2S slots. INMP441 drives only one slot depending on the L/R pin.
+    int32_t *raw_buf  = (int32_t *)malloc(AUDIO_CHUNK_SAMPLES * I2S_SLOT_COUNT * sizeof(int32_t));
     if (!chunk_buf || !raw_buf) {
         ESP_LOGE(TAG, "Failed to allocate audio buffers");
         free(chunk_buf);
@@ -278,6 +278,7 @@ void audio_record_task(void *pvParameters) {
     ESP_LOGI(TAG, "Audio streaming task started (chunk=%d samples)", AUDIO_CHUNK_SAMPLES);
 
     uint32_t chunk_seq = 0;
+    bool first_sample_logged = false;
 
     while (1) {
         // รอให้คอมเชื่อมเข้า AP และ MQTT broker พร้อม
@@ -302,7 +303,7 @@ void audio_record_task(void *pvParameters) {
 
         if (ret == ESP_OK && bytes_read > 0 && mqtt_connected) {
             // Convert 32-bit I2S data → 16-bit PCM
-            // INMP441 data is left-aligned 24-bit in 32-bit word; shift right by 11
+            // INMP441 data is left-aligned 24-bit in 32-bit word; shift right by 16
             int num_samples = (int)(bytes_read / sizeof(int32_t));
             for (int i = 0; i < num_samples; i++) {
                 chunk_buf[i] = (int16_t)(raw_buf[i] >> 16);
@@ -320,9 +321,11 @@ void audio_record_task(void *pvParameters) {
             // Heartbeat every 50 chunks (~5 sec at 16kHz/2048)
             if (chunk_seq % 50 == 0) {
                 esp_mqtt_client_publish(mqtt_client, status_topic, "online", 6, 1, 1);
-                ESP_LOGI(TAG, "Streamed %lu chunks (%lu bytes total)",
+                ESP_LOGI(TAG, "Streamed %lu chunks (%lu bytes total), slot hits L=%d R=%d",
                          (unsigned long)chunk_seq,
-                         (unsigned long)(chunk_seq * bytes_read));
+                         (unsigned long)(chunk_seq * publish_bytes),
+                         left_hits,
+                         right_hits);
             }
         }
     }
