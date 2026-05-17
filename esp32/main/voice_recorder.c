@@ -305,7 +305,7 @@ void audio_record_task(void *pvParameters) {
             // INMP441 data is left-aligned 24-bit in 32-bit word; shift right by 11
             int num_samples = (int)(bytes_read / sizeof(int32_t));
             for (int i = 0; i < num_samples; i++) {
-                chunk_buf[i] = (int16_t)(raw_buf[i] >> 11);
+                chunk_buf[i] = (int16_t)(raw_buf[i] >> 16);
             }
             int publish_bytes = num_samples * sizeof(int16_t);
 

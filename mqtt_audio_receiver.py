@@ -14,7 +14,7 @@ import signal
 import sys
 
 # ─── Config ───────────────────────────────────────────────────────────────────
-BROKER_HOST = "192.168.4.2"   # PC IP on SmartVoice-ESP32 WiFi
+BROKER_HOST = "127.0.0.1"   # PC IP on SmartVoice-ESP32 WiFi
 BROKER_PORT = 1883
 TOPIC = "voice/audio/ESP32_DEVICE_001"
 STATUS_TOPIC = "device/status/#"
@@ -25,7 +25,7 @@ SAMPLE_WIDTH = 2         # 16-bit = 2 bytes
 
 SAVE_DIR = os.path.join(os.path.dirname(__file__), "audio_recordings")
 # How many seconds of audio per file (0 = one continuous file until stopped)
-SECONDS_PER_FILE = 30    # split into 30-second files
+SECONDS_PER_FILE = 5    # split into 30-second files
 
 # ─── State ───────────────────────────────────────────────────────────────────
 wav_file = None
