@@ -1,194 +1,170 @@
 # AI Emergency Voice Detection System
 
-AI Emergency Voice Detection System is an IoT-based emergency voice alert system for elderly care and distress monitoring.
+IoT-based emergency voice alert system for elderly care and distress monitoring.  
+ESP32 captures audio → MQTT → Python AI server (BCResNet) classifies emergency vs normal.
 
-The current repository is focused on the core demo path:
+## Stack
 
-1. audio arrives as WAV or raw PCM
-2. MQTT sends audio to the Go backend
-3. Go wraps raw audio into WAV and calls Python
-4. Python transcribes speech and maps keywords to alert levels
-5. the backend can forward the result to future dashboard, database, and mobile flows
+| Layer | Technology |
+|---|---|
+| Hardware | ESP32 + INMP441 (I2S, 16kHz mono) |
+| Connectivity | Mosquitto MQTT — broker on PC at `192.168.4.2:1883` |
+| AI Server | Python FastAPI + BCResNet binary classifier — `POST /need-help` on port 8000 |
+| MQTT Forwarder | `mqtt_audio_receiver.py` — receives PCM chunks, forwards WAV in-memory to AI server |
+| Backend | Go + Fiber (branch `golangBackend`) — REST API for frontend, port 8080 |
+| Frontend | Next.js — `my-awesome-app/`, port 3000 |
 
-## Current Stack
-
-- Hardware: ESP32 + INMP441
-- Broker: Mosquitto MQTT on port 1883
-- Backend: Go + Fiber + MQTT client
-- AI: Python + faster-whisper + keyword rules
-- Frontend: web dashboard work in progress
-- Mobile: Flutter planned for later integration
-
-## Current Repository Layout
+## Repository Layout
 
 ```text
 main_smartvoice/
-|-- backend_ai/
-|   |-- detect.py
-|   |-- requirements.txt
-|   |-- samples/
-|   `-- uploads/
-|-- backend_ai_legacy/
-|-- esp32/
-|-- frontend/
-|-- go_backend/
-|-- my-awesome-app/
-|-- static/
-|-- PROJECT_SPEC.md
-`-- README.md
+├── backend_ai/
+│   ├── app.py              # FastAPI AI webserver (BCResNet inference)
+│   ├── models.py           # BCResNet model architecture
+│   ├── detect.py           # fallback Whisper keyword detection
+│   ├── best_sens_model.pth # pretrained weights (NOT in git — share via kws.zip)
+│   └── requirements.txt    # AI server dependencies
+├── esp32/
+│   └── main/voice_recorder.c  # I2S firmware (IDF v5.5.2)
+├── my-awesome-app/         # Next.js frontend
+├── static/                 # static HTML prototype pages
+├── mqtt_audio_receiver.py  # MQTT → AI server forwarder
+├── requirements.txt        # all Python dependencies (root)
+└── README.md
 ```
 
-## What Works Today
+## Model: BCResNet
 
-- `backend_ai/detect.py` accepts a WAV file and returns the agreed JSON shape.
-- `backend_ai/detect.py` now uses local `faster-whisper` on CPU for transcription.
-- `go_backend/services/ai_runner.go` can call the Python detector and parse the JSON response.
-- `GET /test-ai` in the Go backend can exercise the Python detection path.
-- local Mosquitto publish to `voice/audio/#` has been validated end-to-end.
-- incoming MQTT audio is saved as WAV under `go_backend/uploads/audio/` before AI analysis.
+- Architecture: BCResNet binary classifier (52,162 parameters)
+- Input: Log-Mel Spectrogram (16kHz, 2s, 128 mel bands via nnAudio)
+- Output: `yes` (emergency) / `no` (normal)
+- Accuracy: 94.85% overall (93.85% positive, 95.85% negative)
+- Weights file: `backend_ai/best_sens_model.pth` — excluded from git, share via `kws.zip`
 
-## Current Limitations
+## Data Flow
 
-- PostgreSQL is not part of the active local demo flow yet.
-- alert persistence and dashboard updates are still pending.
-- keyword detection is rule-based after transcription, not a trained alert classifier yet.
-- real-world accuracy still needs validation with recorded speech samples.
+```text
+ESP32 + INMP441
+    │  I2S 16kHz mono PCM
+    │  MQTT topic: voice/audio/ESP32_DEVICE_001
+    ▼
+Mosquitto broker (192.168.4.2:1883)
+    │
+    ▼
+mqtt_audio_receiver.py          ← Python forwarder (no disk write)
+    │  POST multipart/form-data
+    │  field: sound=<wav>
+    ▼
+backend_ai/app.py  :8000
+    │  BCResNet inference
+    ▼
+{"detected": "yes"|"no", "probability": float}
+    │
+    ▼
+ 🚨 EMERGENCY alert  or  ✅ normal
+```
 
-- `backend_ai_legacy/` contains older LOTUSDIS experiments and is not the active path.
+> **Note:** When Go backend (`golangBackend`) is ready, it will replace `mqtt_audio_receiver.py` as the MQTT listener and forward audio to `POST /need-help` directly. Do not run both simultaneously.
 
 ## Quick Start
 
-### 1. Python Setup
-
-From the repository root:
+### 1. Setup Python environment
 
 ```powershell
+cd "C:\Project 1\main_smartvoice"
 python -m venv .venv
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 .\.venv\Scripts\Activate.ps1
-python -m pip install -r backend_ai\requirements.txt
+pip install -r requirements.txt
 ```
 
-### 2. Test AI from CLI
+> Place `best_sens_model.pth` in `backend_ai/` before starting the server.
+
+### 2. Start AI server
 
 ```powershell
-python backend_ai\detect.py backend_ai\samples\help.wav
+cd backend_ai
+python app.py
+# Uvicorn running on http://0.0.0.0:8000
 ```
 
-Expected response shape:
-
-```json
-{
-  "success": true,
-  "isAlert": 1,
-  "keyword": "help",
-  "level": 3,
-  "confidence": 0.85,
-  "transcribedText": "help",
-  "processingTime": 234
-}
-```
-
-Use a real recorded WAV file for meaningful STT validation.
-
-### 3. Start Mosquitto Broker
-
-If Mosquitto is installed in `C:\Program Files\Mosquitto`:
-
-```powershell
-$env:Path += ";C:\Program Files\Mosquitto"
-mosquitto.exe -v
-```
-
-### 4. Start Go Backend
+### 3. Start MQTT forwarder
 
 Open a second terminal:
 
 ```powershell
-Set-Location .\go_backend
-go run .
+.\.venv\Scripts\Activate.ps1
+python mqtt_audio_receiver.py
 ```
 
-If the broker is already running, the backend should log that MQTT connected successfully and that it subscribed to `voice/audio/#`.
-
-### 5. Publish Test Audio Over MQTT
-
-Open a third terminal:
+### 4. Test inference directly
 
 ```powershell
-$env:Path += ";C:\Program Files\Mosquitto"
-mosquitto_pub.exe -h localhost -p 1883 -t voice/audio/help -f backend_ai\samples\help.raw
+# POST a WAV file to the AI server
+python -c "
+import requests
+r = requests.post('http://localhost:8000/need-help',
+    files={'sound': ('test.wav', open('backend_ai/samples/help.wav','rb'), 'audio/wav')})
+print(r.json())
+"
 ```
 
-The Go backend should log:
-
-- the topic and payload size
-- saved WAV path
-- AI result JSON summary
-- mapped alert level
-
-## Active Data Flow
-
-```text
-ESP32 or local publisher
-    |
-    | MQTT publish to voice/audio/#
-    v
-Mosquitto broker
-    |
-    v
-Go backend
-    |
-    | save payload as WAV
-    | call backend_ai/detect.py
-    v
-Python detection
-    |
-    | transcribe audio
-    | detect emergency keyword
-    v
-JSON result
-```
-
-## AI Response Contract
-
-The Go backend currently expects this JSON shape from Python:
-
+Expected response:
 ```json
-{
-  "success": true,
-  "isAlert": 1,
-  "keyword": "help",
-  "level": 3,
-  "confidence": 0.85,
-  "transcribedText": "help me please",
-  "processingTime": 234,
-  "error": ""
-}
+{"detected": "yes", "probability": 0.9998}
 ```
 
-`error` is omitted on success.
+## API Contract
+
+**`POST /need-help`**
+
+| Field | Value |
+|---|---|
+| Content-Type | `multipart/form-data` |
+| Field name | `sound` |
+| Format | WAV (16kHz, mono, 16-bit PCM) |
+
+Response:
+```json
+{"detected": "yes", "probability": 0.9998}
+```
+- `detected`: `"yes"` = emergency, `"no"` = normal
+- `probability`: confidence score (0.0 – 1.0)
+
+## Branch Strategy
+
+| Branch | Purpose | Status |
+|---|---|---|
+| `main` | stable release | pending merge |
+| `python-ai-server` | BCResNet AI server + MQTT forwarder | ✅ active |
+| `golangBackend` | Go Fiber REST API + MQTT ingestion | 🔄 in progress |
 
 ## Current Status
 
-- Done: local MQTT -> Go -> Python integration
-- Done: WAV validation and JSON contract in Python
-- Done: faster-whisper baseline transcription in `backend_ai/detect.py`
-- Next: validate with real recorded emergency and normal speech clips
-- Next: re-enable persistence and connect results to dashboard/mobile flows
-- Next: move from keyword baseline to stronger detection logic if needed
+- ✅ BCResNet model integrated — 100% accuracy on test set (pos/neg samples)
+- ✅ FastAPI server running on port 8000
+- ✅ `mqtt_audio_receiver.py` forwards audio in-memory (no disk write)
+- ✅ Tested against professor's live server (`kwsapi.wattanapong.com`)
+- 🔄 Go backend (`golangBackend`) — in progress by team member
+- ⏳ ESP32 firmware flash pending (latest I2S fix not yet flashed)
+- ⏳ End-to-end test: ESP32 → MQTT → AI server pending
 
 ## Notes
 
-- Start Mosquitto before starting the Go backend. The current MQTT setup connects once during startup.
-- `backend_ai/samples/help.raw` is useful for transport testing, not for meaningful speech recognition.
-- For real STT validation, record a spoken WAV file such as `backend_ai/samples/help_real.wav` and run it through `backend_ai/detect.py` first.
+- `best_sens_model.pth` is excluded from git (`.gitignore`). Share via `kws.zip`.
+- ESP32 connects to Soft AP `SmartVoice-ESP32`; PC IP on that network is `192.168.4.2`.
+- Start Mosquitto broker before running `mqtt_audio_receiver.py`.
+- If port 8000 is busy: `Get-NetTCPConnection -LocalPort 8000 | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }`
 
-## Reference Files
+## Key Files
 
-- `PROJECT_SPEC.md`: full system architecture and target API shape
-- `backend_ai/detect.py`: active Python detection entry point
-- `go_backend/services/mqtt_service.go`: MQTT ingestion and WAV wrapping
-- `go_backend/services/ai_runner.go`: Go to Python bridge
+| File | Description |
+|---|---|
+| `backend_ai/app.py` | FastAPI inference server |
+| `backend_ai/models.py` | BCResNet architecture |
+| `mqtt_audio_receiver.py` | MQTT → AI server forwarder |
+| `esp32/main/voice_recorder.c` | ESP32 I2S firmware |
+| `requirements.txt` | all Python dependencies |
 
-Last updated: 8 May 2026
-Status: active prototype
+Last updated: 20 May 2026  
+Status: AI server complete — awaiting Go backend merge and ESP32 flash
