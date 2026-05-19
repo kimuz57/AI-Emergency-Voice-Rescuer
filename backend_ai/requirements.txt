@@ -1,6 +1,7 @@
 # AI webserver (professor's app.py — BCResNet KWS model)
 fastapi
 uvicorn[standard]
+python-multipart
 torch
 torchaudio
 nnAudio
