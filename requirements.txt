@@ -1,0 +1,15 @@
+# ─── MQTT Audio Receiver (mqtt_audio_receiver.py) ────────────────────────────
+paho-mqtt
+requests
+
+# ─── AI Webserver (backend_ai/app.py + models.py) ────────────────────────────
+fastapi
+uvicorn[standard]
+python-multipart
+torch
+torchaudio
+nnAudio
+pydantic
+
+# ─── Fallback Whisper Detection (backend_ai/detect.py) ───────────────────────
+faster-whisper
