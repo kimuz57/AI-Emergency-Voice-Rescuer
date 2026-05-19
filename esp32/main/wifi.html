@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ตั้งค่า Wi-Fi สำหรับ ESP32</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #f4f7f6; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .container { 
+            background-color: white; 
+            padding: 30px; 
+            border-radius: 10px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+            text-align: center;
+            width: 100%;
+            max-width: 350px;
+        }
+        input { 
+            width: 90%; 
+            padding: 10px; 
+            margin: 10px 0; 
+            border: 1px solid #ccc; 
+            border-radius: 5px; 
+            font-size: 16px;
+        }
+        button { 
+            width: 95%; 
+            background-color: #28a745; 
+            color: white; 
+            border: none; 
+            padding: 12px; 
+            font-size: 16px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin-top: 10px;
+        }
+        button:hover { background-color: #218838; }
+        #statusMessage { margin-top: 15px; font-weight: bold; color: #007bff; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>เชื่อมต่อเครือข่าย Wi-Fi</h2>
+        <p>กรุณากรอกชื่อและรหัสผ่าน Wi-Fi บ้านของคุณ</p>
+        
+        <form id="wifiForm">
+            <input type="text" id="ssid" placeholder="ชื่อ Wi-Fi (SSID)" required>
+            <input type="password" id="password" placeholder="รหัสผ่าน Wi-Fi" required>
+            <button type="submit">เชื่อมต่อ Wi-Fi</button>
+        </form>
+
+        <p id="statusMessage"></p>
+    </div>
+
+    <script>
+        document.getElementById('wifiForm').addEventListener('submit', function(e) {
+            e.preventDefault(); 
+            var ssid = document.getElementById('ssid').value;
+            var password = document.getElementById('password').value;
+            var statusText = document.getElementById('statusMessage');
+
+            statusText.style.color = "#007bff";
+            statusText.innerHTML = "กำลังส่งข้อมูลไปยังบอร์ด...";
+
+            fetch('/connect', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'ssid=' + encodeURIComponent(ssid) + '&password=' + encodeURIComponent(password)
+            })
+            .then(response => response.text())
+            .then(data => {
+                statusText.style.color = "#28a745";
+                statusText.innerHTML = data; 
+            })
+            .catch(error => {
+                statusText.style.color = "red";
+                statusText.innerHTML = "เกิดข้อผิดพลาดในการเชื่อมต่อกับบอร์ด";
+            });
+        });
+    </script>
+
+</body>
+</html>

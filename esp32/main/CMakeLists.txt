@@ -1,6 +1,7 @@
 idf_component_register(
-    SRCS "voice_recorder.c"
+    SRCS "main.c"
     INCLUDE_DIRS "."
+    EMBED_TXTFILES "wifi.html"
     REQUIRES
         freertos
         lwip
@@ -12,4 +13,6 @@ idf_component_register(
         driver
         esp_timer
         esp_rom
+        esp_http_client
+        esp_http_server
 )
