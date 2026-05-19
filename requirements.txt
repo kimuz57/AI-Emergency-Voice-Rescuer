@@ -1,0 +1,23 @@
+# AI Emergency Voice Detection System - Requirements
+# Python 3.8+ required
+
+# ─── Audio Processing & Speech-to-Text ─────────────────────────────────────
+faster-whisper>=0.9.0          # OpenAI Whisper optimized for CPU
+librosa>=0.9.2                 # Audio feature extraction
+scipy>=1.7.0                   # Scientific computing for audio
+
+# ─── Machine Learning & Data Processing ─────────────────────────────────────
+numpy>=1.21.0                  # Numerical computing
+scikit-learn>=0.24.0           # Machine learning classification
+pandas>=1.1.0                  # Data manipulation and analysis
+
+# ─── MQTT Communication ─────────────────────────────────────────────────────
+paho-mqtt>=1.6.1               # MQTT client for broker communication
+
+# ─── Web Framework & API ────────────────────────────────────────────────────
+flask>=2.0.0                   # Web framework for AI API
+requests>=2.25.0               # HTTP client for API calls
+
+# ─── Utilities ───────────────────────────────────────────────────────────────
+python-dotenv>=0.19.0          # Environment variable management
+matplotlib>=3.3.0              # Data visualization (optional, for analysis)

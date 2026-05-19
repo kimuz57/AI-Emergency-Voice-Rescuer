@@ -5,12 +5,24 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
-// ฟังก์ชันสำหรับสร้าง "หัวไฟล์" WAV (WAV Header) เพื่อให้โปรแกรมเล่นเพลงรู้จัก
+// สร้างตัวแปรถังพักน้ำ และตัวล็อกเพื่อป้องกันข้อมูลชนกัน
+var (
+	audioBuffer []byte
+	bufferMutex sync.Mutex
+	// 1 วินาที = 32,000 bytes (16kHz, 16-bit, Mono)
+	// ตั้งเป้าเซฟไฟล์ละ 5 วินาที = 160,000 bytes
+	maxBufferSize = 160000 
+	// เปลี่ยนที่เซฟให้ตรงกับที่ Controller หน้าเว็บไปดึงข้อมูล
+	saveDir = "./audio_recordings" 
+)
+
+// ฟังก์ชันสำหรับสร้าง "หัวไฟล์" WAV (WAV Header)
 func createWAVHeader(dataSize uint32) []byte {
 	header := make([]byte, 44)
 	sampleRate := uint32(16000) // ตรงกับ I2S_SAMPLE_RATE ใน ESP32
@@ -36,55 +48,58 @@ func createWAVHeader(dataSize uint32) []byte {
 	return header
 }
 
-// ฟังก์ชันนี้จะทำงานอัตโนมัติทุกครั้งที่มีเสียงส่งมาจาก ESP32
+// ฟังก์ชันนี้จะทำงานอัตโนมัติเมื่อมีเสียงส่งมาจาก ESP32
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
-	topic := msg.Topic()
 	payload := msg.Payload()
 
-	fmt.Printf("ได้รับเสียงจาก Topic: %s (ขนาด: %d bytes)\n", topic, len(payload))
+	// ล็อกถังพักน้ำก่อนเติม เพื่อไม่ให้ข้อมูลจากหลายๆ message ตีกัน
+	bufferMutex.Lock()
+	defer bufferMutex.Unlock()
 
-	//1. สั่งให้สร้างโฟลเดอร์ uploads/audio (ถ้ายืนยันว่ายังไม่มีระบบจะสร้างให้)
-	os.MkdirAll("uploads/audio", os.ModePerm)
+	// 1. เทเศษเสียงลงถังพัก
+	audioBuffer = append(audioBuffer, payload...)
 
-	//2. เติมชื่อโฟลเดอร์เข้าไปข้างหน้าชื่อไฟล์
-	filename := fmt.Sprintf("uploads/audio/audio_%d.wav", time.Now().Unix())
+	// 2. เช็คว่าถังเต็มหรือยัง (ครบ 5 วินาทีหรือยัง?)
+	if len(audioBuffer) >= maxBufferSize {
+		os.MkdirAll(saveDir, os.ModePerm)
+		
+		filename := fmt.Sprintf("%s/audio_%d.wav", saveDir, time.Now().Unix())
+		dataSize := uint32(len(audioBuffer))
+		wavHeader := createWAVHeader(dataSize)
 
-	// เตรียมข้อมูล WAV Header
-	dataSize := uint32(len(payload))
-	wavHeader := createWAVHeader(dataSize)
+		// นำ Header มาต่อกับข้อมูลเสียงทั้งก้อน
+		fullWavData := append(wavHeader, audioBuffer...)
 
-	// นำ Header มาต่อกับข้อมูลเสียงที่ได้จาก ESP32
-	fullWavData := append(wavHeader, payload...)
+		// บันทึกเป็นไฟล์ .wav (เซฟแค่ 1 ครั้ง ได้เสียงยาว 5 วินาที)
+		err := os.WriteFile(filename, fullWavData, 0644)
+		if err != nil {
+			log.Println("❌ บันทึกไฟล์เสียงไม่สำเร็จ:", err)
+		} else {
+			fmt.Printf("✅ บันทึกไฟล์เสียงสำเร็จ 1 ไฟล์ (ความยาว 5 วินาที): %s\n", filename)
+		}
 
-	// บันทึกเป็นไฟล์ .wav
-	err := os.WriteFile(filename, fullWavData, 0644)
-	if err != nil {
-		log.Println("บันทึกไฟล์เสียงไม่สำเร็จ:", err)
-		return
+		// 3. เทน้ำทิ้ง (ล้างถัง) เพื่อรอรับเศษเสียงรอบต่อไป
+		audioBuffer = nil
 	}
-	fmt.Println("บันทึกไฟล์เสียงสำเร็จ:", filename)
 }
-
 
 // ฟังก์ชันสำหรับเปิดการเชื่อมต่อ MQTT
 func InitMQTT() {
 	opts := mqtt.NewClientOptions()
-	// เปลี่ยน IP ตรงนี้ให้เป็น IP ของ MQTT Broker
 	opts.AddBroker("tcp://localhost:1883") 
 	opts.SetClientID("Go_Backend_AI_Listener")
 	opts.SetDefaultPublishHandler(messagePubHandler)
 
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		log.Println("เชื่อมต่อ MQTT Broker ไม่สำเร็จ (ข้ามการทำงานส่วนนี้ไปก่อน):", token.Error())
+		log.Println("เชื่อมต่อ MQTT Broker ไม่สำเร็จ:", token.Error())
 		return
 	}
-	fmt.Println("Backend เชื่อมต่อ MQTT Broker สำเร็จแล้ว")
+	fmt.Println("✅ Backend เชื่อมต่อ MQTT Broker สำเร็จแล้ว")
 
-	// ดักฟัง Topic ที่ขึ้นต้นด้วย voice/audio/
 	topic := "voice/audio/#"
 	if token := client.Subscribe(topic, 1, nil); token.Wait() && token.Error() != nil {
 		log.Fatal(token.Error())
 	}
-	fmt.Printf("🎧 กำลังดักฟังข้อมูลเสียงที่ Topic: %s\n", topic)
+	fmt.Printf("🎧 กำลังดักฟังข้อมูลเสียงที่ Topic: %s (และจะตัดไฟล์ทุกๆ 5 วินาที)\n", topic)
 }

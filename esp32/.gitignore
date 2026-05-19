@@ -1,0 +1,34 @@
+# ESP-IDF build files
+build/
+sdkconfig.old
+sdkconfig.bak
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+env/
+
+# Build artifacts
+*.o
+*.a
+*.so
+*.elf
+*.bin
+
+# Temporary
+*.temp
+.cache/

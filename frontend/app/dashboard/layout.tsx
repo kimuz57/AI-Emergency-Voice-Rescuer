@@ -6,20 +6,22 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen flex flex-col bg-background">
+    <div className="relative min-h-screen flex flex-col bg-slate-50">
       
-      {/* 1. ส่วนหัว: เรียกใช้ Navbar Component ที่เราแยกไฟล์ไว้ */}
+      {/* 1. แสดงแถบเมนูด้านบน */}
       <Navbar />
 
-      {/* 2. ส่วนเนื้อหา: ตรงนี้คือที่อยู่ของหน้า page.tsx ของเราครับ */}
-      {children}
+      {/* 🔴 2. ตรงนี้แหละครับคือการใส่ {children} เพื่อเปิดพื้นที่ให้ไฟล์ page.tsx เข้ามาแสดงผลตรงกลาง */}
+      <main className="flex-1 w-full max-w-7xl mx-auto p-4 md:p-6">
+        {children}
+      </main>
 
-      {/* 3. ส่วนท้าย (Footer): ใส่ไว้ใน Layout เลย จะได้มีทุกหน้าใน Dashboard */}
-      <footer className="py-12 mt-auto border-t border-black/10">
-        <div className="max-w-7xl mx-auto px-10 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-500 text-xs uppercase tracking-[0.2em] font-bold">
-          <p>© 2024 Guardian AI</p>
+      {/* 3. ส่วนท้ายหน้าเว็บ (Footer) */}
+      <footer className="py-8 mt-auto border-t border-gray-200 bg-white">
+        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-500 text-xs uppercase tracking-[0.2em] font-bold">
+          <p>© 2026 Guardian AI</p>
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-sm">lock</span>
+            <span className="text-sm">🔒</span>
             <p>สภาพแวดล้อมที่เป็นส่วนตัวและปลอดภัย</p>
           </div>
         </div>
