@@ -1,3 +1,10 @@
-# milestone 1 uses only Python standard library
+# AI webserver (professor's app.py — BCResNet KWS model)
+fastapi
+uvicorn[standard]
+torch
+torchaudio
+nnAudio
+pydantic
 
+# fallback Whisper detection (detect.py)
 faster-whisper

@@ -35,8 +35,8 @@ SAMPLE_WIDTH = 2      # 16-bit PCM = 2 bytes
 
 # URL ของ AI webserver
 # ทดสอบกับ server อาจารย์ : "https://kwsapi.wattanapong.com/need-help"
-# ใช้งานจริง (local)      : "http://localhost:5000/need-help"
-AI_SERVER_URL = "http://localhost:5000/need-help"
+# ใช้งานจริง (local)      : "http://localhost:8000/need-help"
+AI_SERVER_URL = "http://localhost:8000/need-help"
 AI_REQUEST_TIMEOUT = 10  # วินาที
 
 # ส่งไปวิเคราะห์ทุกกี่วินาที
@@ -74,8 +74,10 @@ def _send_to_ai_server(pcm_bytes: bytes, device_id: str = "ESP32_DEVICE_001") ->
         )
         if resp.ok:
             result = resp.json()
-            label = result.get("label", result.get("result", result))
-            print(f"[AI] ✓ {device_id} → {label}  (raw: {result})")
+            detected = result.get("detected", "?")      # "yes" or "no"
+            probability = result.get("probability", 0.0)
+            flag = "🚨 EMERGENCY" if detected == "yes" else "✅ normal"
+            print(f"[AI] {flag}  device={device_id}  prob={probability:.4f}")
         else:
             print(f"[AI] ✗ Server returned {resp.status_code}: {resp.text[:200]}")
     except requests.exceptions.ConnectionError:
@@ -180,8 +182,6 @@ if __name__ == "__main__":
         client.loop_forever()
     except KeyboardInterrupt:
         signal_handler(None, None)
-
-        signal_handler(None, None)
-    except Exception as e:
-        print(f"[ERROR] {e}")
-        close_recording()
+    except Exception as exc:
+        print(f"[ERROR] {exc}")
+        _flush_buffer()
