@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic
+torch
+torchaudio
+nnAudio
+faster-whisper>=0.9.0
+librosa>=0.9.2
+scipy>=1.7.0
+numpy>=1.21.0
+scikit-learn>=0.24.0
+pandas>=1.1.0
