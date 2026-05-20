@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"go_backend/config" // 🟢 นำเข้า config ที่เราสร้างไว้
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -17,12 +19,14 @@ var (
 	bufferMutex sync.Mutex
 	// 1 วินาที = 32,000 bytes (16kHz, 16-bit, Mono)
 	// ตั้งเป้าเซฟไฟล์ละ 5 วินาที = 160,000 bytes
-	maxBufferSize = 160000 
+	maxBufferSize = 160000
 	// เปลี่ยนที่เซฟให้ตรงกับที่ Controller หน้าเว็บไปดึงข้อมูล
-	saveDir = "./audio_recordings" 
+	saveDir = "./audio_recordings"
 )
 
+// ---------------------------------------------------------
 // ฟังก์ชันสำหรับสร้าง "หัวไฟล์" WAV (WAV Header)
+// ---------------------------------------------------------
 func createWAVHeader(dataSize uint32) []byte {
 	header := make([]byte, 44)
 	sampleRate := uint32(16000) // ตรงกับ I2S_SAMPLE_RATE ใน ESP32
@@ -48,7 +52,9 @@ func createWAVHeader(dataSize uint32) []byte {
 	return header
 }
 
-// ฟังก์ชันนี้จะทำงานอัตโนมัติเมื่อมีเสียงส่งมาจาก ESP32
+// ---------------------------------------------------------
+// ฟังก์ชันจัดการข้อความที่รับมาจาก MQTT (ดักจับเสียง)
+// ---------------------------------------------------------
 var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
 	payload := msg.Payload()
 
@@ -62,7 +68,7 @@ var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Me
 	// 2. เช็คว่าถังเต็มหรือยัง (ครบ 5 วินาทีหรือยัง?)
 	if len(audioBuffer) >= maxBufferSize {
 		os.MkdirAll(saveDir, os.ModePerm)
-		
+
 		filename := fmt.Sprintf("%s/audio_%d.wav", saveDir, time.Now().Unix())
 		dataSize := uint32(len(audioBuffer))
 		wavHeader := createWAVHeader(dataSize)
@@ -83,19 +89,27 @@ var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Me
 	}
 }
 
+// ---------------------------------------------------------
 // ฟังก์ชันสำหรับเปิดการเชื่อมต่อ MQTT
+// ---------------------------------------------------------
 func InitMQTT() {
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker("tcp://localhost:1883") 
-	opts.SetClientID("Go_Backend_AI_Listener")
+
+	// 🟢 ดึงค่า Host และ Port จากไฟล์ .env
+	brokerHost := config.GetEnv("MQTT_BROKER_HOST", "localhost")
+	brokerPort := config.GetEnv("MQTT_BROKER_PORT", "1883")
+	brokerURL := fmt.Sprintf("tcp://%s:%s", brokerHost, brokerPort)
+
+	opts.AddBroker(brokerURL)
+	opts.SetClientID("Go_Backend_Audio_Recorder") // เปลี่ยนชื่อให้สื่อความหมายชัดเจนขึ้น
 	opts.SetDefaultPublishHandler(messagePubHandler)
 
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		log.Println("เชื่อมต่อ MQTT Broker ไม่สำเร็จ:", token.Error())
+		log.Println("❌ เชื่อมต่อ MQTT Broker ไม่สำเร็จ:", token.Error())
 		return
 	}
-	fmt.Println("✅ Backend เชื่อมต่อ MQTT Broker สำเร็จแล้ว")
+	fmt.Printf("✅ Backend เชื่อมต่อ MQTT Broker สำเร็จแล้ว (%s)\n", brokerURL)
 
 	topic := "voice/audio/#"
 	if token := client.Subscribe(topic, 1, nil); token.Wait() && token.Error() != nil {

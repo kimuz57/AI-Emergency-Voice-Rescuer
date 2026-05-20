@@ -2,7 +2,7 @@
 
 ## 📋 ภาพรวมโปรเจ็กต์
 
-SmartVoice เป็นระบบตรวจจับเสียงขอความช่วยเหลือแบบ Real-time โดยใช้ AI (Keyword Spotting) ที่ทำงานบน Microcontroller (ESP32) และโครงสร้างแบบ Distributed System ประกอบด้วยส่วนต่างๆ:
+KWS เป็นระบบตรวจจับเสียงขอความช่วยเหลือแบบ Real-time โดยใช้ AI (Keyword Spotting) ที่ทำงานบน Microcontroller (ESP32) และโครงสร้างแบบ Distributed System ประกอบด้วยส่วนต่างๆ:
 
 - **Backend Go (API Server)**: เซิร์ฟเวอร์หลักที่จัดการ API, Authentication, Database, และ MQTT Communication
 - **Backend AI (Python)**: เซิร์ฟเวอร์สำหรับ AI Model (BCResNet) สำหรับ Keyword Spotting
@@ -398,39 +398,6 @@ Write-Host "MQTT Broker: 127.0.0.1:1883" -ForegroundColor Yellow
 
 ---
 
-## 🧪 ทดสอบการเชื่อมต่อ
-
-### ทดสอบ MQTT Broker
-
-```bash
-# ติดตั้ง MQTT client
-pip install paho-mqtt
-
-# หรือใช้ mosquitto_sub/mosquitto_pub
-mosquitto_sub -h 127.0.0.1 -t "voice/audio/#"
-```
-
-### ทดสอบ Go API
-
-```bash
-curl http://localhost:8080/api/health
-
-# หรือใช้ Postman/Insomnia
-```
-
-### ทดสอบ AI Backend
-
-```bash
-curl http://localhost:8000/docs
-# หรือเปิด http://localhost:8000/docs ในเบราว์เซอร์
-```
-
-### ทดสอบ Frontend
-
-เปิด http://localhost:3000 ในเบราว์เซอร์
-
----
-
 ## 🐛 Troubleshooting
 
 ### 1. PostgreSQL Connection Error
@@ -519,155 +486,6 @@ MQTT: No messages received
 
 ---
 
-## 📚 API Endpoints (Go Backend - Port 8080)
-
-### Authentication
-
-- `POST /api/auth/register` - สมัครสมาชิก
-- `POST /api/auth/login` - เข้าสู่ระบบ
-- `POST /api/auth/logout` - ออกจากระบบ
-- `POST /api/auth/refresh-token` - รีเฟรช Token
-
-### Patients
-
-- `GET /api/patients` - ดูรายชื่อผู้ป่วย
-- `POST /api/patients` - สร้างผู้ป่วยใหม่
-- `GET /api/patients/{id}` - ดูรายละเอียดผู้ป่วย
-- `PUT /api/patients/{id}` - อัปเดตผู้ป่วย
-- `DELETE /api/patients/{id}` - ลบผู้ป่วย
-
-### Alerts & History
-
-- `GET /api/alerts` - ดูประวัติการแจ้งเตือน
-- `GET /api/alerts/{id}` - ดูรายละเอียดการแจ้งเตือน
-- `POST /api/alerts` - สร้างการแจ้งเตือนใหม่
-
-### Devices
-
-- `GET /api/devices` - ดูรายชื่ออุปกรณ์ ESP32
-- `POST /api/devices` - ลงทะเบียนอุปกรณ์ใหม่
-- `PUT /api/devices/{id}/status` - อัปเดตสถานะอุปกรณ์
-
-### Health
-
-- `GET /api/health` - ตรวจสอบสถานะเซิร์ฟเวอร์
-
----
-
-## 🤖 AI Backend API (Port 8000)
-
-### Keyword Spotting
-
-- `POST /need-help` - ส่งไฟล์เสียง WAV สำหรับตรวจจับเสียง "Help"
-- `GET /docs` - Swagger API Documentation
-- `GET /redoc` - ReDoc Documentation
-
-**Request Body**:
-
-```json
-{
-  "audio": "Base64-encoded WAV file or file upload"
-}
-```
-
-**Response**:
-
-```json
-{
-  "detected": true/false,
-  "confidence": 0.95,
-  "emotion": "urgent",
-  "processing_time_ms": 245
-}
-```
-
----
-
-## 📦 Docker Commands
-
-```bash
-# เรียกใช้ MQTT Broker
-docker-compose up -d
-
-# หยุดการทำงาน
-docker-compose down
-
-# ดูสถานะ
-docker-compose ps
-
-# ดูเลย์
-docker-compose logs -f
-
-# Remove volumes
-docker-compose down -v
-```
-
----
-
-## 🔐 Environment Variables
-
-### Go Backend (`.env`)
-
-```env
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_NAME=smartvoice
-JWT_SECRET=your_super_secret_key
-MQTT_BROKER=127.0.0.1
-MQTT_PORT=1883
-```
-
-### Frontend (`.env.local`)
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8080
-NEXT_PUBLIC_MQTT_BROKER=ws://localhost:9001
-```
-
----
-
-## 📊 Database Schema (PostgreSQL)
-
-ตรวจสอบ:
-
-- `go_backend/database/` สำหรับ migration files
-- `go_backend/models/models.go` สำหรับ data structure
-
----
-
-## 🎯 Next Steps
-
-1. **เตรียม ESP32 Firmware**:
-
-   ```bash
-   cd esp32
-   idf.py build
-   idf.py flash monitor
-   ```
-
-2. **Deploy to Production**:
-   - ใช้ Docker Compose สำหรับ Production environment
-   - ตั้งค่า environment variables ที่ปลอดภัย
-   - ใช้ SSL/TLS สำหรับ HTTPS
-
-3. **Monitoring & Logging**:
-   - ตั้งค่า Log aggregation (ELK Stack, Datadog)
-   - ตั้งค่า Alert notification system
-
----
-
-## 📞 Support & Contact
-
-หากมีปัญหาหรือคำถาม:
-
-1. ตรวจสอบ Troubleshooting section
-2. ดูไฟล์บันทึก (logs) ของแต่ละ service
-3. ดู GitHub Issues (ถ้ามี)
-
----
-
 ## 📄 License
 
 [เพิ่มข้อมูล License ตามต้องการ]
@@ -675,4 +493,4 @@ NEXT_PUBLIC_MQTT_BROKER=ws://localhost:9001
 ---
 
 **Last Updated**: May 2026
-**Version**: 1.0.0
+**Version**: 1.0.1

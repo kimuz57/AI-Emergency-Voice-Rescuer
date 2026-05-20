@@ -7,6 +7,9 @@ from pathlib import Path
 
 from faster_whisper import WhisperModel
 
+# 🟢 นำเข้า config ของเรา
+import config
+
 # ─────────────────────────────────────────────────────────────────────────────
 # NEW MODEL INTEGRATION
 # เมื่อได้รับไฟล์โมเดลจากอาจารย์:
@@ -22,10 +25,10 @@ from faster_whisper import WhisperModel
 # ─────────────────────────────────────────────────────────────────────────────
 
 # วางไฟล์โมเดลไว้ใน backend_ai/models/ แล้วเปลี่ยนชื่อด้านล่าง
-# ตัวอย่าง: "emergency_model.h5"  /  "emergency_model.pt"  /  "emergency_model.pkl"
 MODEL_FILE = Path(__file__).parent / "models" / "emergency_model.pkl"
 
-EMERGENCY_THRESHOLD = 0.35  # ถ้า confidence >= นี้ → emergency
+# 🟢 ดึงค่า Threshold จาก .env (ไม่ต้อง hardcode แล้ว)
+EMERGENCY_THRESHOLD = config.EMERGENCY_THRESHOLD
 
 _classifier = None
 
@@ -70,7 +73,6 @@ def _extract_features(audio_path: Path):
     """
     แปลง WAV → feature vector สำหรับโมเดล
     TODO: เปลี่ยนตาม input ที่โมเดลของอาจารย์ต้องการ (MFCC / mel-spectrogram / ฯลฯ)
-    ค่า default ด้านล่างใช้ MFCC 40 bands เป็น baseline
     """
     import numpy as np  # noqa: PLC0415
 
@@ -79,16 +81,14 @@ def _extract_features(audio_path: Path):
     except ImportError as exc:
         raise ImportError("pip install librosa") from exc
 
-    y, sr = librosa.load(str(audio_path), sr=16000, mono=True)
+    y, sr = librosa.load(str(audio_path), sr=config.SAMPLE_RATE, mono=True) # 🟢 ใช้ sr จาก config
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=40)
-    return mfcc.mean(axis=1).reshape(1, -1)  # shape (1, 40) — ปรับถ้าโมเดลต้องการ shape อื่น
+    return mfcc.mean(axis=1).reshape(1, -1) 
 
 
 def _predict_with_model(audio_path: Path) -> tuple[str, float]:
     """
     คืน (label, confidence)
-      label: "emergency" หรือ "normal"
-      confidence: 0.0–1.0 (probability ของ emergency)
     ถ้ายังไม่มีโมเดล raise FileNotFoundError → analyze_audio() จะ fallback ไป Whisper
     """
     clf = _load_classifier()
@@ -99,11 +99,11 @@ def _predict_with_model(audio_path: Path) -> tuple[str, float]:
 
     # TODO: ยกเลิก comment ตาม format ที่โมเดลของอาจารย์คืนมา ────────────────
 
-    # scikit-learn (predict_proba คืน [[prob_normal, prob_emergency]])
+    # scikit-learn
     # proba = clf.predict_proba(features)[0]
     # confidence = float(proba[1])
 
-    # Keras (output layer sigmoid → single probability)
+    # Keras
     # confidence = float(clf.predict(features, verbose=0)[0][0])
 
     # PyTorch
@@ -128,11 +128,7 @@ def _predict_with_model(audio_path: Path) -> tuple[str, float]:
 
 KEYWORDS_BY_LEVEL = {
     4: ["หายใจ", "หมดสติ", "ไฟไหม้", "เลือด", "breathing", "unconscious", "fire", "blood"],
-    3: [
-        "ช่วยด้วย", "ช่วย", "เจ็บ", "ปวด", "ล้ม", "ฉุกเฉิน",
-        "โรงพยาบาล", "รถพยาบาล", "help", "hurt", "pain",
-        "fall", "emergency", "hospital", "ambulance",
-    ],
+    3: ["ช่วยด้วย", "ช่วย", "เจ็บ", "ปวด", "ล้ม", "ฉุกเฉิน", "โรงพยาบาล", "รถพยาบาล", "help", "hurt", "pain", "fall", "emergency", "hospital", "ambulance"],
     2: ["ไม่สบาย", "ยา", "หมอ", "sick", "medicine", "doctor"],
 }
 
@@ -143,9 +139,7 @@ CONFIDENCE_BY_LEVEL = {
     1: 0.30,
 }
 
-MODEL_SIZE = "base"
 _model = None
-
 
 def normalize_text(text: str) -> str:
     text = text.replace("_", " ").replace("-", " ")
@@ -183,8 +177,9 @@ def read_wav_info(audio_path: Path) -> dict:
 def get_model() -> WhisperModel:
     global _model
     if _model is None:
+        # 🟢 ดึงขนาดโมเดลจาก config
         _model = WhisperModel(
-            MODEL_SIZE,
+            config.WHISPER_MODEL_SIZE,
             device="cpu",
             compute_type="int8",
         )
@@ -222,7 +217,6 @@ def build_success_result(transcribed_text: str, keyword: str, level: int) -> dic
 
 
 def _build_model_result(label: str, confidence: float) -> dict:
-    """แปลง output ของโมเดลใหม่ → response format เดิม (เพื่อ backward compat)"""
     is_emergency = label == "emergency"
     return {
         "success": True,
@@ -286,7 +280,7 @@ def main() -> int:
     start_time = time.perf_counter()
 
     if len(sys.argv) != 2:
-        result = make_error("Usage: python backend_ai/detect.py <audio.wav>")
+        result = make_error("Usage: python detect.py <audio.wav>")
         result["processingTime"] = int((time.perf_counter() - start_time) * 1000)
         print(json.dumps(result, ensure_ascii=False, indent=2))
         return 1

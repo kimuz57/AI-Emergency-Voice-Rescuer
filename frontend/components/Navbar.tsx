@@ -22,9 +22,17 @@ export default function Navbar() {
   // 🟢 2. ฟังก์ชันยิงไปดึงโปรไฟล์จริงจาก Go Backend
   const fetchUserProfile = async () => {
     try {
-      let targetEmail = localStorage.getItem("userEmail");
-      console.log("👉 [1] ค่าที่อ่านได้จาก localStorage คือ:", targetEmail); // 🔴 จุดดักที่ 1
+      // 🟢 1. ดึง URL หลังบ้านจากหน้าต่าง .env (หากไม่มีให้เลือกใช้ localhost:8080 เป็นตัวสำรอง)
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+      let targetEmail = localStorage.getItem("userEmail");
+      console.log("👉 [1] ค่าที่อ่านได้จาก localStorage คือ:", targetEmail);
+
+      // 🟢 2. เรียกดึงข้อมูล Session มารอไว้เลย เผื่อต้องใช้ทั้งเรื่องอีเมลและดึงรูปภาพมาสลับสวมรอย
+      const sessionRes = await fetch("/api/auth/session");
+      const session = await sessionRes.json();
+
+      // เช็คว่าใน localStorage ไม่มีอีเมลจริงไหม
       if (
         !targetEmail ||
         targetEmail === "null" ||
@@ -32,10 +40,8 @@ export default function Navbar() {
       ) {
         console.log(
           "👉 [2] ไม่มีใน localStorage! กำลังพยายามดึงจาก Google NextAuth...",
-        ); // 🔴 จุดดักที่ 2
-
-        const session = await getSession();
-        console.log("👉 [3] ข้อมูล Session จาก Google คือ:", session); // 🔴 จุดดักที่ 3
+        );
+        console.log("👉 [3] ข้อมูล Session จาก Google คือ:", session);
 
         if (session?.user?.email) {
           targetEmail = session.user.email;
@@ -47,6 +53,7 @@ export default function Navbar() {
         }
       }
 
+      // ด่านตรวจสุดท้าย: ถ้าหาอีเมลไม่ได้เลยสักทาง ให้เบรกระบบ
       if (
         !targetEmail ||
         targetEmail === "null" ||
@@ -54,65 +61,38 @@ export default function Navbar() {
       ) {
         console.log(
           "❌ [5] สรุปคือหาอีเมลไม่เจอเลยสักทาง! ระบบหยุดดึงข้อมูลโปรไฟล์",
-        ); // 🔴 จุดดักที่ 4
+        );
         return;
       }
 
+      // 🟢 3. ได้อีเมลชัวร์ๆ แล้ว ยิง API ไปถาม Go Backend โดยใช้ค่า apiUrl จาก env
       console.log(
         "✅ [6] ได้อีเมลแล้ว กำลังยิงไปถาม Go Backend ด้วยอีเมล:",
         targetEmail,
-      ); // 🔴 จุดดักที่ 5
+      );
       const res = await fetch(
-        `http://localhost:8080/api/user/profile?email=${targetEmail}`,
+        `${apiUrl}/api/user/profile?email=${targetEmail}`,
       );
 
       if (res.ok) {
         const data = await res.json();
-        console.log("✅ [7] ข้อมูลที่ Go Backend ตอบกลับมาคือ:", data); // 🔴 จุดดักที่ 6
-        setUser(data);
-      } else {
-        console.log("❌ [8] Go Backend บอกว่าหาอีเมลนี้ไม่เจอใน Database!"); // 🔴 จุดดักที่ 7
-      }
-    } catch (error) {
-      console.error("💥 ล้มเหลว:", error);
-    }
-    try {
-      // 🟢 1. แวะไปถาม NextAuth ก่อนว่ามีข้อมูลเซสชันของ Google ไหม?
-      const sessionRes = await fetch("/api/auth/session");
-      const session = await sessionRes.json();
+        console.log("✅ [7] ข้อมูลที่ Go Backend ตอบกลับมาคือ:", data);
 
-      let targetEmail = localStorage.getItem("userEmail");
-
-      // 🟢 2. ถ้าดึงข้อมูลจาก Google สำเร็จ ให้เอาอีเมลมาอัปเดตลง localStorage ทันที!
-      // (ทำแบบนี้หน้า Dashboard ที่รอดึงอีเมลอยู่ ก็จะทำงานได้ปกติไปด้วยครับ)
-      if (session?.user?.email) {
-        targetEmail = session.user.email;
-        localStorage.setItem("userEmail", targetEmail);
-      }
-
-      // 🟢 3. เช็คด่านสุดท้าย ถ้ายังไงก็ไม่มีอีเมล ให้เบรกไว้แค่นี้
-      if (
-        !targetEmail ||
-        targetEmail === "null" ||
-        targetEmail === "undefined"
-      ) {
-        console.log("❌ ยังไม่มีข้อมูลอีเมลข้ามไปก่อน");
-        return;
-      }
-
-      // 🟢 4. ยิงไปดึงข้อมูลเต็มๆ (บทบาท/ชื่อ) จาก Go Backend ของเรา
-      const res = await fetch(
-        `http://localhost:8080/api/user/profile?email=${targetEmail}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-
-        // 💡 ทริคพิเศษ: ถ้า Go Backend ไม่มีรูปโปรไฟล์เซฟไว้ ให้ดึงรูปจาก Google มาโชว์แทนซะเลย!
-        if (!data.profileImage && session?.user?.image) {
-          data.profileImage = session.user.image;
+        // 🟢 4. ทริคเด็ดเรื่องรูปภาพ: ถ้า Go หลังบ้านไม่มีรูป หรือส่งมาเป็นค่าว่าง/รูปแตก
+        // แต่ใน Google Session มีรูปหล่อๆ อยู่ ให้เอารูป Google มาเสียบแทนทันที
+        if (
+          !data.profileImage ||
+          data.profileImage === "" ||
+          data.profileImage.includes("picture/0")
+        ) {
+          if (session?.user?.image) {
+            data.profileImage = session.user.image;
+          }
         }
 
-        setUser(data); // อัปเดตข้อมูลขึ้นหน้าเว็บ
+        setUser(data); // อัปเดต State ขึ้นหน้าเว็บ
+      } else {
+        console.log("❌ [8] Go Backend บอกว่าหาอีเมลนี้ไม่เจอใน Database!");
       }
     } catch (error) {
       console.error("💥 ล้มเหลวในการดึงข้อมูลโปรไฟล์:", error);
