@@ -68,7 +68,7 @@ func SetupRoutes(app *fiber.App) {
 		audioGroup.Get("/", controllers.ListAudioFiles)
 		audioGroup.Get("/:filename", controllers.GetAudioFile)
 		audioGroup.Delete("/:filename", controllers.DeleteAudioFile)
-
+        
         
 	}
 }

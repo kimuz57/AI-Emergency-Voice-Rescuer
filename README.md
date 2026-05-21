@@ -38,7 +38,7 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
              ▼
 ┌─────────────────────────────────┐
 │  Go Backend  (Fiber)            │
-│  Port 3001                      │
+│  Port 8080                      │
 │  ├─ Auth (Auth0 OAuth2)         │
 │  ├─ REST API                    │
 │  └─ WebSocket for Frontend      │
@@ -58,7 +58,7 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 
 ```
 1. ESP32 บันทึกเสียง I2S 16kHz
-   └── publish binary PCM ทุก 3-5 วินาที
+   └── publish binary PCM ทุก 2 วินาที
        MQTT topic: voice/audio/{deviceId}
 
 2. Mosquitto MQTT Broker รับ message
@@ -91,7 +91,7 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 
 - Python 3.11+, Go 1.21+, Node.js 20+, Flutter 3.10+
 - Docker (สำหรับ Mosquitto)
-- `best_sens_model.pth` วางไว้ที่ `backend_ai/`
+- `best_sens_model.pth` วางไว้ที่ `backend_ai/models`
 
 ### 1. เริ่ม MQTT Broker
 
@@ -113,7 +113,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```powershell
 cd go_backend
 go run .
-# Listening on :3001
+# Listening on :8080
 ```
 
 ### 4. เริ่ม Next.js Frontend
@@ -163,14 +163,20 @@ print(r.json())
 
 ### Go Backend
 
-| Route       | Method | Description                           |
-| ----------- | ------ | ------------------------------------- |
-| `/login`    | GET    | เริ่มต้น Auth0 OAuth2 flow            |
-| `/callback` | GET    | Auth0 callback — แลก code เป็น JWT    |
-| `/logout`   | GET    | ลบ session                            |
-| `/profile`  | GET    | ดึงข้อมูล user (ต้องมี JWT)           |
-| `/test-ai`  | GET    | ทดสอบเรียก AI ด้วย `samples/help.wav` |
-
+| Route | Method | Description |
+| :--- | :---: | :--- |
+| **[Authentication]** | | |
+| `/api/auth/login` | `POST` | เข้าสู่ระบบด้วย Email / Password (ระบบของตัวเอง) |
+| `/api/auth/google` | `POST` | เข้าสู่ระบบด้วย Google Sign-In (ส่ง ID Token มาทวนสอบ) |
+| `/api/auth/logout` | `POST` | ออกจากระบบ (ล้าง Token / Session) |
+| `/api/user/profile` | `GET`  | ดึงข้อมูลโปรไฟล์ผู้ใช้งาน (ต้องแนบ JWT Token) |
+| | | |
+| **[Audio Management]** | | |
+| `/api/audio/emergency` | `POST` | รับไฟล์เสียงฉุกเฉินจาก Python AI มาบันทึก และส่งแจ้งเตือน |
+| `/api/audio/negative` | `POST` | รับไฟล์เสียงปกติจาก Python AI มาบันทึก (คุมโควตา 10 ไฟล์ล่าสุดอัตโนมัติ) |
+| `/api/audio` | `GET`  | ดึงรายชื่อไฟล์เสียง .wav ทั้งหมดเพื่อไปแสดงบนหน้าเว็บ |
+| `/api/audio/:filename` | `GET`  | สตรีมมิ่ง/กดเล่นไฟล์เสียงจากหน้าเว็บ Dashboard |
+| `/api/audio/:filename` | `DELETE`| ลบไฟล์เสียงออกจากระบบผ่านหน้าเว็บ |
 ---
 
 ## ESP32 Firmware
