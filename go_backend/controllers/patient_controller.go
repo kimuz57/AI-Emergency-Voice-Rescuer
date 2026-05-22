@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"strings"
 	"go_backend/database"
 	"go_backend/models"
 	// "net/http"
@@ -60,7 +61,8 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 	// 4. สร้างอุปกรณ์ผูกกับผู้ป่วย
 	if input.BoardID != "" {
 		device := models.Device{
-			MACAddress: input.BoardID,
+			MACAddress: strings.ToUpper(input.BoardID),
+			
 			Name:       input.DeviceName,
 			Status:     "offline",
 			PatientID:  patient.ID,
@@ -71,4 +73,23 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "ลงทะเบียนผู้ป่วยและผูกอุปกรณ์เรียบร้อย!",
 	})
+}
+
+func GetPatientsByCaretaker(c *fiber.Ctx) error {
+    email := c.Query("email")
+    if email == "" {
+        return c.Status(400).JSON(fiber.Map{"error": "กรุณาส่ง email มาด้วย"})
+    }
+
+    // 1. 🟢 ค้นหาข้อมูล User จากอีเมล เพื่อเอา user_id
+    var user models.User // สมมติว่าโมเดลชื่อ User
+    if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
+        return c.Status(404).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ใช้งาน"})
+    }
+
+    // 2. 🟢 เอา user.ID ไปค้นหาผู้ป่วยในตาราง patients
+    var patients []models.Patient // สมมติว่าโมเดลชื่อ Patient
+    database.DB.Where("user_id = ?", user.ID).Find(&patients)
+
+    return c.JSON(patients)
 }

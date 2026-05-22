@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
-import { getSession } from "next-auth/react";
 
 // กำหนดโครงสร้างข้อมูล User
 type UserProfile = {
@@ -70,9 +69,7 @@ export default function Navbar() {
         "✅ [6] ได้อีเมลแล้ว กำลังยิงไปถาม Go Backend ด้วยอีเมล:",
         targetEmail,
       );
-      const res = await fetch(
-        `${apiUrl}/api/user/profile?email=${targetEmail}`,
-      );
+      const res = await fetch(`${apiUrl}/api/user/profile?email=${targetEmail}`);
 
       if (res.ok) {
         const data = await res.json();
@@ -103,23 +100,23 @@ export default function Navbar() {
   // 🟢 ฟังก์ชันสำหรับ ส่งคำสั่ง Logout ไปหลังบ้าน และล้างข้อมูลหน้าบ้าน
   const handleLogout = async () => {
     try {
-      // สเต็ปที่ 1: ยิง API แบบ GET ไปหา Go Backend (พอร์ต 8080) เพื่อสั่งล้างคุกกี้ "token" ที่เป็น httpOnly
-      // 💡 ต้องใส่ credentials: "include" เพื่ออนุญาตให้เบราว์เซอร์ส่งและลบคุกกี้ข้ามพอร์ตได้ครับ
-      await fetch("http://localhost:8080/logout", {
-        method: "GET",
+      // 1. สั่งลบคุกกี้ฝั่ง Go (ใช้ POST และ Path ตามที่อยู่ใน routes.go เป๊ะๆ)
+      await fetch("http://localhost:8080/api/auth/logout", {
+        method: "POST",
         credentials: "include",
       });
+
+      // 2. ล้างข้อมูลหน้าบ้าน
+      localStorage.removeItem("token");
+      localStorage.removeItem("userEmail");
+
+      // 3. ใช้ signOut ของ next-auth โดยตรงให้มันจัดการเด้งไปหน้า login เองอย่างปลอดภัย
+      await signOut({ callbackUrl: "/" });
     } catch (error) {
-      console.error("ล้มเหลวในการสั่งลบคุกกี้ฝั่ง Go Backend:", error);
+      console.error("ล้มเหลวในการออกจากระบบ:", error);
+      // แผนสำรอง เผื่อบราว์เซอร์บล็อก fetch ให้เด้งหลบออกไปก่อน
+      signOut({ callbackUrl: "/" });
     }
-
-    // สเต็ปที่ 2: ล้างข้อมูลอีเมลขยะใน Local Storage ฝั่งหน้าบ้านออกให้หมด
-    localStorage.removeItem("userEmail");
-    setIsProfileOpen(false);
-
-    // สเต็ปที่ 3: 🚀 พระเอกของงาน! สั่งให้ NextAuth ลบพวกคุกกี้ next-auth.session-token ทิ้งให้เกลี้ยงระบบ
-    // พร้อมกับสั่งเตะผู้ใช้กลับไปที่หน้าแรก (ในที่นี้คือ "/" ตามหน้าโครงสร้าง Login ของผู้กอง)
-    await signOut({ callbackUrl: "/" });
   };
 
   useEffect(() => {

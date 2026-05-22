@@ -18,12 +18,12 @@ type Patient struct {
 	
 	// ความสัมพันธ์แบบ Many-to-Many กลับไปหา User
 	Caregivers []User `gorm:"many2many:caregiver_patients;"`
-	
 	// 1 ผู้ป่วย สามารถมีหลายอุปกรณ์ (เช่น ไมค์ห้องน้ำ, ไมค์หัวเตียง)
 	Devices    []Device 
-	
 	// 1 ผู้ป่วย มีประวัติเสียงร้องขอความช่วยเหลือหลายครั้ง
 	DetectionLogs []DetectionLog 
+	DeviceMAC  string `json:"device_mac" gorm:"unique;index"` 
+    UserID     uint   `json:"user_id"`
 }
 
 // 3. ตารางอุปกรณ์ IoT / ESP32 (Devices)
@@ -43,16 +43,13 @@ type DetectionLog struct {
 	gorm.Model
 	// โครงสร้างเดิมที่คุณผู้กองมี (เก็บไว้เผื่ออนาคตทำระบบเชื่อมตารางผู้ป่วย)
 	PatientID       *uint      
-	DeviceID        *uint      
+	DeviceMAC  		string  `json:"device_mac"`      
 	EventType       string    
 	Confidence      float64   
 	DecibelLevel    float64   
 	IsResolved      bool      `gorm:"default:false"` 
 	ResolvedAt      *time.Time 
 
-	// 🟢 ฟิลด์สำหรับให้ Controller และหน้าเว็บใช้งาน
-	PatientName     string    `json:"patient_name"`
-	RoomNumber      string    `json:"room_number"`
 	AudioURL        string    `json:"audio_url"`
 	Status          string    `gorm:"default:'needs_help'" json:"status"`
 }

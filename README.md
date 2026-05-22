@@ -193,8 +193,9 @@ print(r.json())
 | SCK (Serial Clock) | 26   | I2S Clock                 |
 | WS (Word Select)   | 25   | L/R Channel               |
 | DIN (Data In)      | 22   | Audio data จาก INMP441    |
-| Status LED         | 2    | Blue LED — WiFi connected |
-| Record LED         | 4    | Red LED — กำลังบันทึก     |
+| Status LED         | 2    | RED LED — WiFi connected  |
+| Record LED         | 4    | GREEN LED — กำลังบันทึก     |
+| SoftAP LED         | 14   | YELLOW LED — SoftAP Mode  |
 
 **Network:** ESP32 สร้าง Soft-AP (`SmartVoice_AP`) → PC เชื่อมต่อ → ESP32 ได้ IP `192.168.4.1`  
 **MQTT Broker:** `192.168.4.2:1883`  

@@ -49,7 +49,7 @@ const handler = NextAuth({
           // 🟢 3. แอบปริ้นท์ดูว่าตกลงได้ URL รูปมาไหม?
           console.log("🔍 URL รูปที่หาได้:", imageUrl);
 
-          const res = await fetch("http://127.0.0.1:8080/api/auth/google", {
+          const res = await fetch("http://localhost:8080/api/auth/google", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

@@ -23,9 +23,9 @@
 ### LEDs (optional):
 | LED     | GPIO            | Purpose        |
 |---------|-----------------|----------------|
-| Blue    | GPIO2           | WiFi Status    |
-| Red     | GPIO4           | Recording LED  |
-
+| RED     | GPIO2           | WiFi Status    |
+| GREEN   | GPIO4           | Recording LED  |
+| YELLOW  | GPIO14          | SoftAP Mode    |
 ## Setup Instructions
 
 1. Clone or copy this directory

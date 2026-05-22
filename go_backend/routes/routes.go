@@ -7,6 +7,10 @@ import (
 
 func SetupRoutes(app *fiber.App) {
 	// 🟢 เส้นทางเช็คสถานะ API (ไว้สำหรับเช็คว่า Server ล่มไหม)
+	app.Post("/api/auth/google", controllers.GoogleLogin)
+	app.Post("/api/login", controllers.LoginWithEmail)
+	app.Get("/api/patients", controllers.GetPatientsByCaretaker)
+	
 	app.Get("/api/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok", "message": "Guardian AI API is running smoothly! 🚀"})
 	})
@@ -16,16 +20,9 @@ func SetupRoutes(app *fiber.App) {
 	// ==========================================
 	authGroup := app.Group("/api/auth")
 	{
-		// ล็อกอินผ่าน Google (NextAuth)
 		authGroup.Post("/google", controllers.GoogleLogin)
-		
-		// ล็อกอินด้วย Email/Password ธรรมดา (ย้าย Logic ไปไว้ใน Controller แล้ว)
 		authGroup.Post("/login", controllers.LoginWithEmail)
-		
-		// สมัครสมาชิกใหม่
 		authGroup.Post("/register", controllers.Register)
-		
-		// ออกจากระบบ
 		authGroup.Post("/logout", controllers.Logout)
 	}
 
@@ -35,7 +32,7 @@ func SetupRoutes(app *fiber.App) {
 	userGroup := app.Group("/api/user")
 	{
 		// ดึงโปรไฟล์ (ดึงข้อมูลผู้ใช้ปัจจุบัน)
-		userGroup.Get("/profile", controllers.GetProfile)
+		userGroup.Get("/profile", controllers.GetUserProfile)
 	}
 
 	// ==========================================
@@ -64,7 +61,8 @@ func SetupRoutes(app *fiber.App) {
 	{
 		audioGroup.Post("/emergency", controllers.SaveEmergencyAudio)
         audioGroup.Post("/negative", controllers.SaveNegativeAudio) // เพิ่ม API สำหรับรับไฟล์เสียงที่ไม่ใช่เหตุฉุกเฉิน (เก็บไว้ใช้เทรนโมเดลในอนาคต)
-		
+		audioGroup.Get("/my-logs", controllers.GetMyDetectionLogs)
+
 		audioGroup.Get("/", controllers.ListAudioFiles)
 		audioGroup.Get("/:filename", controllers.GetAudioFile)
 		audioGroup.Delete("/:filename", controllers.DeleteAudioFile)

@@ -6,3 +6,5 @@ node_modules
 # กันพลาด (เผื่อมีโฟลเดอร์ซ้อน)
 **/node_modules
 **/.next
+mosquitto/log/
+*.log
