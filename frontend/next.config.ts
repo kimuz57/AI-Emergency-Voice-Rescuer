@@ -6,7 +6,8 @@ const nextConfig: NextConfig = {
     "192.168.1.108", 
     "localhost",
     "127.0.0.1",
-    "26.161.225.127"
+    "26.161.225.127",
+    "kws.wattanapong.com"
   ],
 };
 

@@ -4,7 +4,7 @@ import type { NextRequest } from "next/server";
 // 🟢 ลิสต์รายชื่อโฟลเดอร์ที่ต้อง Login ก่อนถึงจะเข้าได้ (เพิ่มตรงนี้ได้เรื่อยๆ ในอนาคต)
 const protectedPaths = ["/dashboard", "/settings", "/patients"];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
   const { pathname } = request.nextUrl;
 
