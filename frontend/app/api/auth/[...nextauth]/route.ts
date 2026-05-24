@@ -23,7 +23,7 @@ const handler = NextAuth({
       // เปลี่ยนจาก Hard code เป็นการเรียกไปที่ Go Backend
       async authorize(credentials) {
         try {
-          const backendUrl = process.env.API_URL || "http://localhost:8080";
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
           const res = await fetch(`${backendUrl}/api/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -56,7 +56,7 @@ const handler = NextAuth({
       if (account?.provider === "google") {
         try {
           const imageUrl = user.image || (profile as any)?.picture || "";
-          const backendUrl = process.env.API_URL || "http://localhost:8080";
+          const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
           
           const res = await fetch(`${backendUrl}/api/auth/google`, {
             method: "POST",

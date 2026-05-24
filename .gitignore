@@ -8,3 +8,4 @@ node_modules
 **/.next
 mosquitto/log/
 *.log
+mosquitto/data/*.db
