@@ -9,3 +9,5 @@ node_modules
 mosquitto/log/
 *.log
 mosquitto/data/*.db
+mosquitto/data/mosquitto.db
+mosquitto/data/
