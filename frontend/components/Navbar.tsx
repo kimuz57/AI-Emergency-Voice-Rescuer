@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 // กำหนดโครงสร้างข้อมูล User
 type UserProfile = {
   name: string;
@@ -22,7 +22,6 @@ export default function Navbar() {
   const fetchUserProfile = async () => {
     try {
       // 🟢 1. ดึง URL หลังบ้านจากหน้าต่าง .env (หากไม่มีให้เลือกใช้ localhost:8080 เป็นตัวสำรอง)
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
       let targetEmail = localStorage.getItem("userEmail");
       console.log("👉 [1] ค่าที่อ่านได้จาก localStorage คือ:", targetEmail);
@@ -69,7 +68,7 @@ export default function Navbar() {
         "✅ [6] ได้อีเมลแล้ว กำลังยิงไปถาม Go Backend ด้วยอีเมล:",
         targetEmail,
       );
-      const res = await fetch(`${apiUrl}/api/user/profile?email=${targetEmail}`);
+      const res = await fetch(`${API_BASE_URL}/api/user/profile?email=${targetEmail}`);
 
       if (res.ok) {
         const data = await res.json();
@@ -101,7 +100,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       // 1. สั่งลบคุกกี้ฝั่ง Go (ใช้ POST และ Path ตามที่อยู่ใน routes.go เป๊ะๆ)
-      await fetch("http://localhost:8080/api/auth/logout", {
+      await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

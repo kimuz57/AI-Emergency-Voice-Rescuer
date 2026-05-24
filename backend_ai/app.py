@@ -48,7 +48,11 @@ mel_transform = MelSpectrogram(
     ).to(device)
 
 # Load model and weights safely on CPU
-MODEL_PATH = "epoch000_best_sens.pth"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+
+# เอามาต่อกับโฟลเดอร์ models
+MODEL_PATH = os.path.join(BASE_DIR, "models", "best_sens_model.pth")
+
 model = BCResNet(2) # Replace with actual model instantiated class
 
 try:

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export default function DeviceRegistrationPage() {
   const [formData, setFormData] = useState({
     patientName: "",
@@ -33,7 +34,7 @@ export default function DeviceRegistrationPage() {
 
     try {
       // ในไฟล์ app/dashboard/devices/page.tsx ตรง handleSubmit
-      const res = await fetch("http://localhost:8080/api/patients/register", {
+      const res = await fetch(`${API_BASE_URL}/api/patients/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CustomAudioPlayer from "@/components/CustomAudioPlayer"; // ปรับ Path ให้ตรง
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
 type EmergencyAlert = {
   ID?: number; // รองรับทั้ง ID และ id ตามที่ Go ส่งมา
   id?: number;
@@ -36,7 +38,7 @@ export default function Dashboard() {
       }
 
       const res = await fetch(
-        `http://localhost:8080/api/alerts?email=${targetEmail}`,
+        `${API_BASE_URL}/api/alerts?email=${targetEmail}`,
         {
           method: "GET", // ระบุ method ให้ชัดเจน
           credentials: "include", // 🔑 สั่งให้แนบคุกกี้ httpOnly ไปด้วย!
@@ -67,7 +69,7 @@ export default function Dashboard() {
 
       // 🟢 ยิง API โดยสั่งให้เบราว์เซอร์ "แนบคุกกี้ (Token) ไปด้วยอัตโนมัติ"
       const res = await fetch(
-        `http://localhost:8080/api/patients?email=${targetEmail}`,
+        `${API_BASE_URL}/api/patients?email=${targetEmail}`,
         {
           method: "GET",
           credentials: "include", // 🔑 พระเอกของเราอยู่ตรงนี้ครับ!
@@ -115,7 +117,7 @@ export default function Dashboard() {
     if (!id) return;
     try {
       const res = await fetch(
-        `http://localhost:8080/api/alerts/${id}/resolve`,
+        `${API_BASE_URL}/api/alerts/${id}/resolve`,
         { method: "PUT" },
       );
       if (res.ok) {
@@ -246,7 +248,7 @@ export default function Dashboard() {
                     เสียงหลักฐานจาก ESP32:
                   </p>
                   <CustomAudioPlayer
-                    src={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}${alert.audio_url}`}
+                    src={`${API_BASE_URL}${alert.audio_url}`}
                   />
                 </div>
 

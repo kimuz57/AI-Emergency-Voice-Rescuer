@@ -18,6 +18,7 @@ import requests
 from dotenv import load_dotenv
 load_dotenv()  # โหลด .env เพื่อให้แน่ใจว่าอ่านค่าได้ครบถ้วน
 app_env = os.getenv("APP_ENV", "development")
+
 # 🟢 สร้างฟังก์ชันดัก Error ไว้ในไฟล์นี้เลย จบปัญหาไม่ต้องพึ่งไฟล์อื่น
 def get_env_required(key: str) -> str:
     value = os.getenv(key)
@@ -32,7 +33,7 @@ AI_SERVER_URL = get_env_required("AI_SERVER_URL")
 GO_SERVER_URL = get_env_required("GO_SERVER_URL")
 
 SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", 16000))  # Hz — ต้องตรงกับ I2S ใน ESP32
-SECONDS_PER_WINDOW = 2            # 🟢 ปรับเป็น 2 วินาที ตามที่ผู้กองต้องการ
+SECONDS_PER_WINDOW = 2            # 🟢 ปรับเป็น 2 วินาที
 
 # ─── Config (ตั้งค่าเฉพาะภายในไฟล์นี้) ──────────────────────────────────────────
 TOPIC_SUBSCRIBE = "voice/audio/#"   # 🟢 ใช้ # เพื่อรับฟังเสียงจากทุก MAC Address

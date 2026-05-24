@@ -43,6 +43,11 @@ func ListAudioFiles(c *fiber.Ctx) error {
 
 	var audioList []AudioFileInfo
 
+	baseURL := os.Getenv("API_BASE_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost:8080"
+	}
+
 	for _, file := range files {
 		if !file.IsDir() && filepath.Ext(file.Name()) == ".wav" {
 			info, err := file.Info()
@@ -54,7 +59,7 @@ func ListAudioFiles(c *fiber.Ctx) error {
 				Filename:  file.Name(),
 				Size:      info.Size(),
 				CreatedAt: info.ModTime(),
-				URL:       fmt.Sprintf("http://localhost:8080/api/audio/%s", file.Name()),
+				URL:       fmt.Sprintf("%s/api/audio/%s", baseURL, file.Name()),
 			})
 		}
 	}

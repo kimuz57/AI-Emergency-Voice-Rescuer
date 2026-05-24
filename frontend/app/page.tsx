@@ -5,6 +5,8 @@ import { signIn } from "next-auth/react";
 import router from "next/dist/shared/lib/router/router";
 import { useRouter } from "next/navigation";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
 export default function HomePage() {
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
@@ -30,7 +32,7 @@ export default function HomePage() {
     if (!isLogin) {
       // 📍 กรณี "สมัครสมาชิก" (Register)
       try {
-        const response = await fetch("http://localhost:8080/api/register", {
+        const response = await fetch(`${API_BASE_URL}/api/register`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -71,7 +73,7 @@ export default function HomePage() {
     } else {
       // 📍 กรณี "เข้าสู่ระบบ" (Login)
       try {
-        const response = await fetch("http://localhost:8080/api/login", {
+        const response = await fetch(`${API_BASE_URL}/api/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",

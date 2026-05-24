@@ -20,14 +20,28 @@ const handler = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
+      // เปลี่ยนจาก Hard code เป็นการเรียกไปที่ Go Backend
       async authorize(credentials) {
-        if (
-          credentials?.email === "admin@test.com" &&
-          credentials?.password === "1234"
-        ) {
-          return { id: "1", name: "Admin", email: "admin@test.com" };
+        try {
+          const backendUrl = process.env.API_URL || "http://localhost:8080";
+          const res = await fetch(`${backendUrl}/api/auth/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: credentials?.email,
+              password: credentials?.password,
+            }),
+          });
+
+          if (res.ok) {
+            const user = await res.json();
+            return user; // ต้องคืนค่าเป็น Object User (id, name, email)
+          }
+          return null;
+        } catch (error) {
+          console.error("Login Credentials Error:", error);
+          return null;
         }
-        return null;
       },
     }),
   ],
@@ -35,7 +49,6 @@ const handler = NextAuth({
     signIn: "/",
   },
   
-  // 🟢 1. ประกาศ Secret ตรงๆ เพื่อกัน Error บน Production
   secret: process.env.NEXTAUTH_SECRET, 
 
   callbacks: {
@@ -43,9 +56,8 @@ const handler = NextAuth({
       if (account?.provider === "google") {
         try {
           const imageUrl = user.image || (profile as any)?.picture || "";
-          console.log("🔍 URL รูปที่หาได้:", imageUrl);
+          const backendUrl = process.env.API_URL || "http://localhost:8080";
           
-          const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
           const res = await fetch(`${backendUrl}/api/auth/google`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -68,7 +80,6 @@ const handler = NextAuth({
                   name: "token",
                   value: tokenValue,
                   httpOnly: true,
-                  // 🟢 2. เปิดโหมด Secure เมื่อรันบนเซิร์ฟเวอร์จริง (HTTPS)
                   secure: process.env.NODE_ENV === "production", 
                   path: "/",
                   maxAge: 60 * 60 * 24,
@@ -76,17 +87,10 @@ const handler = NextAuth({
               }
             }
             return true;
-          } else {
-            const errorDetails = await res.text();
-            console.error(
-              "Go Backend ปฏิเสธการเข้าสู่ระบบ สาเหตุคือ:",
-              res.status,
-              errorDetails,
-            );
-            return false;
           }
+          return false;
         } catch (error) {
-          console.error("เชื่อมต่อ Go Backend ไม่ได้:", error);
+          console.error("Google Auth Error:", error);
           return false;
         }
       }

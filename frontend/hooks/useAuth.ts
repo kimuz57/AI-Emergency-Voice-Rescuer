@@ -1,13 +1,13 @@
 // frontend/hooks/useAuth.ts
 "use client"
 import { useEffect, useState } from 'react';
-
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export function useAuth() {
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    fetch('http://localhost:8080/profile', { credentials: 'include' })
+    fetch(`${API_BASE_URL}/profile`, { credentials: 'include' })
       .then(async (res) => {
         if (res.ok) {
           const data = await res.json();

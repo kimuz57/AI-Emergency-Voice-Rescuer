@@ -3,10 +3,12 @@ services:
     image: eclipse-mosquitto:2
     container_name: smartvoice-mosquitto
     ports:
-      - "1883:1883"
-      - "9001:9001"
+      - "1883:1883"   # สำหรับ MQTT (TCP)
+      - "9001:9001"   # สำหรับ WS (WebSocket)
+      - "8084:8084"   # สำหรับ WSS (WebSocket Secure)
     volumes:
       - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
+      - ./mosquitto/certs:/mosquitto/certs  # 🟢 เพิ่มบรรทัดนี้เพื่อจำลองแฟ้มเก็บ SSL
     restart: unless-stopped
