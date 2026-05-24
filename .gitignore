@@ -1,6 +1,11 @@
 # global
 node_modules
 .env
+.env.local
+.env.*.local
+.env.production
+.env*
+
 .DS_Store
 
 # กันพลาด (เผื่อมีโฟลเดอร์ซ้อน)
