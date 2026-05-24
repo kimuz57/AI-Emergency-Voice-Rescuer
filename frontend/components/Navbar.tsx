@@ -44,7 +44,7 @@ export default function Navbar() {
 
         if (session?.user?.email) {
           targetEmail = session.user.email;
-          localStorage.setItem("userEmail", targetEmail);
+          localStorage.setItem("userEmail", targetEmail || ""); // เซฟกลับลง localStorage เผื่อใช้รอบหน้า
           console.log(
             "👉 [4] เจออีเมลจาก Google แล้ว! เซฟลงเครื่องเรียบร้อย:",
             targetEmail,
