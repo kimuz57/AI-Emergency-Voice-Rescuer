@@ -1,7 +1,7 @@
 """
 SmartVoice MQTT → AI Forwarder
 Subscribe to voice/audio/# → accumulate PCM chunks → POST WAV in-memory to AI webserver
-
+.
 ใช้งานร่วมกับ FastAPI (app.py) จะถูกเรียกให้รันแบบ Background Thread อัตโนมัติ
 """
 
