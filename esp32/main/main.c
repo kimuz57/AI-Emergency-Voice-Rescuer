@@ -37,7 +37,8 @@ static int s_retry_num = 0;
 
 #define STATUS_LED_PIN 2     
 #define RECORD_LED_PIN 4     
-#define SOFTAP_LED_PIN 14    // 🟢 ไฟดวงใหม่สำหรับสถานะ Soft AP
+#define SOFTAP_LED_PIN 16   // 🟢 ไฟดวงใหม่สำหรับสถานะ Soft AP
+#define STATUS_BORD_PIN 14
 
 #define AP_SSID        "SmartVoice-ESP32"
 #define AP_PASSWORD    "smartvoice123"
@@ -124,9 +125,13 @@ void init_led() {
     esp_rom_gpio_pad_select_gpio(SOFTAP_LED_PIN);
     gpio_set_direction(SOFTAP_LED_PIN, GPIO_MODE_OUTPUT);
 
+    esp_rom_gpio_pad_select_gpio(STATUS_BORD_PIN);
+    gpio_set_direction(STATUS_BORD_PIN, GPIO_MODE_OUTPUT);
+    
     gpio_set_level(STATUS_LED_PIN, 0);
     gpio_set_level(RECORD_LED_PIN, 0);
     gpio_set_level(SOFTAP_LED_PIN, 0); // ปิดไว้ก่อน
+    gpio_set_level(STATUS_BORD_PIN, 1);
 }
 
 void set_status_led(int state) { gpio_set_level(STATUS_LED_PIN, state); }
@@ -473,10 +478,11 @@ void reset_button_task(void *pvParameters) {
 }
 
 void app_main(void) {
+
     ESP_LOGI(TAG, "=================================");
     ESP_LOGI(TAG, "  Guardian AI Voice Recorder (V2)");
     ESP_LOGI(TAG, "=================================");
-    
+
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
       ESP_ERROR_CHECK(nvs_flash_erase());

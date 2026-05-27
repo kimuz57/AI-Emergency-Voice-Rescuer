@@ -26,8 +26,13 @@ type AudioFileInfo struct {
 	URL       string    `json:"url"`
 }
 
+
 // ⚠️ สำคัญ: กำหนด Path โฟลเดอร์ที่ Python เซฟไฟล์เสียงไว้
 const audioDir = "./audio_recordings"
+
+
+
+
 
 // 1. API: ดึงรายชื่อไฟล์เสียง .wav ทั้งหมด
 func ListAudioFiles(c *fiber.Ctx) error {
@@ -255,9 +260,10 @@ func cleanupOldNegativeFiles(dir string, maxFiles int) {
 			fileList = append(fileList, f)
 		}
 	}
+	var appEnv string
+	appEnv = config.GetEnv("APP_ENV", "development")
 
-	env := config.GetEnv("APP_ENV", "development")
-    if env == "development" {
+    if appEnv == "development" {
         fmt.Printf("ยอดรวมปัจจุบัน: %d/%d ไฟล์ ", len(fileList), maxFiles)
         fmt.Println()
     }
@@ -274,11 +280,9 @@ func cleanupOldNegativeFiles(dir string, maxFiles int) {
 		if err != nil {
 			fmt.Printf("ลบพลาด (%s): %v\n", fileList[i].Name(), err)
 		} else {
-			env := config.GetEnv("APP_ENV", "development")
-    			if env == "development" {
-        			fmt.Printf("ลบทิ้งไฟล์เก่า: %s\n", fileList[i].Name())
-    			}
-
+			if appEnv == "development" {
+				fmt.Printf("ลบทิ้งไฟล์เก่า: %s\n", fileList[i].Name())
+			}
 		}
 	}
 }

@@ -68,7 +68,9 @@ export default function Navbar() {
         "✅ [6] ได้อีเมลแล้ว กำลังยิงไปถาม Go Backend ด้วยอีเมล:",
         targetEmail,
       );
-      const res = await fetch(`${API_BASE_URL}/api/user/profile?email=${targetEmail}`);
+      const res = await fetch(
+        `${API_BASE_URL}/api/user/profile?email=${targetEmail}`,
+      );
 
       if (res.ok) {
         const data = await res.json();
@@ -118,6 +120,47 @@ export default function Navbar() {
     }
   };
 
+  const handleRegisterPatient = async () => {
+    try {
+      // 1. ดึง Token เผื่อ Backend ต้องใช้เช็คสิทธิ์ (ถ้าไม่มีก็เอาออกได้ครับ)
+      const token = localStorage.getItem("token");
+
+      // 2. ข้อมูลที่จะส่งไปให้ Backend (ปรับ key ให้ตรงกับที่ Go Backend ต้องการ)
+      const payload = {
+        mac_address: "AA:BB:CC:DD:EE:FF",
+        patient_name: "นายทดสอบ สมมติ",
+      };
+
+      const res = await fetch(`${API_BASE_URL}/dashboard/device`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`, // ส่ง Token ไปด้วย
+        },
+        body: JSON.stringify(payload), // แปลงข้อมูลเป็น JSON
+      });
+
+      // 3. เช็คว่า Backend ตอบกลับมาว่าสำเร็จหรือไม่ (Status 200-299)
+      if (!res.ok) {
+        // ถ้าไม่สำเร็จ ให้โยน Error ไปเข้าบล็อก catch
+        const errorData = await res.json();
+        throw new Error(errorData.error || "เกิดข้อผิดพลาดในการลงทะเบียน");
+      }
+
+      // 4. แกะข้อมูลที่ Backend ส่งกลับมาเมื่อสำเร็จ
+      const data = await res.json();
+      console.log("ลงทะเบียนสำเร็จ:", data);
+      alert("ลงทะเบียนสำเร็จเรียบร้อย!");
+    } catch (error) {
+      // 🟢 แปลงประเภทตัวแปรให้ปลอดภัยก่อนดึงค่า .message
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
+
+      console.error("❌ Error registering patient:", errorMessage);
+      alert(`เกิดข้อผิดพลาด: ${errorMessage}`);
+    }
+  };
+
   useEffect(() => {
     fetchUserProfile(); // ดึงข้อมูลทันทีเมื่อโหลดหน้าเว็บ
 
@@ -143,7 +186,9 @@ export default function Navbar() {
     <nav className="w-full bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center shadow-sm">
       <div className="flex items-center gap-2">
         <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          Guardian AI Dashboard
+          <a href="/dashboard" className="hover:underline">
+            Emergency Voice Rescuer
+          </a>
         </span>
       </div>
 
@@ -198,7 +243,7 @@ export default function Navbar() {
               </div>
               <div className="py-1">
                 <a
-                  href="#"
+                  href="profile"
                   className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
                 >
                   👤 ข้อมูลส่วนตัว
@@ -208,6 +253,12 @@ export default function Navbar() {
                   className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
                 >
                   🔔 การแจ้งเตือน
+                </a>
+                <a
+                  href="/dashboard/devices"
+                  className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                >
+                  📝 ลงทะเบียนเพิ่มผู้ป่วย
                 </a>
               </div>
               <div className="border-t border-gray-100 py-1 bg-gray-50">

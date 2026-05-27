@@ -14,3 +14,5 @@ audio_recordings/
 negative/
 emergency/
 audio_received/
+app_old.py
+mqtt_audio_receiver_old.py
