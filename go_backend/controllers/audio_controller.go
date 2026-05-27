@@ -129,7 +129,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 
 	// 🟢 2. เปลี่ยนชื่อโฟลเดอร์ให้ตรงกับตอนเปิด Static Route (เก็บไว้ที่เดียวกับระบบ)
 	uploadDir := "./audio_recordings"
-	
+
 	// 🟢 3. ใช้ os.MkdirAll เพื่อรับประกันว่าสร้างโฟลเดอร์สำเร็จแน่นอนไม่ว่าจะซ้อนกี่ชั้น
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
@@ -140,7 +140,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 
 	// ตั้งชื่อไฟล์เสียงไม่ให้ซ้ำกัน (ใช้เวลาปัจจุบันมาต่อท้าย)
 	filename := fmt.Sprintf("emergency_%d%s", time.Now().UnixNano(), filepath.Ext(file.Filename))
-	
+
 	// 🟢 4. เปลี่ยนชื่อตัวแปรจาก filepath เป็น savePath เพื่อไม่ให้ชื่อชนกับ package filepath
 	savePath := filepath.Join(uploadDir, filename)
 
@@ -158,10 +158,10 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	if err := database.DB.Where("UPPER(mac_address) = UPPER(?)", rawMac).First(&device).Error; err == nil {
 		if device.PatientID != 0 {
 			patientID = &device.PatientID // ถ้าเจอ ผูก ID ผู้ป่วยทันที
-            fmt.Printf("✅ เจออุปกรณ์แล้ว! ผูกกับ PatientID: %d\n", *patientID)
+			fmt.Printf("✅ เจออุปกรณ์แล้ว! ผูกกับ PatientID: %d\n", *patientID)
 		}
 	} else {
-        // 🔴 เพิ่ม Log ให้ชัดเจนว่าหาไม่เจอเพราะอะไร และค่าที่รับมาคืออะไร
+		// 🔴 เพิ่ม Log ให้ชัดเจนว่าหาไม่เจอเพราะอะไร และค่าที่รับมาคืออะไร
 		fmt.Printf("⚠️ [WARN] ค้นหาอุปกรณ์ไม่เจอ! MAC ที่รับมาคือ: '%s', สาเหตุ: %v\n", rawMac, err)
 	}
 
@@ -184,6 +184,33 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	}
 
 	fmt.Println("✅ [GO] บันทึกเหตุฉุกเฉินลงฐานข้อมูลสำเร็จ! ไฟล์:", filename, "ผูกกับผู้ป่วย ID:", log.PatientID)
+
+	// ==========================================
+	// 🚀 ระบบแจ้งเตือน LINE OA (ทำงานต่อจากตรงนี้)
+	// ==========================================
+	if patientID != nil {
+		var patientData models.Patient
+		// 1. ดึงข้อมูลผู้ป่วยเพื่อเอา UserID (คนดูแล), ชื่อผู้ป่วย และห้องพัก
+		if err := database.DB.First(&patientData, *patientID).Error; err == nil {
+			
+			// 2. ไปเช็คว่า UserID (คนดูแล) คนนี้ ผูกไลน์ไว้ไหมในตาราง UserLineMapping
+			var lineMapping models.UserLineMapping
+			if err := database.DB.Where("user_id = ?", patientData.UserID).First(&lineMapping).Error; err == nil {
+				fmt.Println("👉 [LINE] เจอคนผูกไลน์แล้ว! เตรียมยิงไปที่ LineUserID:", lineMapping.LineUserID)
+				
+				// 3. สั่งเรียกฟังก์ชันส่ง LINE OA (ทำงานเป็น Background จะได้ไม่รอ)
+				go sendLineOAPushMessage(lineMapping.LineUserID, patientData.Name, patientData.RoomNumber)
+			} else {
+				fmt.Println("⚠️ [LINE] คนดูแล ID", patientData.UserID, "ยังไม่ได้ผูกบัญชี LINE OA")
+			}
+			
+		} else {
+			fmt.Println("❌ [LINE] ดึงข้อมูลผู้ป่วยไม่สำเร็จ ไม่สามารถส่งแจ้งเตือนได้")
+		}
+	} else {
+		fmt.Println("⚠️ [LINE] อุปกรณ์นี้ยังไม่ได้ผูกกับผู้ป่วย เลยไม่มีเป้าหมายให้แจ้งเตือนผ่าน LINE")
+	}
+	// ==========================================
 
 	return c.JSON(fiber.Map{
 		"success": true,

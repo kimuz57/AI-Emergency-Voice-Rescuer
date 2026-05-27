@@ -35,7 +35,8 @@ func ConnectDB() {
 		&models.User{},
 		&models.Patient{},
 		&models.Device{},
-		&models.DetectionLog{}, // 👈 พระเอกของเรามาแล้ว
+		&models.DetectionLog{},
+		&models.UserLineMapping{},
 	)
 	if err != nil {
 		log.Fatal("Failed to auto-migrate database tables:", err)

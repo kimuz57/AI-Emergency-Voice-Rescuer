@@ -183,10 +183,24 @@ export default function Navbar() {
     `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=0D8ABC&color=fff&rounded=true`;
 
   return (
-    <nav className="w-full bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center shadow-sm">
+    <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center shadow-sm">
       <div className="flex items-center gap-2">
+        <div className="flex items-end gap-1 h-6">
+          <div
+            className="w-1.5 h-3 bg-blue-600 rounded-full animate-bounce"
+            style={{ animationDelay: "0ms" }}
+          ></div>
+          <div
+            className="w-1.5 h-6 bg-indigo-500 rounded-full animate-bounce"
+            style={{ animationDelay: "150ms" }}
+          ></div>
+          <div
+            className="w-1.5 h-4 bg-purple-500 rounded-full animate-bounce"
+            style={{ animationDelay: "300ms" }}
+          ></div>
+        </div>
         <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          <a href="/dashboard" className="hover:underline">
+          <a href="/dashboard" className="hover:text-blue-600 transition-colors">
             Emergency Voice Rescuer
           </a>
         </span>
@@ -199,9 +213,6 @@ export default function Navbar() {
             onClick={() => setIsProfileOpen(!isProfileOpen)}
             className="flex items-center gap-3 focus:outline-none transition-transform hover:scale-103"
           >
-            {/* <span className="text-xl text-gray-500 hover:text-gray-700 transition-colors cursor-pointer">
-              ⚙️
-            </span> */}
             <img
               src={
                 user?.profileImage ||
@@ -209,10 +220,15 @@ export default function Navbar() {
                   (user?.name || "U") +
                   "&background=EBF4FF&color=1E3A8A"
               }
-              // 🟢 2. โค้ดเวทมนตร์! คำสั่งนี้จะบอก Google ว่า "ขออนุญาตดึงรูปมาโชว์หน่อยนะ"
               referrerPolicy="no-referrer"
               alt="Profile"
-              className="w-11 h-11 rounded-full border border-gray-200 object-cover shadow-sm"
+              className="w-11 h-11 rounded-full border border-gray-200 object-cover shadow-sm bg-white"
+              // 🟢 เพิ่ม onError ตรงนี้! ถ้ารูปพัง ให้เปลี่ยน src เป็นรูปตัวอักษรแทน
+              onError={(e) => {
+                e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                  user?.name || "U",
+                )}&background=EBF4FF&color=1E3A8A`;
+              }}
             />
           </button>
 
@@ -225,7 +241,13 @@ export default function Navbar() {
                   <img
                     src={avatarUrl}
                     alt="Profile Large"
-                    className="w-11 h-11 rounded-full border border-gray-200 object-cover shadow-sm"
+                    className="w-11 h-11 rounded-full border border-gray-200 object-cover shadow-sm bg-white"
+                    // 🟢 เพิ่ม onError ตรงนี้เหมือนกัน!
+                    onError={(e) => {
+                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                        user?.name || "U",
+                      )}&background=0D8ABC&color=fff&rounded=true`;
+                    }}
                   />
                   <div className="overflow-hidden">
                     {/* 🟢 2. เติมเครื่องหมาย ? (Optional Chaining) และค่าสำรอง (||) ป้องกัน Error */}
@@ -243,7 +265,7 @@ export default function Navbar() {
               </div>
               <div className="py-1">
                 <a
-                  href="profile"
+                  href="/profile"
                   className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
                 >
                   👤 ข้อมูลส่วนตัว
@@ -255,7 +277,7 @@ export default function Navbar() {
                   🔔 การแจ้งเตือน
                 </a>
                 <a
-                  href="/dashboard/devices"
+                  href="/devices"
                   className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
                 >
                   📝 ลงทะเบียนเพิ่มผู้ป่วย
