@@ -183,7 +183,7 @@ export default function Navbar() {
     `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=0D8ABC&color=fff&rounded=true`;
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white border-b border-gray-100 px-6 py-4 flex justify-between items-center shadow-sm">
+    <nav className="sticky top-0 z-50 w-full bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-300">
       <div className="flex items-center gap-2">
         <div className="flex items-end gap-1 h-6">
           <div
@@ -222,7 +222,7 @@ export default function Navbar() {
               }
               referrerPolicy="no-referrer"
               alt="Profile"
-              className="w-11 h-11 rounded-full border border-gray-200 object-cover shadow-sm bg-white"
+              className="w-11 h-11 rounded-full border border-gray-200 dark:border-slate-600 object-cover shadow-sm bg-white dark:bg-slate-700"
               // 🟢 เพิ่ม onError ตรงนี้! ถ้ารูปพัง ให้เปลี่ยน src เป็นรูปตัวอักษรแทน
               onError={(e) => {
                 e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -235,13 +235,13 @@ export default function Navbar() {
           {/* หน้าต่างเมนูรายละเอียด */}
           {/* 🟢 1. เอาคำว่า && user ออก ให้เหลือแค่นี้ เพื่อให้หน้าต่างกางได้เสมอ */}
           {isProfileOpen && (
-            <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50">
-              <div className="px-4 py-4 border-b border-gray-50 bg-blue-50/40">
+            <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 overflow-hidden z-50">
+              <div className="px-4 py-4 border-b border-gray-50 dark:border-slate-700 bg-blue-50/40 dark:bg-slate-700/40">
                 <div className="flex items-center gap-3">
                   <img
                     src={avatarUrl}
                     alt="Profile Large"
-                    className="w-11 h-11 rounded-full border border-gray-200 object-cover shadow-sm bg-white"
+                    className="w-11 h-11 rounded-full border border-gray-200 dark:border-slate-600 object-cover shadow-sm bg-white dark:bg-slate-700"
                     // 🟢 เพิ่ม onError ตรงนี้เหมือนกัน!
                     onError={(e) => {
                       e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -251,10 +251,10 @@ export default function Navbar() {
                   />
                   <div className="overflow-hidden">
                     {/* 🟢 2. เติมเครื่องหมาย ? (Optional Chaining) และค่าสำรอง (||) ป้องกัน Error */}
-                    <p className="text-sm font-bold text-gray-800 truncate">
+                    <p className="text-sm font-bold text-gray-800 dark:text-slate-100 truncate">
                       {user?.name || "ผู้ใช้งานระบบ"}
                     </p>
-                    <p className="text-xs text-gray-500 truncate mb-1">
+                    <p className="text-xs text-gray-500 dark:text-slate-400 truncate mb-1">
                       {user?.email || "ไม่มีข้อมูลอีเมล"}
                     </p>
                     <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
@@ -266,27 +266,27 @@ export default function Navbar() {
               <div className="py-1">
                 <a
                   href="/profile"
-                  className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
                   👤 ข้อมูลส่วนตัว
                 </a>
                 <a
                   href="#"
-                  className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
                   🔔 การแจ้งเตือน
                 </a>
                 <a
                   href="/devices"
-                  className="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
                   📝 ลงทะเบียนเพิ่มผู้ป่วย
                 </a>
               </div>
-              <div className="border-t border-gray-100 py-1 bg-gray-50">
+              <div className="border-t border-gray-100 dark:border-slate-700 py-1 bg-gray-50 dark:bg-slate-700/50">
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left block px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 hover:font-bold transition-colors"
+                  className="w-full text-left block px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:font-bold transition-colors"
                 >
                   🚪 ออกจากระบบ
                 </button>

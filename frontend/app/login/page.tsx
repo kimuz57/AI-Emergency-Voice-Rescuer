@@ -113,14 +113,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8 overflow-hidden font-sans">
+    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 md:p-8 overflow-hidden font-sans transition-colors duration-300">
       
       {/* 🌟 Background Glowing Orbs (เพิ่ม pointer-events-none เพื่อไม่ให้บังการกดปุ่ม) */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none" style={{ animationDelay: '2s' }}></div>
 
       {/* 📦 Main Container (เพิ่ม z-10 เพื่อยกระดับให้เหนือพื้นหลัง) */}
-      <div className="relative z-10 w-full max-w-[900px] min-h-[600px] bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50">
+      <div className="relative z-10 w-full max-w-[900px] min-h-[600px] bg-white/80 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50 dark:border-slate-600/50">
         
         {/* ========================================== */}
         {/* 🟢 1. SIGN UP FORM */}
@@ -129,7 +129,7 @@ export default function LoginPage() {
           ${isLogin ? 'opacity-0 z-10 md:translate-x-0 hidden md:flex' : 'opacity-100 z-20 md:translate-x-full flex'}`}>
           
           <div className="text-center mb-4">
-            <h1 className="text-2xl font-bold text-slate-800 mb-1">Guardian AI</h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">การเดียน AI</h1>
             <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">สร้างบัญชีใหม่</h2>
           </div>
 
@@ -138,23 +138,23 @@ export default function LoginPage() {
 
           <form onSubmit={handleStandardAuth} className="flex flex-col gap-3">
             <div>
-              <label className="text-xs font-semibold text-slate-600 ml-1">ชื่อผู้ใช้งาน</label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">ชื่อผู้ใช้งาน</label>
               <input type="text" placeholder="กรอกชื่อของคุณ" required value={name} onChange={(e) => setName(e.target.value)} 
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
+                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
               {errors.name && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.name}</span>}
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 ml-1">อีเมล</label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">อีเมล</label>
               <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
+                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
               {errors.email && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.email}</span>}
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 ml-1">รหัสผ่าน</label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">รหัสผ่าน</label>
               <input type="password" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
+                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
               {errors.password && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.password}</span>}
             </div>
             
@@ -164,16 +164,16 @@ export default function LoginPage() {
           </form>
 
           <div className="flex items-center my-4">
-            <hr className="flex-grow border-slate-200" />
-            <span className="px-3 text-slate-400 text-xs">หรือ</span>
-            <hr className="flex-grow border-slate-200" />
+            <hr className="flex-grow border-slate-200 dark:border-slate-600" />
+            <span className="px-3 text-slate-400 dark:text-slate-500 text-xs">หรือ</span>
+            <hr className="flex-grow border-slate-200 dark:border-slate-600" />
           </div>
-          <button type="button" onClick={() => signIn("google", { callbackUrl: "/dashboard" })} className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-semibold shadow-sm text-sm">
+          <button type="button" onClick={() => signIn("google", { callbackUrl: "/dashboard" })} className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all font-semibold shadow-sm text-sm">
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />
             ดำเนินการต่อด้วย Google
           </button>
 
-          <p className="md:hidden text-center mt-5 text-sm text-slate-500">
+          <p className="md:hidden text-center mt-5 text-sm text-slate-500 dark:text-slate-400">
             มีบัญชีอยู่แล้วใช่ไหม? <span onClick={toggleMode} className="text-purple-600 font-bold ml-1 cursor-pointer hover:underline">เข้าสู่ระบบที่นี่</span>
           </p>
         </div>
@@ -185,7 +185,7 @@ export default function LoginPage() {
           ${isLogin ? 'opacity-100 z-20 md:translate-x-0 flex' : 'opacity-0 z-10 md:translate-x-full hidden md:flex'}`}>
           
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-800 mb-1">Guardian AI</h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">การเดียน AI</h1>
             <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">เข้าสู่ระบบ</h2>
           </div>
 
@@ -194,18 +194,18 @@ export default function LoginPage() {
 
           <form onSubmit={handleStandardAuth} className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-semibold text-slate-600 ml-1">อีเมล</label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">อีเมล</label>
               <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm" />
+                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm" />
               {errors.email && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.email}</span>}
             </div>
 
             <div>
               <div className="flex justify-between items-center ml-1 mb-1">
-                <label className="text-xs font-semibold text-slate-600">รหัสผ่าน</label>
+                <label className="text-xs font-semibold text-slate-600 dark:text-slate-300">รหัสผ่าน</label>
               </div>
               <input type="password" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl bg-slate-100/50 border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm" />
+                className="w-full px-4 py-3 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm" />
               {errors.password && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.password}</span>}
             </div>
             
@@ -215,16 +215,16 @@ export default function LoginPage() {
           </form>
 
           <div className="flex items-center my-5">
-            <hr className="flex-grow border-slate-200" />
-            <span className="px-3 text-slate-400 text-xs">หรือ</span>
-            <hr className="flex-grow border-slate-200" />
+            <hr className="flex-grow border-slate-200 dark:border-slate-600" />
+            <span className="px-3 text-slate-400 dark:text-slate-500 text-xs">หรือ</span>
+            <hr className="flex-grow border-slate-200 dark:border-slate-600" />
           </div>
-          <button type="button" onClick={() => signIn("google", { callbackUrl: "/dashboard" })} className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-all font-semibold shadow-sm text-sm">
+          <button type="button" onClick={() => signIn("google", { callbackUrl: "/dashboard" })} className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all font-semibold shadow-sm text-sm">
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />
             ดำเนินการต่อด้วย Google
           </button>
 
-          <p className="md:hidden text-center mt-6 text-sm text-slate-500">
+          <p className="md:hidden text-center mt-6 text-sm text-slate-500 dark:text-slate-400">
             ยังไม่มีบัญชีใช่ไหม? <span onClick={toggleMode} className="text-blue-600 font-bold ml-1 cursor-pointer hover:underline">สมัครสมาชิกที่นี่</span>
           </p>
         </div>

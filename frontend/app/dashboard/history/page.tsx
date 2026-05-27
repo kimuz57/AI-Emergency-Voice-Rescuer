@@ -45,21 +45,21 @@ export default function HistoryPage() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-slate-800">ประวัติการตรวจจับเสียง</h1>
-        <p className="text-slate-500 text-sm mt-1">คลังบันทึกไฟล์เสียงและผลวิเคราะห์จากโมเดล AI (BCResNet)</p>
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">ประวัติการตรวจจับเสียง</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">คลังบันทึกไฟล์เสียงและผลวิเคราะห์จากโมเดล AI (BCResNet)</p>
       </div>
 
       {/* Summary Strip */}
       <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center shadow-sm">
-          <p className="text-3xl font-bold text-slate-800">{mockLogs.length}</p>
-          <p className="text-xs text-slate-500 mt-1 font-medium uppercase tracking-wide">บันทึกทั้งหมด</p>
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 text-center shadow-sm">
+          <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{mockLogs.length}</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium uppercase tracking-wide">บันทึกทั้งหมด</p>
         </div>
-        <div className="bg-red-50 rounded-2xl border border-red-100 p-4 text-center shadow-sm">
+        <div className="bg-red-50 dark:bg-red-900/30 rounded-2xl border border-red-100 dark:border-red-800 p-4 text-center shadow-sm">
           <p className="text-3xl font-bold text-red-600">{emergencyCount}</p>
           <p className="text-xs text-red-500 mt-1 font-medium uppercase tracking-wide">Emergency</p>
         </div>
-        <div className="bg-emerald-50 rounded-2xl border border-emerald-100 p-4 text-center shadow-sm">
+        <div className="bg-emerald-50 dark:bg-emerald-900/30 rounded-2xl border border-emerald-100 dark:border-emerald-800 p-4 text-center shadow-sm">
           <p className="text-3xl font-bold text-emerald-600">{normalCount}</p>
           <p className="text-xs text-emerald-500 mt-1 font-medium uppercase tracking-wide">Normal</p>
         </div>
@@ -78,7 +78,7 @@ export default function HistoryPage() {
                   : f === "Normal"
                   ? "bg-emerald-600 text-white border-emerald-600"
                   : "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700"
             }`}
           >
             {f === "All" ? "ทั้งหมด" : f}
@@ -87,37 +87,37 @@ export default function HistoryPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">เวลาเกิดเหตุ</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">ห้อง</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">Device</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">ผล AI</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">ค่าความมั่นใจ</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">เล่นไฟล์เสียง</th>
+              <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">เวลาเกิดเหตุ</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">ห้อง</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">Device</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">ผล AI</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">ค่าความมั่นใจ</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">เล่นไฟล์เสียง</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {filtered.map((log) => (
-                <tr key={log.id} className={`transition-colors ${log.classification === "Emergency" ? "hover:bg-red-50/50" : "hover:bg-slate-50"}`}>
-                  <td className="px-6 py-4 font-mono text-xs text-slate-600 whitespace-nowrap">{log.timestamp}</td>
+                <tr key={log.id} className={`transition-colors ${log.classification === "Emergency" ? "hover:bg-red-50/50 dark:hover:bg-red-900/20" : "hover:bg-slate-50 dark:hover:bg-slate-700/50"}`}>
+                  <td className="px-6 py-4 font-mono text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{log.timestamp}</td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                       {log.room}
                     </span>
                   </td>
-                  <td className="px-6 py-4 font-mono text-xs text-slate-500">{log.deviceId}</td>
+                  <td className="px-6 py-4 font-mono text-xs text-slate-500 dark:text-slate-400">{log.deviceId}</td>
                   <td className="px-6 py-4">
                     {log.classification === "Emergency" ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700 border border-red-200">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700">
                         <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse"></span>
                         Emergency
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-700">
                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                         Normal
                       </span>
@@ -125,7 +125,7 @@ export default function HistoryPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-20 bg-slate-100 rounded-full h-1.5">
+                      <div className="w-20 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
                         <div
                           className={`h-1.5 rounded-full ${log.classification === "Emergency" ? "bg-red-500" : "bg-emerald-500"}`}
                           style={{ width: `${log.confidence * 100}%` }}
@@ -146,7 +146,7 @@ export default function HistoryPage() {
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                           playingId === log.id
                             ? "bg-indigo-600 text-white shadow-sm"
-                            : "bg-slate-100 text-slate-600 hover:bg-indigo-50 hover:text-indigo-600"
+                            ? "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 hover:text-indigo-600 dark:hover:text-indigo-400"
                         }`}
                       >
                         {playingId === log.id ? (

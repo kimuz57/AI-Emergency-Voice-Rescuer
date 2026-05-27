@@ -55,8 +55,8 @@ export default function PatientsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">จัดการข้อมูลผู้ป่วย</h1>
-          <p className="text-slate-500 text-sm mt-1">ทะเบียนผู้ป่วยภายใต้การดูแลทั้งหมด {patients.length} ราย</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">จัดการข้อมูลผู้ป่วย</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">ทะเบียนผู้ป่วยภายใต้การดูแลทั้งหมด {patients.length} ราย</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -70,22 +70,22 @@ export default function PatientsPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">ผู้ป่วย</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">อายุ</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">ห้องพัก</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">โรคประจำตัว</th>
-                <th className="text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">Device ID</th>
-                <th className="text-right px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">การดำเนินการ</th>
+              <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">ผู้ป่วย</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">อายุ</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">ห้องพัก</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">โรคประจำตัว</th>
+                <th className="text-left px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">Device ID</th>
+                <th className="text-right px-6 py-4 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wide text-xs">การดำเนินการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {patients.map((p, i) => (
-                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                <tr key={p.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div
@@ -94,27 +94,27 @@ export default function PatientsPage() {
                       >
                         {p.avatar}
                       </div>
-                      <span className="font-medium text-slate-800">{p.name}</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-100">{p.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-600">{p.age} ปี</td>
+                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{p.age} ปี</td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-800">
                       {p.room}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-slate-600">{p.condition}</td>
-                  <td className="px-6 py-4 font-mono text-xs text-slate-500">{p.deviceId}</td>
+                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{p.condition}</td>
+                  <td className="px-6 py-4 font-mono text-xs text-slate-500 dark:text-slate-400">{p.deviceId}</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="แก้ไข">
+                      <button className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg transition-colors" title="แก้ไข">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                         </svg>
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(p.id)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                         title="ลบ"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -133,9 +133,9 @@ export default function PatientsPage() {
       {/* Add Patient Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-slate-800">เพิ่มผู้ป่วยใหม่</h2>
+              <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">เพิ่มผู้ป่วยใหม่</h2>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -151,19 +151,19 @@ export default function PatientsPage() {
                 { label: "Device ID (MAC Address)", key: "deviceId", placeholder: "เช่น AA:BB:CC:DD:EE:FF", type: "text" },
               ].map(({ label, key, placeholder, type }) => (
                 <div key={key}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{label}</label>
                   <input
                     type={type}
                     placeholder={placeholder}
                     value={(form as any)[key]}
                     onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                    className="w-full px-3 py-2.5 border border-slate-200 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100 dark:placeholder-slate-400 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                   />
                 </div>
               ))}
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+              <button onClick={() => setShowModal(false)} className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                 ยกเลิก
               </button>
               <button onClick={handleAdd} className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors">
@@ -177,16 +177,16 @@ export default function PatientsPage() {
       {/* Delete Confirm Modal */}
       {deleteConfirm !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
               </svg>
             </div>
-            <h3 className="text-base font-bold text-slate-800 mb-1">ยืนยันการลบ</h3>
-            <p className="text-sm text-slate-500 mb-5">ข้อมูลผู้ป่วยจะถูกลบออกจากระบบถาวร</p>
+            <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mb-1">ยืนยันการลบ</h3>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">ข้อมูลผู้ป่วยจะถูกลบออกจากระบบถาวร</p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors">
+              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
                 ยกเลิก
               </button>
               <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors">

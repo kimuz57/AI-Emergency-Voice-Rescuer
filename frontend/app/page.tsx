@@ -3,7 +3,7 @@ import React from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 export default function LandingPage() {
   return (
-    <div className="relative min-h-screen bg-slate-50 overflow-hidden font-sans">
+    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans transition-colors duration-300">
       {/* ========================================== */}
       {/* 🪄 แทรก CSS Custom Animation สำหรับลูกแก้วลอย */}
       {/* ========================================== */}
@@ -68,7 +68,7 @@ export default function LandingPage() {
         {/* ฝั่งขวา: เมนูและปุ่มต่างๆ */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
           {/* 🟢 ปุ่ม Theme Toggle จะอยู่ตรงนี้ */}
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
 
           {/* 🟢 เส้นคั่นบางๆ (ซ่อนในมือถือ โชว์ในจอใหญ่) */}
           <div className="hidden sm:block w-px h-6 bg-slate-200 dark:bg-slate-700 transition-colors"></div>
@@ -92,24 +92,24 @@ export default function LandingPage() {
       {/* 🎯 3. Hero Section */}
       {/* ========================================== */}
       <main className="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-24 md:pt-32 pb-20">
-        <div className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-purple-100 shadow-sm mb-6 md:mb-8">
+        <div className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-purple-100 dark:border-slate-700 shadow-sm mb-6 md:mb-8">
           <span className="flex h-2 w-2 md:h-2.5 md:w-2.5 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-purple-500"></span>
           </span>
-          <span className="text-[10px] md:text-xs font-bold text-slate-600 uppercase tracking-wider">
+            <span className="text-[10px] md:text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
             AI Voice Detection Active
           </span>
         </div>
 
-        <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-4 md:mb-6 text-slate-900 tracking-tight leading-tight">
+        <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-4 md:mb-6 text-slate-900 dark:text-white tracking-tight leading-tight">
           ฟังทุกเสียงร้องขอ <br className="hidden md:block" />
           <span className="bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600 bg-clip-text text-transparent drop-shadow-sm">
             ปกป้องด้วย AI อัจฉริยะ
           </span>
         </h1>
 
-        <p className="text-base md:text-xl text-slate-500 mb-8 md:mb-10 max-w-2xl mx-auto leading-relaxed px-4">
+        <p className="text-base md:text-xl text-slate-500 dark:text-slate-400 mb-8 md:mb-10 max-w-2xl mx-auto leading-relaxed px-4">
           ยกระดับความปลอดภัยให้ผู้สูงอายุและผู้ป่วย
           ด้วยเทคโนโลยีจำแนกเสียงที่ทำงานตลอด 24 ชั่วโมง
           พร้อมระบบแจ้งเตือนความหน่วงต่ำ
@@ -144,62 +144,62 @@ export default function LandingPage() {
       {/* ========================================== */}
       <section className="relative z-10 py-12 md:py-20 px-6">
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <div className="p-6 md:p-8 bg-white/80 backdrop-blur-lg rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-blue-100 to-blue-50 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
+          <div className="p-6 md:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/50 dark:to-blue-800/30 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
               🧠
             </div>
 
-            <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800">
+            <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-100">
               BCResNet Engine
             </h3>
 
-            <p className="text-sm text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               แพลตฟอร์มตรวจจับเสียงร้องขอความช่วยเหลือแบบเรียลไทม์
               เพื่อความปลอดภัยของผู้สูงอายุและผู้ป่วยในสถานพยาบาล
               ขับเคลื่อนด้วยโมเดล BCResNet
             </p>
           </div>
 
-          <div className="p-6 md:p-8 bg-white/80 backdrop-blur-lg rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-indigo-100 to-indigo-50 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
+          <div className="p-6 md:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/50 dark:to-indigo-800/30 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
               ⚡
             </div>
 
-            <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800">
+            <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-100">
               Low-Latency Alert
             </h3>
 
-            <p className="text-sm text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               ส่งสัญญาณแจ้งเตือนไปยังแดชบอร์ดผู้ดูแล ผ่านโปรโตคอล WebSocket และ
               MQTT แบบเรียลไทม์
             </p>
           </div>
 
-          <div className="p-6 md:p-8 bg-white/80 backdrop-blur-lg rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-purple-100 to-purple-50 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
+          <div className="p-6 md:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/50 dark:to-purple-800/30 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
               🛡️
             </div>
 
-            <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800">
+            <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-100">
               Access Control
             </h3>
 
-            <p className="text-sm text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               รองรับการลงทะเบียนและยืนยันตัวตนผู้ดูแลผ่าน JWT Token และ OAuth
               Google ควบคุมสิทธิ์การเข้าถึงข้อมูลผู้ป่วยแต่ละรายอย่างปลอดภัย
             </p>
           </div>
 
-          <div className="p-6 md:p-8 bg-white/80 backdrop-blur-lg rounded-3xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
-            <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-sky-100 to-sky-50 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
+          <div className="p-6 md:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
+            <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-sky-100 to-sky-50 dark:from-sky-900/50 dark:to-sky-800/30 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
               🎙️
             </div>
 
-            <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800">
+            <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-100">
               Voice Archive
             </h3>
 
-            <p className="text-sm text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
               บันทึกและจัดเก็บไฟล์เสียง .wav ทุกเหตุการณ์ที่ตรวจพบในฐานข้อมูล
               สามารถเรียกฟังย้อนหลังและตรวจสอบผลการวิเคราะห์ AI ได้ทุกเวลา
             </p>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import FloatingThemeToggle from "@/components/FloatingThemeToggle";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -32,7 +33,11 @@ export default function RootLayout({
         />
       </head>
       <body className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300">
-        <Providers>{children}</Providers>
+        <Providers>
+          {children}
+          {/* Floating Theme Toggle — ปรากฏทุกหน้า */}
+          <FloatingThemeToggle />
+        </Providers>
       </body>
     </html>
   );
