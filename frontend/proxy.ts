@@ -9,7 +9,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. ถ้ามี Token แล้ว แต่พยายามเข้าหน้าแรก (Login) ให้เตะไป Dashboard
-  if (token && pathname === "/") {
+  if (token && pathname === "/login") {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
@@ -20,7 +20,7 @@ export function proxy(request: NextRequest) {
 
   // 3. ถ้าหน้าที่เข้าเป็นหน้า Protected แต่ "ไม่มี" Token ให้เตะกลับไปหน้าแรก
   if (!token && isProtectedPath) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   return NextResponse.next();
@@ -29,6 +29,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/",
+    "/login",
     "/dashboard/:path*",
     "/settings/:path*",
     "/patients/:path*", // ตอนนี้มันจะทำงานสอดคล้องกับเงื่อนไขข้างบนแล้วครับ

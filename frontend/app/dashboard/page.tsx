@@ -106,20 +106,19 @@ export default function Dashboard() {
       fetchAlerts();
       fetchPatients(); // 🟢 2. สั่งให้อัปเดตข้อมูลคนไข้สดใหม่ทุกๆ 5 วินาที
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, []);
-  
+
   // ==========================================
   // 2. ฟังก์ชันเมื่อพยาบาลกดปุ่ม "รับทราบ" (อัปเดต DB)
   // ==========================================
   const handleResolve = async (id: number) => {
     if (!id) return;
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/alerts/${id}/resolve`,
-        { method: "PUT" },
-      );
+      const res = await fetch(`${API_BASE_URL}/api/alerts/${id}/resolve`, {
+        method: "PUT",
+      });
       if (res.ok) {
         fetchAlerts(); // อัปเดตหน้าจอทันที
       }
@@ -129,23 +128,42 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
-        <h1 className="text-xl md:text-3xl font-bold text-gray-800 mb-8 text-center md:text-left flex items-center justify-center md:justify-start gap-3">
-          🚨 บอร์ดแจ้งเตือนผู้ป่วยวิกฤต{" "}
-          <span className="text-sm md:text-lg text-gray-500 font-normal">
-            (ข้อมูลสดจาก DB)
-          </span>
-        </h1>
+    <div className="relative min-h-screen bg-slate-50 flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden">
+      {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
+      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-red-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-20 animate-pulse pointer-events-none"></div>
+      <div
+        className="fixed bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse pointer-events-none"
+        style={{ animationDelay: "2s" }}
+      ></div>
+
+      {/* 📦 Main Container */}
+      <div className="relative z-10 w-full max-w-5xl mt-6">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 mb-10 text-center md:text-left bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/60 shadow-sm">
+          <div className="p-3 bg-red-100/80 rounded-2xl animate-bounce shadow-sm">
+            <span className="text-3xl md:text-4xl">🚨</span>
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent tracking-tight">
+              บอร์ดแจ้งเตือนผู้ป่วยวิกฤต
+            </h1>
+            <p className="text-slate-500 font-medium mt-1 text-sm md:text-base">
+              (ข้อมูลอัปเดตเรียลไทม์จากระบบ AI Sensor)
+            </p>
+          </div>
+        </div>
 
         {/* ========================================== */}
-        {/* 🔴 เงื่อนไขที่ 1: ยังไม่มีผู้ป่วยในความดูแลเลย (Empty State) */}
+        {/* ⚪ เงื่อนไขที่ 1: ยังไม่มีผู้ป่วยในความดูแลเลย (Empty State) */}
         {/* ========================================== */}
         {patients.length === 0 ? (
-          <div className="bg-white border-2 border-dashed border-gray-300 rounded-xl p-10 flex flex-col items-center justify-center text-center shadow-sm">
-            <div className="bg-gray-100 rounded-full p-5 mb-5">
+          <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden group">
+            {/* แสงตกแต่งพื้นหลัง Empty State */}
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-white opacity-50"></div>
+
+            <div className="relative z-10 bg-slate-100 rounded-full p-6 mb-6 group-hover:scale-110 transition-transform duration-500">
               <svg
-                className="w-10 h-10 text-gray-400"
+                className="w-12 h-12 text-slate-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -153,22 +171,22 @@ export default function Dashboard() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="2"
+                  strokeWidth="1.5"
                   d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                 ></path>
               </svg>
             </div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+            <h2 className="relative z-10 text-2xl font-extrabold text-slate-800 mb-2">
               คุณยังไม่มีผู้ป่วยในการดูแล
             </h2>
-            <p className="text-gray-500 mb-8 max-w-md">
-              กรุณาเพิ่มข้อมูลผู้ป่วยและเชื่อมต่ออุปกรณ์ AI SmartVoice
+            <p className="relative z-10 text-slate-500 mb-8 max-w-md leading-relaxed">
+              กรุณาเพิ่มข้อมูลผู้ป่วยและเชื่อมต่ออุปกรณ์ EVR Sensor
               เพื่อเริ่มการเฝ้าระวังตลอด 24 ชั่วโมง
             </p>
 
             <Link
-              href="/dashboard/devices" // 🟢 เปลี่ยนเป็น Path หน้าลงทะเบียนของผู้กองได้เลย
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+              href="/devices"
+              className="relative z-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl transition-all shadow-lg hover:shadow-indigo-500/30 flex items-center gap-3 hover:-translate-y-1"
             >
               <svg
                 className="w-5 h-5"
@@ -179,7 +197,7 @@ export default function Dashboard() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="2"
+                  strokeWidth="2.5"
                   d="M12 4v16m8-8H4"
                 ></path>
               </svg>
@@ -190,10 +208,13 @@ export default function Dashboard() {
         /* 🟢 เงื่อนไขที่ 2: มีผู้ป่วยแล้ว แต่ไม่มีใครป่วยหนัก (สถานการณ์ปกติ) */
         /* ========================================== */
         alerts.length === 0 ? (
-          <div className="bg-green-50 text-green-700 border-2 border-green-200 rounded-xl p-8 text-center flex flex-col items-center justify-center gap-3 shadow-sm">
-            <div className="bg-green-100 p-3 rounded-full">
+          <div className="bg-emerald-50/80 backdrop-blur-xl border border-emerald-100 rounded-3xl p-10 text-center flex flex-col items-center justify-center gap-4 shadow-lg relative overflow-hidden">
+            {/* แสงวิ้งๆ สีเขียวมรกตแสดงความปลอดภัย */}
+            <div className="absolute top-[-50%] left-[-20%] w-[300px] h-[300px] bg-emerald-300 rounded-full mix-blend-multiply filter blur-[80px] opacity-30 animate-pulse pointer-events-none"></div>
+
+            <div className="relative z-10 bg-emerald-100/80 p-4 rounded-full shadow-sm">
               <svg
-                className="w-8 h-8 text-green-600"
+                className="w-10 h-10 text-emerald-600"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -201,59 +222,86 @@ export default function Dashboard() {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth="2"
+                  strokeWidth="2.5"
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 ></path>
               </svg>
             </div>
-            <span className="font-semibold text-lg">สถานการณ์ปกติ</span>
-            <span className="text-green-600">
-              ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบกำลังเฝ้าระวัง...
-            </span>
+            <h2 className="relative z-10 font-extrabold text-2xl text-emerald-800 tracking-wide">
+              สถานการณ์ปกติ ปลอดภัยดี
+            </h2>
+            <p className="relative z-10 text-emerald-600/80 font-medium bg-white/50 px-6 py-2 rounded-full backdrop-blur-sm">
+              ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบ AI กำลังเฝ้าระวัง...
+              🛡️
+            </p>
           </div>
         ) : (
           /* ========================================== */
-          /* 🚨 เงื่อนไขที่ 3: มีผู้ป่วยต้องการความช่วยเหลือ (โชว์ข้อมูล) */
+          /* 🚨 เงื่อนไขที่ 3: มีผู้ป่วยต้องการความช่วยเหลือ (โชว์ Alert Cards) */
           /* ========================================== */
-          <div className="space-y-4">
+          <div className="space-y-6">
             {alerts.map((alert) => (
               <div
                 key={alert.id || alert.ID || Math.random()}
-                className="bg-white border-l-4 border-red-500 shadow-md rounded-xl p-6 flex flex-col md:flex-row gap-6 items-center transition-all hover:shadow-lg"
+                className="bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl hover:-translate-y-1 transition-all group"
               >
-                {/* ข้อมูลผู้ป่วย */}
-                <div className="flex-1 w-full">
-                  <div className="flex items-center gap-3 mb-3">
-                    <span className="bg-red-100 text-red-600 px-3 py-1 rounded-full text-xs md:text-sm font-bold animate-pulse whitespace-nowrap">
-                      ต้องการความช่วยเหลือ!
+                {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}
+                <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-red-500 to-rose-600 shadow-[0_0_15px_rgba(225,29,72,0.6)]"></div>
+
+                {/* 1. ข้อมูลผู้ป่วย */}
+                <div className="flex-1 pl-4 w-full">
+                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                    <span className="px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
+                      ⚠️ ต้องการความช่วยเหลือ!
                     </span>
-                    <span className="text-gray-500 text-sm">
+                    <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-3 py-1 rounded-full">
+                      🕒{" "}
                       {alert.created_at
                         ? new Date(alert.created_at).toLocaleString("th-TH")
                         : "ไม่ระบุเวลา"}
                     </span>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-800 mb-1">
+                  <h2 className="text-3xl font-extrabold text-slate-800 mb-1 tracking-tight">
                     {alert.patient_name}
                   </h2>
-                  <p className="text-gray-600 font-medium">
-                    ห้องพัก: {alert.room_number}
+                  <p className="text-slate-500 text-sm font-medium flex items-center gap-2">
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                      />
+                    </svg>
+                    ห้องพัก:{" "}
+                    <span className="text-slate-700 font-bold text-base">
+                      {alert.room_number}
+                    </span>
                   </p>
                 </div>
 
-                {/* เครื่องเล่นเสียง */}
-                <div className="flex-shrink-0 w-full md:w-auto bg-gray-50 p-3 rounded-lg border border-gray-100">
-                  <p className="text-xs text-gray-500 mb-2 font-medium">
-                    <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-1 animate-ping"></span>
-                    เสียงหลักฐานจาก ESP32:
+                {/* 2. เครื่องเล่นเสียง AI */}
+                <div className="flex-1 w-full md:w-auto bg-slate-50/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200/60 shadow-inner">
+                  <p className="text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wide">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
+                    เสียงร้องขอความช่วยเหลือ:
                   </p>
-                  <CustomAudioPlayer
-                    src={`${API_BASE_URL}${alert.audio_url}`}
-                  />
+
+                  {/* กล่องใส่ Component เสียงเดิมของคุณ */}
+                  <div className="w-full relative z-20">
+                    <CustomAudioPlayer
+                      src={`${API_BASE_URL}${alert.audio_url}`}
+                    />
+                  </div>
                 </div>
 
-                {/* ปุ่มรับทราบ */}
-                <div className="flex-shrink-0 w-full md:w-auto">
+                {/* 3. ปุ่มรับทราบ */}
+                <div className="w-full md:w-auto flex justify-end mt-2 md:mt-0 relative z-20">
                   <button
                     onClick={() => {
                       const idToResolve = alert.id ?? alert.ID;
@@ -261,9 +309,22 @@ export default function Dashboard() {
                         handleResolve(idToResolve);
                       }
                     }}
-                    className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors shadow-sm"
+                    className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-indigo-500/40 transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2 group-hover:scale-105"
                   >
-                    รับทราบ & เข้าช่วยเหลือ
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2.5"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    รับทราบ & ช่วยเหลือ
                   </button>
                 </div>
               </div>
