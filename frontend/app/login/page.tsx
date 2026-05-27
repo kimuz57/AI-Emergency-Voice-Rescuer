@@ -13,11 +13,13 @@ export default function LoginPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [errors, setErrors] = useState({
     name: "",
     email: "",
     password: "",
+    confirmPassword: "",
     general: "",
   });
   const [successMsg, setSuccessMsg] = useState("");
@@ -25,10 +27,14 @@ export default function LoginPage() {
   const handleStandardAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    setErrors({ name: "", email: "", password: "", general: "" });
+    setErrors({ name: "", email: "", password: "", confirmPassword: "", general: "" });
     setSuccessMsg("");
 
     if (!isLogin) {
+      if (password !== confirmPassword) {
+        setErrors((prev) => ({ ...prev, confirmPassword: "รหัสผ่านไม่ตรงกัน กรุณากรอกใหม่" }));
+        return;
+      }
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
           method: "POST",
@@ -48,6 +54,7 @@ export default function LoginPage() {
           setName("");
           setEmail("");
           setPassword("");
+          setConfirmPassword("");
         } else {
           if (response.status === 409 || (data.error && data.error.toLowerCase().includes("email"))) {
             setErrors((prev) => ({
@@ -108,8 +115,9 @@ export default function LoginPage() {
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
-    setErrors({ name: "", email: "", password: "", general: "" });
+    setErrors({ name: "", email: "", password: "", confirmPassword: "", general: "" });
     setSuccessMsg("");
+    setConfirmPassword("");
   };
 
   return (
@@ -156,6 +164,16 @@ export default function LoginPage() {
               <input type="password" placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
               {errors.password && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.password}</span>}
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">ยืนยันรหัสผ่าน</label>
+              <input type="password" placeholder="Confirm Password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+                className={"w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border dark:text-slate-100 dark:placeholder-slate-400 focus:ring-2 outline-none transition-all text-sm " +
+                  (errors.confirmPassword
+                    ? "border-red-400 focus:border-red-400 focus:ring-red-200"
+                    : "border-slate-200 dark:border-slate-600 focus:border-purple-500 focus:ring-purple-200")} />
+              {errors.confirmPassword && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.confirmPassword}</span>}
             </div>
             
             <button type="submit" className="w-full py-3 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5">
