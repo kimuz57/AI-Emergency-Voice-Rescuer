@@ -216,15 +216,17 @@ export default function ProfilePage() {
   return (
     <div className="w-full max-w-4xl mx-auto p-6 space-y-6 text-slate-800">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-bold text-slate-900">ข้อมูลส่วนตัว</h1>
-        <p className="text-sm text-slate-500">
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          ข้อมูลส่วนตัว
+        </h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           จัดการข้อมูลบัญชีผู้ดูแลระบบและการแจ้งเตือนเหตุฉุกเฉิน
         </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1 space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center text-center">
-            <div className="relative group select-none">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 ">
+        <div className="md:col-span-1 space-y-6 ">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center text-center dark:bg-slate-800">
+            <div className="relative group select-none ">
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className={`w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold shadow-md overflow-hidden cursor-pointer transition-all hover:brightness-95 ${
@@ -243,7 +245,7 @@ export default function ProfilePage() {
                   <img
                     src={profile.profileImage}
                     alt="Profile"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover "
                   />
                 ) : (
                   profile?.name?.substring(0, 2).toUpperCase() || "??"
@@ -280,29 +282,34 @@ export default function ProfilePage() {
               className="hidden"
             />
 
-            <h2 className="mt-4 text-xl font-bold text-slate-900">
+            <h2 className="mt-4 text-xl font-bold text-slate-900 dark:text-white">
               {profile?.name}
             </h2>
-            <p className="text-sm text-slate-400">{profile?.email}</p>
+            <p className="text-sm text-slate-400 dark:text-slate-400">
+              {profile?.email}
+            </p>
 
-            <span className="mt-3 px-3 py-1 bg-blue-50 text-blue-600 text-xs font-semibold rounded-full border border-blue-100 tracking-wide uppercase">
+            <span className="dark:bg-slate-800 mt-3 px-3 py-1 bg-blue-50 text-blue-600 text-xs font-semibold rounded-full border border-blue-100 tracking-wide uppercase">
               {profile?.role}
             </span>
           </div>
         </div>
 
         <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+          {/* ========================================== */}
+          {/* 1. กล่องรายละเอียดผู้ดูแล */}
+          {/* ========================================== */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 รายละเอียดผู้ดูแล
               </h3>
               <button
                 onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-                className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all ${
+                className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all  ${
                   isEditing
                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
                 }`}
               >
                 {isEditing ? "บันทึกข้อมูล" : "แก้ไขข้อมูล"}
@@ -310,22 +317,28 @@ export default function ProfilePage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   ชื่อผู้ใช้งาน
                 </label>
-                <input
-                  type="text"
-                  disabled={!isEditing}
-                  value={profile.name}
-                  onChange={(e) =>
-                    setProfile({ ...profile, name: e.target.value })
-                  }
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all text-sm"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    disabled={!isEditing}
+                    value={profile.name}
+                    onChange={(e) =>
+                      setProfile({ ...profile, name: e.target.value })
+                    }
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm
+                      text-slate-900 bg-white 
+                      dark:text-white dark:bg-slate-700
+                      disabled:bg-slate-50 disabled:text-slate-500 
+                      dark:disabled:bg-slate-900/50 dark:disabled:text-slate-400"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">
                   เบอร์โทรศัพท์รับเหตุฉุกเฉิน
                 </label>
                 <input
@@ -335,23 +348,31 @@ export default function ProfilePage() {
                   onChange={(e) =>
                     setProfile({ ...profile, phone: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:bg-slate-50 disabled:text-slate-500 transition-all text-sm font-mono"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-mono
+                    text-slate-900 bg-white 
+                    dark:text-white dark:bg-slate-700
+                    disabled:bg-slate-50 disabled:text-slate-500 
+                    dark:disabled:bg-slate-900/50 dark:disabled:text-slate-400"
                 />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-5">
+          {/* ========================================== */}
+          {/* 2. กล่องช่องทางการรับสัญญาณเตือนภัย */}
+          {/* ========================================== */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-6 space-y-5">
             <div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
                 ช่องทางการรับสัญญาณเตือนภัย
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">
                 เปิด-ปิดช่องทางรับสัญญาณเมื่อ AI ตรวจพบเสียงร้องขอความช่วยเหลือ
               </p>
             </div>
 
-            <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* กล่อง LINE Notify (ปรับให้โหมดมืดเป็นสีเขียว/ดำทึบๆ) */}
+            <div className="p-4 bg-emerald-50/50 dark:bg-emerald-900/20 rounded-2xl border border-emerald-100/60 dark:border-emerald-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-start space-x-3">
                 <div className="p-2 bg-emerald-500 text-white rounded-xl mt-0.5">
                   <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
@@ -359,10 +380,10 @@ export default function ProfilePage() {
                   </svg>
                 </div>
                 <div>
-                  <h4 className="text-sm font-bold text-slate-800">
+                  <h4 className="text-sm font-bold text-slate-800 dark:text-white">
                     LINE Notify Integration
                   </h4>
-                  <p className="text-xs text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                     ส่งข้อความเตือนภัยและตำแหน่งห้องเข้า LINE ทันทีเมื่อเกิดเหตุ
                   </p>
                 </div>
@@ -375,7 +396,7 @@ export default function ProfilePage() {
                 }
                 className={`px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
                   profile.isLineConnected
-                    ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
+                    ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700/50 dark:hover:bg-amber-900/50"
                     : "bg-emerald-600 text-white hover:bg-emerald-700"
                 }`}
               >
@@ -385,13 +406,14 @@ export default function ProfilePage() {
               </button>
             </div>
 
-            <div className="divide-y divide-slate-100 pt-1">
+            {/* ส่วนสวิตช์เปิด-ปิด (ปรับสี divider และสี toggle ตอนที่ไม่ได้เปิด) */}
+            <div className="divide-y divide-slate-100 dark:divide-slate-700 pt-1">
               <div className="flex items-center justify-between py-3.5">
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-800">
+                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                     เปิดระบบเสียงเตือนภัยบนเว็บไซต์
                   </h4>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
                     ส่งเสียงไซเรนและหน้าต่าง Pop-up บนเบราว์เซอร์นี้แบบทันท่วงที
                   </p>
                 </div>
@@ -404,16 +426,16 @@ export default function ProfilePage() {
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div className="w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white dark:after:bg-slate-200 after:border-slate-300 dark:after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
               </div>
 
               <div className="flex items-center justify-between py-3.5">
                 <div>
-                  <h4 className="text-sm font-semibold text-slate-800">
+                  <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
                     ส่งการแจ้งเตือนไปยังแอปพลิเคชัน LINE
                   </h4>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
                     อนุญาตให้บอร์ด IoT ส่งสัญญาณพุชข้อความเข้าไลน์กลุ่ม/ส่วนตัว
                   </p>
                 </div>
@@ -427,14 +449,14 @@ export default function ProfilePage() {
                     }
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"></div>
+                  <div className="w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white dark:after:bg-slate-200 after:border-slate-300 dark:after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"></div>
                 </label>
               </div>
             </div>
           </div>
 
           <div className="flex justify-end pt-2">
-            <button className="text-xs font-medium text-rose-500 hover:text-rose-700 hover:underline transition-all">
+            <button className="text-xs font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:underline transition-all">
               ⚠️ ต้องการลบบัญชีผู้ดูแลและล้างข้อมูลโครงข่าย IoT?
             </button>
           </div>

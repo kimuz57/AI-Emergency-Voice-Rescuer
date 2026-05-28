@@ -140,7 +140,7 @@ export default function LoginPage() {
           ${isLogin ? 'opacity-0 z-10 md:translate-x-0 hidden md:flex' : 'opacity-100 z-20 md:translate-x-full flex'}`}>
           
           <div className="text-center mb-4">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">การเดียน AI</h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1"> Emergency Voice Rescuer</h1>
             <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">สร้างบัญชีใหม่</h2>
           </div>
 
@@ -226,7 +226,7 @@ export default function LoginPage() {
           ${isLogin ? 'opacity-100 z-20 md:translate-x-0 flex' : 'opacity-0 z-10 md:translate-x-full hidden md:flex'}`}>
           
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">การเดียน AI</h1>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">Emergency Voice Rescuer</h1>
             <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">เข้าสู่ระบบ</h2>
           </div>
 
@@ -303,7 +303,7 @@ export default function LoginPage() {
             <div className={`absolute top-0 right-0 w-1/2 h-full flex flex-col justify-center items-center px-12 text-center transition-transform duration-700 ease-in-out 
               ${isLogin ? 'translate-x-0' : 'translate-x-[20%]'}`}>
               <h2 className="text-4xl font-extrabold mb-4 drop-shadow-md">Hello, Guardian!</h2>
-              <p className="mb-8 text-indigo-100">เพิ่งเคยเข้ามาครั้งแรกหรือเปล่า? <br/>สมัครสมาชิกเพื่อเริ่มใช้งาน Guardian AI ของเรา</p>
+              <p className="mb-8 text-indigo-100">เพิ่งเคยเข้ามาครั้งแรกหรือเปล่า? <br/>สมัครสมาชิกเพื่อเริ่มใช้งาน Emergency Voice Rescuer</p>
               
               {/* เปลี่ยนเป็น type="button" เผื่อความชัวร์ */}
               <button type="button" onClick={toggleMode} className="relative z-50 px-10 py-3 rounded-full border-2 border-white/50 hover:bg-white hover:text-indigo-600 transition-all font-bold tracking-wide">

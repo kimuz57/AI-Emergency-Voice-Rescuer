@@ -17,22 +17,11 @@ export const metadata: Metadata = {
     "AI-Based Emergency Voice Detection System — ระบบตรวจจับเสียงฉุกเฉินอัจฉริยะ",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function LoginLayout({ children }: { children: React.ReactNode }) {
+  // 🟢 ลบ html และ body ออกให้หมด ให้เหลือแค่ div หรือ children
   return (
-    <html lang="th">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className={`${inter.variable} font-sans text-slate-900 antialiased min-h-screen`}>
-        {children}
-      </body>
-    </html>
+    <div className="w-full min-h-screen">
+      {children}
+    </div>
   );
 }

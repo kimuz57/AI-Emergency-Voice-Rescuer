@@ -257,7 +257,7 @@ export default function Navbar() {
                     <p className="text-xs text-gray-500 dark:text-slate-400 truncate mb-1">
                       {user?.email || "ไม่มีข้อมูลอีเมล"}
                     </p>
-                    <span className="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    <span className="dark:bg-slate-800 bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
                       {user?.role || "User"}
                     </span>
                   </div>

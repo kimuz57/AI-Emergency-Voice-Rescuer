@@ -92,7 +92,7 @@ export default function LandingPage() {
       {/* 🎯 3. Hero Section */}
       {/* ========================================== */}
       <main className="relative z-10 flex flex-col items-center justify-center text-center px-6 pt-24 md:pt-32 pb-20">
-        <div className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-purple-100 dark:border-slate-700 shadow-sm mb-6 md:mb-8">
+        {/* <div className="inline-flex items-center gap-2 px-3 md:px-4 py-2 rounded-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-purple-100 dark:border-slate-700 shadow-sm mb-6 md:mb-8">
           <span className="flex h-2 w-2 md:h-2.5 md:w-2.5 relative">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
             <span className="relative inline-flex rounded-full h-2 w-2 md:h-2.5 md:w-2.5 bg-purple-500"></span>
@@ -100,7 +100,7 @@ export default function LandingPage() {
             <span className="text-[10px] md:text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
             AI Voice Detection Active
           </span>
-        </div>
+        </div> */}
 
         <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-4 md:mb-6 text-slate-900 dark:text-white tracking-tight leading-tight">
           ฟังทุกเสียงร้องขอ <br className="hidden md:block" />

@@ -128,23 +128,23 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-50 flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden">
+    <div className="dark:bg-slate-800 relative min-h-screen bg-slate-50 flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden dark:bg-slate-800">
       {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
       <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-red-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-20 animate-pulse pointer-events-none"></div>
       <div
-        className="fixed bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse pointer-events-none"
+        className="dark:bg-slate-800 fixed bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse pointer-events-none"
         style={{ animationDelay: "2s" }}
       ></div>
 
       {/* 📦 Main Container */}
       <div className="relative z-10 w-full max-w-5xl mt-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 mb-10 text-center md:text-left bg-white/60 backdrop-blur-md p-6 rounded-3xl border border-white/60 shadow-sm">
-          <div className="p-3 bg-red-100/80 rounded-2xl animate-bounce shadow-sm">
+        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 mb-10 text-center md:text-left bg-white/60 dark:bg-slate-800 backdrop-blur-md p-6 rounded-3xl border border-white/60 shadow-sm">
+          <div className="p-3 bg-gradient-to-br rounded-2xl animate-bounce shadow-sm ">
             <span className="text-3xl md:text-4xl">🚨</span>
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent tracking-tight dark:text-white">
               บอร์ดแจ้งเตือนผู้ป่วยวิกฤต
             </h1>
             <p className="text-slate-500 font-medium mt-1 text-sm md:text-base">
@@ -157,13 +157,13 @@ export default function Dashboard() {
         {/* ⚪ เงื่อนไขที่ 1: ยังไม่มีผู้ป่วยในความดูแลเลย (Empty State) */}
         {/* ========================================== */}
         {patients.length === 0 ? (
-          <div className="bg-white/80 backdrop-blur-xl border border-white rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden group">
+          <div className="bg-white/80 dark:bg-slate-800 backdrop-blur-xl border border-white rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden group">
             {/* แสงตกแต่งพื้นหลัง Empty State */}
             <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-white opacity-50"></div>
 
-            <div className="relative z-10 bg-slate-100 rounded-full p-6 mb-6 group-hover:scale-110 transition-transform duration-500">
+            <div className="relative z-10 bg-slate-100 rounded-full p-6 mb-6 group-hover:scale-110 transition-transform duration-500 dark:bg-slate-800">
               <svg
-                className="w-12 h-12 text-slate-400"
+                className="w-12 h-12 text-slate-400 dark:text-white"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -176,10 +176,10 @@ export default function Dashboard() {
                 ></path>
               </svg>
             </div>
-            <h2 className="relative z-10 text-2xl font-extrabold text-slate-800 mb-2">
+            <h2 className="relative z-10 text-2xl font-extrabold text-slate-800 mb-2 dark:text-white ">
               คุณยังไม่มีผู้ป่วยในการดูแล
             </h2>
-            <p className="relative z-10 text-slate-500 mb-8 max-w-md leading-relaxed">
+            <p className="relative z-10 text-slate-500 mb-8 max-w-md leading-relaxed dark:text-slate-200">
               กรุณาเพิ่มข้อมูลผู้ป่วยและเชื่อมต่ออุปกรณ์ EVR Sensor
               เพื่อเริ่มการเฝ้าระวังตลอด 24 ชั่วโมง
             </p>
@@ -210,9 +210,9 @@ export default function Dashboard() {
         alerts.length === 0 ? (
           <div className="bg-emerald-50/80 backdrop-blur-xl border border-emerald-100 rounded-3xl p-10 text-center flex flex-col items-center justify-center gap-4 shadow-lg relative overflow-hidden">
             {/* แสงวิ้งๆ สีเขียวมรกตแสดงความปลอดภัย */}
-            <div className="absolute top-[-50%] left-[-20%] w-[300px] h-[300px] bg-emerald-300 rounded-full mix-blend-multiply filter blur-[80px] opacity-30 animate-pulse pointer-events-none"></div>
+            <div className="absolute top-[-50%] left-[-20%] w-[300px] h-[300px] bg-emerald-300 rounded-full mix-blend-multiply filter blur-[80px] opacity-30 animate-pulse pointer-events-none "></div>
 
-            <div className="relative z-10 bg-emerald-100/80 p-4 rounded-full shadow-sm">
+            <div className="relative z-10 bg-emerald-100/80 dark:bg-slate-700 p-4 rounded-full shadow-sm">
               <svg
                 className="w-10 h-10 text-emerald-600"
                 fill="none"
@@ -230,7 +230,7 @@ export default function Dashboard() {
             <h2 className="relative z-10 font-extrabold text-2xl text-emerald-800 tracking-wide">
               สถานการณ์ปกติ ปลอดภัยดี
             </h2>
-            <p className="relative z-10 text-emerald-600/80 font-medium bg-white/50 px-6 py-2 rounded-full backdrop-blur-sm">
+            <p className="relative z-10 text-emerald-600/80 font-medium bg-white/50  px-6 py-2 rounded-full backdrop-blur-sm">
               ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบ AI กำลังเฝ้าระวัง...
               🛡️
             </p>
@@ -254,7 +254,7 @@ export default function Dashboard() {
                     <span className="px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
                       ⚠️ ต้องการความช่วยเหลือ!
                     </span>
-                    <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-3 py-1 rounded-full">
+                    <span className="text-xs text-slate-500 font-semibold bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">
                       🕒{" "}
                       {alert.created_at
                         ? new Date(alert.created_at).toLocaleString("th-TH")
