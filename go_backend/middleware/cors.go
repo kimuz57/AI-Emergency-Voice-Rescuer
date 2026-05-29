@@ -1,9 +1,10 @@
 package middleware
 
 import (
-    "github.com/gofiber/fiber/v2"
-    "github.com/gofiber/fiber/v2/middleware/cors"
-    "go_backend/config" 
+	"go_backend/config"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 // SetupCORS คืนค่า Middleware สำหรับจัดการ CORS

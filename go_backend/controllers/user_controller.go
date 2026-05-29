@@ -65,6 +65,8 @@ func GetUserProfile(c *fiber.Ctx) error {
 	}
 
 	var user models.User
+	// 🟢 เปลี่ยนจาก err := เป็น _ =
+	_ = database.DB.Preload("TelegramMapping").Where("email = ?", email).First(&user).Error
 	// 1. ค้นหาในตาราง users ด้วยอีเมล
 	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -73,6 +75,7 @@ func GetUserProfile(c *fiber.Ctx) error {
 	}
 	// 🟢 3. ส่งข้อมูลกลับไปให้หน้าบ้าน (มีทั้งรูปภาพเดิม และสถานะ LINE ใหม่)
 	return c.JSON(fiber.Map{
+		"id":              user.ID,
 		"name":            user.Name,
 		"email":           user.Email,
 		"role":            user.Role,
@@ -81,6 +84,9 @@ func GetUserProfile(c *fiber.Ctx) error {
 		"isLineConnected": user.IsLinkedLine, // 👈 เปลี่ยนเป็น I ใหญ่
 		"notifyWeb":       true,
 		"notifyLine":      user.IsLinkedLine, // 👈 เปลี่ยนเป็น I ใหญ่
+
+		"isTelegramConnected": user.TelegramMapping.IsTelegramConnected,
+		"notifyTelegram":      user.TelegramMapping.NotifyTelegram,
 	})
 }
 

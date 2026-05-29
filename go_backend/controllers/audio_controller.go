@@ -26,13 +26,8 @@ type AudioFileInfo struct {
 	URL       string    `json:"url"`
 }
 
-
 // ⚠️ สำคัญ: กำหนด Path โฟลเดอร์ที่ Python เซฟไฟล์เสียงไว้
 const audioDir = "./audio_recordings"
-
-
-
-
 
 // 1. API: ดึงรายชื่อไฟล์เสียง .wav ทั้งหมด
 func ListAudioFiles(c *fiber.Ctx) error {
@@ -186,29 +181,39 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	fmt.Println("✅ [GO] บันทึกเหตุฉุกเฉินลงฐานข้อมูลสำเร็จ! ไฟล์:", filename, "ผูกกับผู้ป่วย ID:", log.PatientID)
 
 	// ==========================================
-	// 🚀 ระบบแจ้งเตือน LINE OA (ทำงานต่อจากตรงนี้)
+	// 🚀 ระบบแจ้งเตือน (LINE และ Telegram)
 	// ==========================================
 	if patientID != nil {
 		var patientData models.Patient
 		// 1. ดึงข้อมูลผู้ป่วยเพื่อเอา UserID (คนดูแล), ชื่อผู้ป่วย และห้องพัก
 		if err := database.DB.First(&patientData, *patientID).Error; err == nil {
 			
-			// 2. ไปเช็คว่า UserID (คนดูแล) คนนี้ ผูกไลน์ไว้ไหมในตาราง UserLineMapping
+			// 🟢 --- แผนก LINE OA ---
 			var lineMapping models.UserLineMapping
 			if err := database.DB.Where("user_id = ?", patientData.UserID).First(&lineMapping).Error; err == nil {
 				fmt.Println("👉 [LINE] เจอคนผูกไลน์แล้ว! เตรียมยิงไปที่ LineUserID:", lineMapping.LineUserID)
-				
-				// 3. สั่งเรียกฟังก์ชันส่ง LINE OA (ทำงานเป็น Background จะได้ไม่รอ)
 				go sendLineOAPushMessage(lineMapping.LineUserID, patientData.Name, patientData.RoomNumber)
 			} else {
 				fmt.Println("⚠️ [LINE] คนดูแล ID", patientData.UserID, "ยังไม่ได้ผูกบัญชี LINE OA")
 			}
+
+			// 🟢 --- แผนก Telegram (เพิ่มใหม่) ---
+			var tgMapping models.UserTelegramMapping
+			// เช็กว่าเชื่อมต่อแล้ว (is_telegram_connected = true) และเปิดสวิตช์แจ้งเตือนแล้ว (notify_telegram = true)
+			if err := database.DB.Where("user_id = ? AND is_telegram_connected = ? AND notify_telegram = ?", patientData.UserID, true, true).First(&tgMapping).Error; err == nil {
+				fmt.Println("👉 [TELEGRAM] เจอคนผูก Telegram แล้ว! เตรียมยิงไปที่ ChatID:", tgMapping.TelegramChatID)
+				
+				// เรียกใช้ฟังก์ชันส่ง Telegram (ที่สร้างไว้ในไฟล์ telegram_alert_controller.go)
+				go sendTelegramPushMessage(tgMapping.TelegramChatID, patientData.Name, patientData.RoomNumber)
+			} else {
+				fmt.Println("⚠️ [TELEGRAM] ผู้ดูแลไม่ได้ผูก Telegram หรือปิดแจ้งเตือนไว้")
+			}
 			
 		} else {
-			fmt.Println("❌ [LINE] ดึงข้อมูลผู้ป่วยไม่สำเร็จ ไม่สามารถส่งแจ้งเตือนได้")
+			fmt.Println("❌ ดึงข้อมูลผู้ป่วยไม่สำเร็จ ไม่สามารถส่งแจ้งเตือนได้")
 		}
 	} else {
-		fmt.Println("⚠️ [LINE] อุปกรณ์นี้ยังไม่ได้ผูกกับผู้ป่วย เลยไม่มีเป้าหมายให้แจ้งเตือนผ่าน LINE")
+		fmt.Println("⚠️ อุปกรณ์นี้ยังไม่ได้ผูกกับผู้ป่วย เลยไม่มีเป้าหมายให้แจ้งเตือนผ่านแอป")
 	}
 	// ==========================================
 
@@ -220,8 +225,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 }
 
 func GetMyDetectionLogs(c *fiber.Ctx) error {
-	// ดึงค่า UserID จาก JWT Token ที่ผ่าน Middleware มา (สมมติว่าผู้กองเก็บไว้ใน Local ชื่อ "user_id")
-	// หากยังไม่มีระบบ JWT สามารถส่งผ่านมาทาง Query parameter ชั่วคราวก่อนได้ครับ
+	// ดึงค่า UserID จาก JWT Token ที่ผ่าน Middleware มา
 	userID := c.Locals("user_id") 
 	if userID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "สิทธิ์การเข้าถึงไม่ถูกต้อง"})
@@ -229,7 +233,6 @@ func GetMyDetectionLogs(c *fiber.Ctx) error {
 
 	var logs []models.DetectionLog
 
-	// 🔍 ลอจิกคัดกรอง: ดึงเฉพาะข้อมูลเสียงที่ PatientID นั้น มี UserID ของผู้ดูแลตรงกับคนที่กำลังเปิดดูหน้าเว็บอยู่
 	err := database.DB.Joins("JOIN patients ON patients.id = detection_logs.patient_id").
 		Where("patients.user_id = ?", userID).
 		Order("detection_logs.created_at DESC").
@@ -252,18 +255,16 @@ func SaveNegativeAudio(c *fiber.Ctx) error {
 	saveDir := "./negative"
 	os.MkdirAll(saveDir, os.ModePerm)
 
-	// บันทึกไฟล์ใหม่โดยใช้ UnixMilli() ป้องกันชื่อไฟล์ซ้ำในระดับเสี้ยววินาที
 	filename := fmt.Sprintf("%s/negative_%d.wav", saveDir, time.Now().UnixMilli())
 	if err := c.SaveFile(file, filename); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "เซฟไฟล์เสียงปกติลงดิสก์ไม่สำเร็จ"})
 	}
 	
 	env := config.GetEnv("APP_ENV", "development")
-    if env == "development" {
-        fmt.Printf("[GO] ได้รับไฟล์ Negative ใหม่ -> ")
-    }
+	if env == "development" {
+		fmt.Printf("[GO] ได้รับไฟล์ Negative ใหม่ -> ")
+	}
 
-	// เรียกฟังก์ชันเคลียร์ไฟล์ (ตั้งโควตาไว้ที่ 10 ไฟล์)
 	cleanupOldNegativeFiles(saveDir, 10)
 
 	return c.JSON(fiber.Map{"status": "success", "message": "Saved negative audio and optimized storage"})
@@ -271,7 +272,6 @@ func SaveNegativeAudio(c *fiber.Ctx) error {
 
 // 🕵️‍♂️ ฟังก์ชันทำความสะอาด (เวอร์ชันติดล็อคแม่กุญแจ)
 func cleanupOldNegativeFiles(dir string, maxFiles int) {
-	// 🟢 ล็อคคิวทันที! ใครมาพร้อมกันต้องยืนรอ
 	cleanupMutex.Lock()
 	defer cleanupMutex.Unlock()
 
@@ -290,12 +290,11 @@ func cleanupOldNegativeFiles(dir string, maxFiles int) {
 	var appEnv string
 	appEnv = config.GetEnv("APP_ENV", "development")
 
-    if appEnv == "development" {
-        fmt.Printf("ยอดรวมปัจจุบัน: %d/%d ไฟล์ ", len(fileList), maxFiles)
-        fmt.Println()
-    }
+	if appEnv == "development" {
+		fmt.Printf("ยอดรวมปัจจุบัน: %d/%d ไฟล์ ", len(fileList), maxFiles)
+		fmt.Println()
+	}
 
-	// 🟢 จัดเรียงลำดับไฟล์ตาม "ชื่อไฟล์" (แม่นยำกว่าการดึงเวลา OS)
 	sort.Slice(fileList, func(i, j int) bool {
 		return fileList[i].Name() < fileList[j].Name()
 	})

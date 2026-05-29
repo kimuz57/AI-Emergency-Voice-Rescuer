@@ -57,7 +57,7 @@ export default function CustomAudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="flex items-center gap-2 bg-gray-100 p-1.5 px-3 rounded-full w-full max-w-sm mt-2 relative shadow-sm border border-gray-200">
+    <div className="dark:bg-slate-700 flex items-center gap-2 bg-gray-100 p-1.5 px-3 rounded-full w-full max-w-sm mt-2 relative shadow-sm border border-gray-200">
       
       <audio
         ref={audioRef}
@@ -65,20 +65,20 @@ export default function CustomAudioPlayer({ src }: { src: string }) {
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={() => setIsPlaying(false)}
-        className="hidden"
+        className="hidden "
       />
 
       {/* 🟢 1. เติม shrink-0 ที่ปุ่ม Play เพื่อไม่ให้ปุ่มเบี้ยว */}
       <button onClick={togglePlay} className="shrink-0 p-1.5 hover:bg-gray-200 rounded-full transition-colors text-gray-700">
         {isPlaying ? (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+          <svg className="dark:text-white w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
         ) : (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
+          <svg className="dark:text-white w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
         )}
       </button>
 
       {/* 🟢 2. เติม shrink-0 ที่ตัวหนังสือบอกเวลา */}
-      <div className="shrink-0 text-xs font-medium text-gray-600 min-w-[65px] text-center">
+      <div className="dark:text-white shrink-0 text-xs font-medium text-gray-600 min-w-[65px] text-center">
         {formatTime(currentTime)} / {formatTime(duration)}
       </div>
 

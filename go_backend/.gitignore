@@ -1,4 +1,5 @@
 .env
+.env.production
 audio_recordings
 negative
 tmp

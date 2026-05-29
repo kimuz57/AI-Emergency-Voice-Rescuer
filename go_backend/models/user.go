@@ -11,4 +11,7 @@ type User struct {
 	Role       	string    `json:"role" gorm:"default:'caregiver'"`
 	Patients   	[]Patient `json:"patients" gorm:"many2many:caregiver_patients;"`
 	IsLinkedLine bool `json:"is_linked_line" gorm:"default:false"`
+	IsTelegramConnected bool                `json:"is_telegram_connected" gorm:"default:false"`
+	
+	TelegramMapping UserTelegramMapping `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }

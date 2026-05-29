@@ -265,6 +265,18 @@ export default function Navbar() {
               </div>
               <div className="py-1">
                 <a
+                  href="/"
+                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  🏠 หน้าแรก
+                </a>
+                <a
+                  href="/dashboard"
+                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  📊 แดชบอร์ด
+                </a>
+                <a
                   href="/profile"
                   className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
@@ -281,6 +293,12 @@ export default function Navbar() {
                   className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
                   📝 ลงทะเบียนเพิ่มผู้ป่วย
+                </a>
+                <a
+                  href="/patients"
+                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  🩺 ข้อมูลผู้ป่วย
                 </a>
               </div>
               <div className="border-t border-gray-100 dark:border-slate-700 py-1 bg-gray-50 dark:bg-slate-700/50">

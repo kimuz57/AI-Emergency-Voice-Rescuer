@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/adaptor/v2" // เพิ่มตัว Adaptor
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
@@ -17,6 +18,14 @@ import (
 func main() {
 	// 🟢 1. โหลดไฟล์ .env
 	config.LoadConfig()
+	app := fiber.New()
+
+	app.Use(cors.New(cors.Config{
+        AllowOrigins: config.GetEnv("FRONTEND_URL", "http://localhost:3000"),
+		AllowCredentials: true,
+        AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+        AllowMethods: "GET, POST, PUT, DELETE",
+    }))
 
 	channelSecret := config.GetEnvRequired("LINE_CHANNEL_SECRET")
 	channelToken := config.GetEnvRequired("LINE_CHANNEL_TOKEN")
@@ -36,7 +45,6 @@ func main() {
 	database.ConnectDB()
 
 	// 🟢 4. สร้างแอป Fiber
-	app := fiber.New()
 	app.Use(middleware.SetupCORS())
 	
 	// 🟢 5. ตั้งค่า Log

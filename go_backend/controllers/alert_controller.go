@@ -6,7 +6,6 @@ import (
 	"go_backend/database"
 	"go_backend/models"
 	"github.com/gofiber/fiber/v2"
-
 )
 
 type AlertInput struct {
@@ -38,10 +37,10 @@ func CreateAlert(c *fiber.Ctx) error {
 
 	// 🟢 4. สร้างประวัติแจ้งเตือน โดยใส่ ID ให้ครบ เพื่อให้หน้าเว็บดึงไปโชว์ได้เป๊ะๆ
 	alert := models.DetectionLog{
-    	PatientID:    &patient.ID,          // 👈 อันนี้ใช้ & ถูกต้องแล้ว เพราะใน Model เรากำหนดเป็น *uint
-    	DeviceMAC:    device.MACAddress,    // 🟢 ลบ & ออกครับ ให้ดึงค่า String มาใส่ตรงๆ เลย
-    	AudioURL:     input.AudioURL,
-    	Status:       "needs_help",
+		PatientID:    &patient.ID,
+		DeviceMAC:    device.MACAddress,
+		AudioURL:     input.AudioURL,
+		Status:       "needs_help",
 	}
 
 	// 5. บันทึกลงตาราง detection_logs
@@ -49,27 +48,27 @@ func CreateAlert(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "บันทึกข้อมูลไม่ได้"})
 	}
 
+	// ==========================================
+	// 🟢 6. กระจายงานให้แผนก LINE และ Telegram ไปจัดการต่อ (ทำงานเบื้องหลัง)
+	// ==========================================
+	go TriggerLineAlert(patient.UserID, patient.Name, patient.RoomNumber)
+	go TriggerTelegramAlert(patient.UserID, patient.Name, patient.RoomNumber)
+
 	return c.JSON(fiber.Map{"message": "บันทึกเหตุฉุกเฉินลง DB เรียบร้อย!"})
 }
 
 // 2. API: สำหรับให้ Next.js ดึงข้อมูลเฉพาะเคสที่ "ยังไม่ได้รับความช่วยเหลือ" ไปโชว์บนบอร์ด
-// GET /api/alerts
-// ฟังก์ชันสำหรับดึงข้อมูลแจ้งเตือน (Get Active Alerts)
-// ฟังก์ชันสำหรับดึงข้อมูลแจ้งเตือน (Get Active Alerts)
 func GetActiveAlerts(c *fiber.Ctx) error {
 	email := c.Query("email")
 	if email == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "กรุณาระบุอีเมล"})
 	}
 
-	// 1. ค้นหาผู้ใช้งาน (User) จากอีเมลที่ Login อยู่
 	var user models.User
 	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "ไม่พบผู้ใช้งาน"})
 	}
 
-	// 🟢 2. สร้าง Struct เฉพาะกิจสำหรับตอบกลับ (Response) ให้ตรงกับที่หน้าบ้านต้องการ
-	// ตัวแปร json: "..." ต้องตรงกับที่ Next.js เรียกใช้เป๊ะๆ เช่น alert.patient_name
 	type AlertResponse struct {
 		ID          uint      `json:"id"`
 		CreatedAt   time.Time `json:"created_at"`
@@ -77,13 +76,12 @@ func GetActiveAlerts(c *fiber.Ctx) error {
 		EventType   string    `json:"event_type"`
 		AudioURL    string    `json:"audio_url"`
 		Status      string    `json:"status"`
-		PatientName string    `json:"patient_name"` // 🎯 ชื่อคนไข้ (ดึงมาจากการ JOIN)
-		RoomNumber  string    `json:"room_number"`  // 🎯 ห้องพัก (ดึงมาจากการ JOIN)
+		PatientName string    `json:"patient_name"`
+		RoomNumber  string    `json:"room_number"`
 	}
 
 	var alerts []AlertResponse
 
-	// 🟢 3. ลอจิกการ JOIN ค้นหาข้อมูลฉบับสมบูรณ์
 	err := database.DB.Table("detection_logs").
 		Select("detection_logs.id, "+
 			"detection_logs.created_at, "+
@@ -91,20 +89,18 @@ func GetActiveAlerts(c *fiber.Ctx) error {
 			"detection_logs.event_type, "+
 			"detection_logs.audio_url, "+
 			"detection_logs.status, "+
-			"patients.name as patient_name, "+     // ดึงฟิลด์ name จากตาราง patients มาใส่ตัวแปร patient_name
-			"patients.room_number as room_number"). // ดึงฟิลด์ room_number มาใส่ตัวแปร room_number
+			"patients.name as patient_name, "+
+			"patients.room_number as room_number").
 		Joins("LEFT JOIN patients ON patients.id = detection_logs.patient_id").
-		// ⚠️ ตรวจสอบว่าในตาราง patients มีฟิลด์ user_id ให้เชื่อมจริงไหม ถ้าไม่มีให้เช็คผ่านตารางกลาง หรือเอาเงื่อนไขนี้ออกชั่วคราวก่อนเพื่อทดสอบ
-		Where("patients.user_id = ? AND detection_logs.is_resolved = ?", user.ID, false).
+		Where("patients.user_id = ? AND detection_logs.status = ?", user.ID, "needs_help"). // ⚠️ แก้ตรงนี้ให้ตรงกับ Status ที่ใช้จริง
 		Order("detection_logs.created_at DESC").
 		Scan(&alerts).Error
 
 	if err != nil {
-		fmt.Println("❌ ดึงข้อมูลแจ้งเตือนพร้อมชื่อผู้ป่วยล้มเหลว:", err)
+		fmt.Println("❌ ดึงข้อมูลแจ้งเตือนล้มเหลว:", err)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ดึงข้อมูลแจ้งเตือนล้มเหลว"})
 	}
 
-	// ป้องกันการส่งค่า null กลับไปหน้าบ้าน หากไม่มีข้อมูลให้ส่งเป็น Array ว่าง []
 	if alerts == nil {
 		alerts = []AlertResponse{}
 	}
@@ -112,8 +108,7 @@ func GetActiveAlerts(c *fiber.Ctx) error {
 	return c.JSON(alerts)
 }
 
-// 3. API: สำหรับเวลาพยาบาลกดปุ่ม "รับทราบ" บนหน้าเว็บ ให้เปลี่ยนสถานะใน DB เพื่อเคลียร์หน้าจอ
-// PUT /api/alerts/:id/resolve
+// 3. API: รับทราบการแจ้งเตือน
 func ResolveAlert(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var alert models.DetectionLog
@@ -122,8 +117,6 @@ func ResolveAlert(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "ไม่พบรายการแจ้งเตือนนี้"})
 	}
 
-	// อัปเดตสถานะใน DB เป็นช่วยเหลือแล้ว ข้อมูลจะได้หายไปจากหน้า Dashboard หลัก
 	database.DB.Model(&alert).Update("status", "resolved")
-
 	return c.JSON(fiber.Map{"message": "ผู้ป่วยได้รับการช่วยเหลือแล้ว"})
 }

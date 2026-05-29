@@ -8,7 +8,10 @@ import (
 func SetupRoutes(app *fiber.App) {
 	// 🟢 1. ตั้งค่า Static Files (ย้ายมาไว้บนสุดให้เห็นชัดเจน)
 	app.Static("/profile", "./profile")
-
+	app.Post("/api/webhook", controllers.TelegramWebhook)
+	
+	app.Post("/api/line/webhook", controllers.LineWebhook)
+	app.Delete("/api/user/telegram/disconnect", controllers.DisconnectTelegram)
 	// 🟢 2. เส้นทางเช็คสถานะ API
 	app.Get("/api/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok", "message": "Guardian AI API is running smoothly! 🚀"})
@@ -36,8 +39,9 @@ func SetupRoutes(app *fiber.App) {
 		
 		userGroup.Post("/link-line", controllers.LinkLineAccount)
 		userGroup.Delete("/unlink-line", controllers.UnlinkLineAccount)
+		userGroup.Post("/telegram/connect", controllers.ConnectTelegram)
+		userGroup.Post("/telegram/toggle", controllers.ToggleTelegramNotify)
 	}
-
 	// ==========================================
 	// 📍 หมวดหมู่ Patients (จัดการข้อมูลผู้ป่วย/คนชรา)
 	// ==========================================
@@ -55,7 +59,7 @@ func SetupRoutes(app *fiber.App) {
 	{
 		// 🟢 แก้ Error: เปลี่ยนจาก api.Post เป็น alertGroup.Post
 		// และเปลี่ยน path เป็น "/ai" เพื่อไม่ให้ชนกับ "/" ของ CreateAlert ด่านล่าง
-		alertGroup.Post("/ai", controllers.HandleAIAlert) 
+		alertGroup.Post("/ai", controllers.CreateAlert) // จุดรับข้อมูลจาก ESP32 (บันทึกลง DB และกระจายงานไป LINE/Telegram)
 		
 		alertGroup.Post("/", controllers.CreateAlert)
 		alertGroup.Get("/", controllers.GetActiveAlerts)

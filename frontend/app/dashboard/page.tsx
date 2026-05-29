@@ -159,7 +159,7 @@ export default function Dashboard() {
         {patients.length === 0 ? (
           <div className="bg-white/80 dark:bg-slate-800 backdrop-blur-xl border border-white rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden group">
             {/* แสงตกแต่งพื้นหลัง Empty State */}
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-50 to-white opacity-50"></div>
+            <div className="dark:bg-slate-700 inset-0 bg-gradient-to-b from-slate-50 to-white opacity-50"></div>
 
             <div className="relative z-10 bg-slate-100 rounded-full p-6 mb-6 group-hover:scale-110 transition-transform duration-500 dark:bg-slate-800">
               <svg
@@ -208,13 +208,13 @@ export default function Dashboard() {
         /* 🟢 เงื่อนไขที่ 2: มีผู้ป่วยแล้ว แต่ไม่มีใครป่วยหนัก (สถานการณ์ปกติ) */
         /* ========================================== */
         alerts.length === 0 ? (
-          <div className="bg-emerald-50/80 backdrop-blur-xl border border-emerald-100 rounded-3xl p-10 text-center flex flex-col items-center justify-center gap-4 shadow-lg relative overflow-hidden">
+          <div className="dark:bg-slate-800 bg-emerald-50/80 backdrop-blur-xl border border-emerald-100 rounded-3xl p-10 text-center flex flex-col items-center justify-center gap-4 shadow-lg relative overflow-hidden">
             {/* แสงวิ้งๆ สีเขียวมรกตแสดงความปลอดภัย */}
             <div className="absolute top-[-50%] left-[-20%] w-[300px] h-[300px] bg-emerald-300 rounded-full mix-blend-multiply filter blur-[80px] opacity-30 animate-pulse pointer-events-none "></div>
 
             <div className="relative z-10 bg-emerald-100/80 dark:bg-slate-700 p-4 rounded-full shadow-sm">
               <svg
-                className="w-10 h-10 text-emerald-600"
+                className="w-10 h-10 text-emerald-600 dark:text-emerald-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -227,10 +227,10 @@ export default function Dashboard() {
                 ></path>
               </svg>
             </div>
-            <h2 className="relative z-10 font-extrabold text-2xl text-emerald-800 tracking-wide">
+            <h2 className="relative z-10 font-extrabold text-2xl text-emerald-800 tracking-wide dark:text-emerald-400">
               สถานการณ์ปกติ ปลอดภัยดี
             </h2>
-            <p className="relative z-10 text-emerald-600/80 font-medium bg-white/50  px-6 py-2 rounded-full backdrop-blur-sm">
+            <p className="dark:bg-slate-700 relative z-10 text-emerald-600/80 font-medium bg-white/50  px-6 py-2 rounded-full backdrop-blur-sm dark:text-emerald-400">
               ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบ AI กำลังเฝ้าระวัง...
               🛡️
             </p>
@@ -243,25 +243,25 @@ export default function Dashboard() {
             {alerts.map((alert) => (
               <div
                 key={alert.id || alert.ID || Math.random()}
-                className="bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl hover:-translate-y-1 transition-all group"
+                className="dark:bg-slate-800 dark:text-white bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl hover:-translate-y-1 transition-all group"
               >
                 {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}
                 <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-red-500 to-rose-600 shadow-[0_0_15px_rgba(225,29,72,0.6)]"></div>
 
                 {/* 1. ข้อมูลผู้ป่วย */}
                 <div className="flex-1 pl-4 w-full">
-                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <span className="px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
+                  <div className=" flex flex-wrap items-center gap-3 mb-3">
+                    <span className="dark:bg-red-500 dark:text-red-300 px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
                       ⚠️ ต้องการความช่วยเหลือ!
                     </span>
-                    <span className="text-xs text-slate-500 font-semibold bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">
+                    <span className="dark:text-white text-xs text-slate-500 font-semibold bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">
                       🕒{" "}
                       {alert.created_at
                         ? new Date(alert.created_at).toLocaleString("th-TH")
                         : "ไม่ระบุเวลา"}
                     </span>
                   </div>
-                  <h2 className="text-3xl font-extrabold text-slate-800 mb-1 tracking-tight">
+                  <h2 className="dark:text-white text-3xl font-extrabold text-slate-800 mb-1 tracking-tight">
                     {alert.patient_name}
                   </h2>
                   <p className="text-slate-500 text-sm font-medium flex items-center gap-2">
@@ -279,15 +279,15 @@ export default function Dashboard() {
                       />
                     </svg>
                     ห้องพัก:{" "}
-                    <span className="text-slate-700 font-bold text-base">
+                    <span className="dark:text-slate-200 text-slate-700 font-bold text-base">
                       {alert.room_number}
                     </span>
                   </p>
                 </div>
 
                 {/* 2. เครื่องเล่นเสียง AI */}
-                <div className="flex-1 w-full md:w-auto bg-slate-50/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200/60 shadow-inner">
-                  <p className="text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wide">
+                <div className="dark:bg-slate-700 flex-1 w-full md:w-auto bg-slate-50/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200/60 shadow-inner">
+                  <p className="dark:text-white text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wide">
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
                     เสียงร้องขอความช่วยเหลือ:
                   </p>
