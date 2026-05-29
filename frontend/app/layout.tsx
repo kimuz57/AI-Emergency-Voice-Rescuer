@@ -12,11 +12,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    template: "%s | Guardian AI",
-    default: "Guardian AI — ระบบตรวจจับเสียงฉุกเฉินอัจฉริยะ",
+    template: "%s | Emergency Voice Rescuer",
+    default: "Emergency Voice Rescuer",
   },
   description:
-    "AI-Based Emergency Voice Detection System — ระบบตรวจจับเสียงฉุกเฉินอัจฉริยะ",
+    "Emergency Voice Rescuer —  ระบบช่วยเหลือฉุกเฉินด้วยเสียงโดยใช้ปัญญาประดิษฐ์",
 };
 
 export default function RootLayout({
