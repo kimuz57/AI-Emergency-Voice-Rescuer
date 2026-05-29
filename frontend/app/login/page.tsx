@@ -90,7 +90,7 @@ export default function LoginPage() {
         const data = await response.json().catch(() => ({}));
 
         if (response.ok) {
-          setErrors({ name: "", email: "", password: "", general: "" });
+          setErrors({ name: "", email: "", password: "", confirmPassword: "", general: "" });
           setSuccessMsg(`เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ ${data.user?.name || "ผู้ใช้งาน"}`);
           
           const loggedInEmail = data.user?.email || email;
