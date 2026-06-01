@@ -43,6 +43,25 @@ func ConnectDB() {
 		log.Fatal("Failed to auto-migrate database tables:", err)
 	}
 
+	if err := cleanupLegacyPatientDeviceMACConstraint(db); err != nil {
+		log.Fatal("Failed to cleanup legacy patient device MAC constraint:", err)
+	}
+
 	DB = db
 	fmt.Println("✅ Database connected & Tables migrated successfully!")
+}
+
+func cleanupLegacyPatientDeviceMACConstraint(db *gorm.DB) error {
+	statements := []string{
+		`DROP INDEX IF EXISTS idx_patients_device_mac`,
+		`ALTER TABLE patients DROP CONSTRAINT IF EXISTS uni_patients_device_mac`,
+	}
+
+	for _, statement := range statements {
+		if err := db.Exec(statement).Error; err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

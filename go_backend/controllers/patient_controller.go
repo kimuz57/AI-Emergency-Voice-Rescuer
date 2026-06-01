@@ -1,12 +1,15 @@
 package controllers
 
 import (
-	"strings"
+	"errors"
 	"go_backend/database"
 	"go_backend/models"
+	"strings"
+
 	// "net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 // ในไฟล์ controllers/patient_controller.go
@@ -28,6 +31,12 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "รูปแบบข้อมูลไม่ถูกต้อง"})
 	}
 
+	normalizedBoardID := strings.ToUpper(strings.TrimSpace(input.BoardID))
+	deviceName := strings.TrimSpace(input.DeviceName)
+	if deviceName == "" {
+		deviceName = "ไมค์หัวเตียง"
+	}
+
 	// 🟢 1. ตรวจสอบอีเมลผู้ดูแลก่อนเลย ถ้าใส่มาแต่ไม่มีในระบบ ให้ตีกลับทันที!
 	var caregiver models.User
 	if input.CaregiverEmail != "" {
@@ -35,39 +44,63 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 			// ส่งข้อมูลกลับไปบอกหน้าบ้านว่า พังที่ฟิลด์ caregiverEmail
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 				"error": "ไม่พบอีเมลผู้ดูแลนี้ในระบบ กรุณาตรวจสอบใหม่อีกครั้ง",
-				"field": "caregiverEmail", 
+				"field": "caregiverEmail",
 			})
 		}
 	}
 
-	// 2. สร้างข้อมูลผู้ป่วย (ทำต่อเมื่อผ่านด่านเช็คอีเมลแล้ว)
-	patient := models.Patient{
-		Name:             input.PatientName,
-		Age:              input.Age,
-		Gender:           input.Gender,
-		RoomNumber:       input.RoomNumber,
-		MedicalCondition: input.MedicalCondition,
-	}
-
-	if err := database.DB.Create(&patient).Error; err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถบันทึกข้อมูลผู้ป่วยได้"})
-	}
-
-	// 3. ผูกผู้ดูแลเข้ากับผู้ป่วย (เพราะเราหาตัวเจอตนจากข้อ 1 แล้ว)
-	if input.CaregiverEmail != "" {
-		database.DB.Model(&patient).Association("Caregivers").Append(&caregiver)
-	}
-
-	// 4. สร้างอุปกรณ์ผูกกับผู้ป่วย
-	if input.BoardID != "" {
-		device := models.Device{
-			MACAddress: strings.ToUpper(input.BoardID),
-			
-			Name:       input.DeviceName,
-			Status:     "offline",
-			PatientID:  patient.ID,
+	if normalizedBoardID != "" {
+		var existingDevice models.Device
+		err := database.DB.Where("mac_address = ?", normalizedBoardID).First(&existingDevice).Error
+		if err == nil {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{
+				"error": "อุปกรณ์นี้ถูกลงทะเบียนในระบบแล้ว",
+				"field": "boardId",
+			})
 		}
-		database.DB.Create(&device)
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถตรวจสอบข้อมูลอุปกรณ์ได้"})
+		}
+	}
+
+	// 2. สร้างข้อมูลผู้ป่วยและอุปกรณ์ใน transaction เดียว เพื่อไม่ให้เกิดข้อมูลค้างครึ่งทาง
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		patient := models.Patient{
+			Name:             input.PatientName,
+			Age:              input.Age,
+			Gender:           input.Gender,
+			RoomNumber:       input.RoomNumber,
+			MedicalCondition: input.MedicalCondition,
+		}
+
+		if err := tx.Create(&patient).Error; err != nil {
+			return err
+		}
+
+		if input.CaregiverEmail != "" {
+			if err := tx.Model(&patient).Association("Caregivers").Append(&caregiver); err != nil {
+				return err
+			}
+		}
+
+		if normalizedBoardID != "" {
+			device := models.Device{
+				MACAddress: normalizedBoardID,
+				Name:       deviceName,
+				Status:     "offline",
+				PatientID:  patient.ID,
+			}
+
+			if err := tx.Create(&device).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถบันทึกข้อมูลผู้ป่วยได้"})
 	}
 
 	return c.JSON(fiber.Map{
@@ -76,20 +109,26 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 }
 
 func GetPatientsByCaretaker(c *fiber.Ctx) error {
-    email := c.Query("email")
-    if email == "" {
-        return c.Status(400).JSON(fiber.Map{"error": "กรุณาส่ง email มาด้วย"})
-    }
+	email := c.Query("email")
+	if email == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "กรุณาส่ง email มาด้วย"})
+	}
 
-    // 1. 🟢 ค้นหาข้อมูล User จากอีเมล เพื่อเอา user_id
-    var user models.User // สมมติว่าโมเดลชื่อ User
-    if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
-        return c.Status(404).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ใช้งาน"})
-    }
+	// 1. 🟢 ค้นหาข้อมูล User จากอีเมล เพื่อเอา user_id
+	var user models.User // สมมติว่าโมเดลชื่อ User
+	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ใช้งาน"})
+	}
 
-    // 2. 🟢 เอา user.ID ไปค้นหาผู้ป่วยในตาราง patients
-    var patients []models.Patient // สมมติว่าโมเดลชื่อ Patient
-    database.DB.Where("user_id = ?", user.ID).Find(&patients)
+	// 2. 🟢 ดึงผู้ป่วยผ่านตาราง many-to-many ให้ตรงกับ flow ตอนลงทะเบียนจริง
+	var patients []models.Patient
+	if err := database.DB.
+		Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id").
+		Where("caregiver_patients.user_id = ?", user.ID).
+		Preload("Devices").
+		Find(&patients).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "ไม่สามารถดึงข้อมูลผู้ป่วยได้"})
+	}
 
-    return c.JSON(patients)
+	return c.JSON(patients)
 }
