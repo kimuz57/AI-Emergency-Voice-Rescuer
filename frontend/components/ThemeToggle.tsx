@@ -7,7 +7,10 @@ export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    const timer = setTimeout(() => setMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   if (!mounted) return <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 opacity-50" />;
 

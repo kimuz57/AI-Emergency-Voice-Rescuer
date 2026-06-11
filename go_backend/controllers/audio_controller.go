@@ -180,6 +180,12 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 
 	fmt.Println("✅ [GO] บันทึกเหตุฉุกเฉินลงฐานข้อมูลสำเร็จ! ไฟล์:", filename, "ผูกกับผู้ป่วย ID:", log.PatientID)
 
+	// 🟢 Broadcast แจ้งเตือนไปยังระบบ WebSocket ทันที
+	BroadcastAlert(fiber.Map{
+		"type": "new_alert",
+		"data": log,
+	})
+
 	// ==========================================
 	// 🚀 ระบบแจ้งเตือน (LINE และ Telegram)
 	// ==========================================

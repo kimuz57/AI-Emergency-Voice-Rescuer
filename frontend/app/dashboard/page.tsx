@@ -18,12 +18,11 @@ type EmergencyAlert = {
 };
 
 export default function Dashboard() {
-  const router = useRouter();
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
 
   // 🟢 State จำลองรายชื่อผู้ป่วย (เดี๋ยวเราค่อยทำ API ดึงจาก Go มาใส่แทน)
   // ลองเปลี่ยนเป็น [] เพื่อดูหน้าจอ "ไม่มีผู้ป่วย (Empty State)"
-  const [patients, setPatients] = useState<any[]>([]);
+  const [patients, setPatients] = useState<unknown[]>([]);
 
   // ==========================================
   // 1. ฟังก์ชันดึงข้อมูลเหตุฉุกเฉินจริงจาก Go Backend (PostgreSQL)
@@ -240,9 +239,9 @@ export default function Dashboard() {
           /* 🚨 เงื่อนไขที่ 3: มีผู้ป่วยต้องการความช่วยเหลือ (โชว์ Alert Cards) */
           /* ========================================== */
           <div className="space-y-6">
-            {alerts.map((alert) => (
+            {alerts.map((alert, index) => (
               <div
-                key={alert.id || alert.ID || Math.random()}
+                key={alert.id || alert.ID || `alert-${index}`}
                 className="dark:bg-slate-800 dark:text-white bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl hover:-translate-y-1 transition-all group"
               >
                 {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}

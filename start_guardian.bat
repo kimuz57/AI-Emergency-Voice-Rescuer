@@ -10,26 +10,26 @@ echo =======================================================================
 echo.
 
 :: 1. Start MQTT Broker (Docker) - ตัวนี้รันเสร็จแล้วจะปิดไปในตัวหลัก
-echo [STEP 1/4] Starting Mosquitto MQTT Broker via Docker...
-cd /d "D:\backend_golang"
+echo [STEP 1/4] Starting Mosquitto MQTT Broker & Postgres via Docker...
+cd /d "%~dp0"
 docker-compose up -d
 echo.
 
 :: 2. Start Python AI Forwarder (เปิดหน้าต่างใหม่)
 echo [STEP 2/4] Popping up Python MQTT Audio Receiver...
-start "Guardian AI - Python Forwarder" cmd /k "cd /d D:\backend_golang\backend_ai && python mqtt_audio_receiver.py"
+start "Guardian AI - Python Forwarder" cmd /k ".\.venv\Scripts\activate && cd backend_ai && python mqtt_audio_receiver.py"
 
 :: 3. Start Go Backend (เปิดหน้าต่างใหม่)
 echo [STEP 3/4] Popping up Go Backend Server...
-start "Guardian AI - Go Backend (Port 8080)" cmd /k "cd /d D:\backend_golang\go_backend && go run main.go"
+start "Guardian AI - Go Backend (Port 8080)" cmd /k "cd go_backend && go run main.go"
 
 :: 4. Start Next.js Frontend (เปิดหน้าต่างใหม่)
 echo [STEP 4/4] Popping up Next.js Frontend Dashboard...
-start "Guardian AI - Next.js Frontend (Port 3000)" cmd /k "cd /d D:\backend_golang\frontend && npm run dev"
+start "Guardian AI - Next.js Frontend (Port 3000)" cmd /k "cd frontend && npm run dev"
 
 echo.
 echo =======================================================================
-echo  🎉 เปิดครบทุกบริการเรียบร้อยแล้วครับผู้กอง!
+echo  🎉 เปิดครบทุกบริการเรียบร้อยแล้วครับผู้
 echo  - หน้าต่างใหม่ 3 หน้าจอจะเด้งขึ้นมาพ่น Log ให้เห็นแยกกันชัดเจน
 echo  - หน้าต่างหลักนี้จะปิดตัวเองอัตโนมัติใน 5 วินาทีครับ
 echo =======================================================================

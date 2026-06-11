@@ -195,7 +195,7 @@ export default function DemoPage() {
                         <ShieldCheck size={20} /> ทางแก้ของเรา (The Solution)
                     </h3>
                     <p className="text-slate-400 leading-relaxed">
-                        เราเปลี่ยน <strong>"เสียงร้อง"</strong> ให้เป็นการ <strong>"แจ้งเตือน"</strong> ทันที 
+                        เราเปลี่ยน <strong>&quot;เสียงร้อง&quot;</strong> ให้เป็นการ <strong>&quot;แจ้งเตือน&quot;</strong> ทันที 
                         โดยใช้ AI คอยเฝ้าฟังเสียงขอความช่วยเหลือตลอด 24 ชม. ไม่ต้องใช้ปุ่มกด 
                         ไม่ต้องใช้คนเฝ้าหน้าจอ ระบบจะทำงานโดยอัตโนมัติ 100%
                     </p>
@@ -274,7 +274,7 @@ export default function DemoPage() {
                                 <span>{log.msg}</span>
                             </div>
                         ))}
-                        {logs.length === 0 && <div className="text-slate-600 italic">กดปุ่ม "เริ่มการสาธิต" ด้านบนเพื่อดู Flow...</div>}
+                        {logs.length === 0 && <div className="text-slate-600 italic">กดปุ่ม &quot;เริ่มการสาธิต&quot; ด้านบนเพื่อดู Flow...</div>}
                     </div>
                 </div>
             </div>

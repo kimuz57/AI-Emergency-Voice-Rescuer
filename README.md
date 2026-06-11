@@ -85,62 +85,72 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 
 ---
 
-## Quick Start
+## 🚀 Getting Started (สำหรับนักพัฒนา)
 
 ### Prerequisites
 
-- Python 3.11+, Go 1.21+, Node.js 20+, Flutter 3.10+
-- Docker (สำหรับ Mosquitto)
-- `best_sens_model.pth` วางไว้ที่ `backend_ai/models`
+- **Go** 1.21+
+- **Python** 3.11+ (แนะนำให้ใช้ Virtual Environment)
+- **Node.js** 20+
+- **Docker Desktop** (สำหรับ Mosquitto และ PostgreSQL)
+- **Flutter** 3.22+ (สำหรับ Mobile App)
 
-### 1. เริ่ม MQTT Broker
+### 1. การตั้งค่าโครงสร้างพื้นฐาน (Infrastructure)
+
+รันฐานข้อมูลและ MQTT Broker ด้วย Docker:
 
 ```powershell
 docker-compose up -d
 ```
 
-### 2. เริ่ม Python AI Server
-
-```powershell
-cd "C:\Project 1\main_smartvoice"
-.\.venv\Scripts\Activate.ps1
-cd backend_ai
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
-```
-
-### 3. เริ่ม Go Backend
+### 2. การตั้งค่า Backend (Go)
 
 ```powershell
 cd go_backend
-go run .
-# Listening on :8080
+# คัดลอก .env.example และตั้งค่าให้ถูกต้อง
+go run main.go
 ```
 
-### 4. เริ่ม Next.js Frontend
+**การรัน Unit Test:**
+```powershell
+go test ./...
+```
+
+### 3. การตั้งค่า AI Server (Python)
+
+```powershell
+cd backend_ai
+# แนะนำให้ใช้ venv
+python -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt
+python mqtt_audio_receiver.py
+```
+
+### 4. การตั้งค่า Frontend (Next.js)
 
 ```powershell
 cd frontend
 npm install
 npm run dev
-# http://localhost:3000
 ```
 
-### 5. ทดสอบ AI Server โดยตรง
+### 5. การตั้งค่า Mobile App (Flutter)
 
 ```powershell
-python -c "
-import requests
-r = requests.post('http://localhost:8000/need-help',
-    files={'sound': ('help.wav', open('backend_ai/samples/help.wav','rb'), 'audio/wav')})
-print(r.json())
-"
+cd mobile
+flutter pub get
+flutter run
 ```
 
-ผลลัพธ์ที่คาดหวัง:
+---
 
-```json
-{ "detected": "yes", "probability": 0.9998 }
-```
+## 🧪 Testing Strategy
+
+ระบบมีแผนการทำสอบแบ่งเป็น 3 ส่วน:
+1. **Backend Unit Tests:** ตรวจสอบ Logic ของ API และการคำนวณต่างๆ
+2. **AI Model Validation:** ทดสอบความแม่นยำของ BCResNet ด้วยไฟล์เสียงตัวอย่างในโฟลเดอร์ `negative`
+3. **Integration Test:** ทดสอบการไหลของข้อมูลตั้งแต่ ESP32 -> MQTT -> AI -> Go -> Frontend
 
 ---
 

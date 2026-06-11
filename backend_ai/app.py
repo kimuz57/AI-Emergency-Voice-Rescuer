@@ -53,9 +53,19 @@ async def lifespan(app: FastAPI):
     logger.info("🚀 [System] Starting FastAPI and MQTT Background Thread...")
     try:
         # ส่งฟังก์ชัน AI เข้าไปให้ MQTT
-        mqtt_audio_receiver.start_receiver(inference_callback=run_kws_inference)
+        # mqtt_audio_receiver.start_receiver(inference_callback=run_kws_inference)
+        logger.info(f"[DEBUG] mqtt_audio_receiver file: {mqtt_audio_receiver.__file__}")
+        logger.info("[DEBUG] About to call start_receiver()")
+
+        result = mqtt_audio_receiver.start_receiver(
+            inference_callback=run_kws_inference
+        )
+
+        logger.info(f"[DEBUG] start_receiver() returned: {result}")
         logger.info("✅ [System] MQTT Receiver Started Successfully!")
+
     except Exception as e:
+
         logger.error(f"❌ [System] Failed to start MQTT receiver: {e}")
         
     yield  

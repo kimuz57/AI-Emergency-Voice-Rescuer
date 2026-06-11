@@ -7,6 +7,11 @@ import wave
 import paho.mqtt.client as mqtt
 import requests
 from dotenv import load_dotenv
+import threading
+import socket
+import logging
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 app_env = os.getenv("APP_ENV", "development")
@@ -20,6 +25,8 @@ def get_env_required(key: str) -> str:
 BROKER_HOST = get_env_required("MQTT_BROKER_HOST")
 BROKER_PORT = int(os.getenv("MQTT_BROKER_PORT", 1883))
 GO_SERVER_URL = get_env_required("GO_SERVER_URL")
+mqtt_user = get_env_required("MQTT_USER")
+mqtt_pass = get_env_required("MQTT_PASSWORD")
 # (ลบ AI_SERVER_URL ออกไปแล้ว เพราะเราทำงานจบใน Memory เลย)
 
 SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", 16000))  
@@ -35,6 +42,8 @@ _device_states = {}
 
 # 🌟 ตัวแปรสำหรับรับฟังก์ชัน AI จาก app2.py
 _ai_inference_function = None
+_mqtt_client = None
+_mqtt_connected = threading.Event()
 
 def amplify_audio(pcm_data: bytes, volume_gain: float) -> bytes:
     if volume_gain == 1.0: 
@@ -120,13 +129,32 @@ def _flush_buffer(device_mac: str) -> None:
     _device_states[device_mac]["chunks"] = 0
     _device_states[device_mac]["start_time"] = time.time()
 
-def on_connect(client, userdata, flags, rc, properties=None):
-    if rc == 0:
-        print(f"[MQTT] Connected to {BROKER_HOST}:{BROKER_PORT}")
-        client.subscribe(TOPIC_SUBSCRIBE, qos=0)
-        client.subscribe(STATUS_TOPIC, qos=0)
-    else:
-        print(f"[MQTT] Connection failed, rc={rc}")
+# def on_connect(client, userdata, flags, rc, properties=None):
+#     if rc == 0:
+#         print(f"[MQTT] Connected to {BROKER_HOST}:{BROKER_PORT}")
+#         client.subscribe(TOPIC_SUBSCRIBE, qos=0)
+#         client.subscribe(STATUS_TOPIC, qos=0)
+#     else:
+#         print(f"[MQTT] Connection failed, rc={rc}")
+
+def on_connect(client, userdata, flags, reason_code, properties):
+    print("🔥 on_connect CALLED", flush=True)
+    print(f"reason_code={reason_code}", flush=True)
+    print(f"type={type(reason_code)}", flush=True)
+
+    if getattr(reason_code, "is_failure", False):
+        print(f"❌ MQTT connect failed: {reason_code}", flush=True)
+        return
+
+    _mqtt_connected.set()
+    print("✅ MQTT connected successfully", flush=True)
+
+    client.subscribe(TOPIC_SUBSCRIBE, qos=0)
+    client.subscribe(STATUS_TOPIC, qos=0)
+
+    print(f"✅ Subscribed to: {TOPIC_SUBSCRIBE}", flush=True)
+    print(f"✅ Subscribed to: {STATUS_TOPIC}", flush=True)
+    
 
 def on_message(client, userdata, msg):
     topic = msg.topic
@@ -156,32 +184,115 @@ def on_message(client, userdata, msg):
         if buffered_bytes >= _BYTES_PER_WINDOW:
             _flush_buffer(device_mac)
 
-def on_disconnect(client, userdata, flags, rc, properties=None):
-    print(f"[MQTT] Disconnected (rc={rc})")
+# def on_disconnect(client, userdata, flags, rc, properties=None):
+#     print(f"[MQTT] Disconnected (rc={rc})")
 
-# 🌟 นี่คือจุดที่เกิด Error ครับ เพราะของเดิมรับพารามิเตอร์นี้ไม่ได้
+def on_disconnect(client, userdata, disconnect_flags, reason_code, properties):
+    print("🔥 on_disconnect CALLED", flush=True)
+    print(f"disconnect_flags={disconnect_flags}", flush=True)
+    print(f"reason_code={reason_code}", flush=True)
+    _mqtt_connected.clear()
+    
 def start_receiver(inference_callback=None):
-    global _ai_inference_function
+    global _mqtt_client, _ai_inference_function
+
+    logger.info("🔥 [MQTT] start_receiver() ENTERED")
+
     if inference_callback:
         _ai_inference_function = inference_callback
-        print("✅ [MQTT] Linked AI Inference Core Successfully.")
+        logger.info("✅ [MQTT] Linked AI Inference Core Successfully.")
 
-    print("=" * 60)
-    print("  SmartVoice MQTT Background Thread (Direct ML Inference)")
-    print("=" * 60)
-
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="smartvoice_ai_forwarder")
-    client.on_connect = on_connect
-    client.on_message = on_message
-    client.on_disconnect = on_disconnect
+    logger.info(f"[MQTT] BROKER_HOST={BROKER_HOST}")
+    logger.info(f"[MQTT] BROKER_PORT={BROKER_PORT}")
+    logger.info(f"[MQTT] USER={mqtt_user}")
+    logger.info("[MQTT] Protocol=MQTTv5 over WebSockets")
+    logger.info("[MQTT] WebSocket path=/mqtt")
 
     try:
-        client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
-        client.loop_start()
+        with socket.create_connection((BROKER_HOST, BROKER_PORT), timeout=5):
+            logger.info(f"✅ [MQTT] TCP reachable: {BROKER_HOST}:{BROKER_PORT}")
     except Exception as exc:
-        print(f"[ERROR] MQTT Connection Failed: {exc}")
+        logger.exception(f"❌ [MQTT] TCP failed: {BROKER_HOST}:{BROKER_PORT}")
+        raise
+
+    _mqtt_client = mqtt.Client(
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id="smartvoice_ai_forwarder",
+        protocol=mqtt.MQTTv5,
+        transport="tcp",
+    )
+
+    _mqtt_client.enable_logger()
+
+    _mqtt_client.username_pw_set(
+        username=mqtt_user,
+        password=mqtt_pass,
+    )
+
+    _mqtt_client.ws_set_options(path="/mqtt")
+
+    _mqtt_client.on_connect = on_connect
+    _mqtt_client.on_message = on_message
+    _mqtt_client.on_disconnect = on_disconnect
+
+    logger.info("[MQTT] Calling connect()...")
+
+    try:
+        _mqtt_client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
+    except Exception:
+        logger.exception("❌ [MQTT] connect() failed")
+        raise
+
+    logger.info("[MQTT] Starting loop...")
+    _mqtt_client.loop_start()
+
+    logger.info("[MQTT] Waiting for on_connect()...")
+
+    if not _mqtt_connected.wait(timeout=3):
+        raise TimeoutError(
+            "MQTT TCP reached broker, but MQTT/WebSocket connection did not complete. "
+            "Check WebSocket path, listener config, username/password, and MQTT v5 support."
+        )
+
+    logger.info("✅ [MQTT] Receiver fully started")
+
 
 def shutdown_receiver():
+    global _mqtt_client
     print("\n[STOP] Shutting down MQTT Forwarder... Flushing buffers.")
     for mac in list(_device_states.keys()):
         _flush_buffer(mac)
+    
+    if _mqtt_client is not None:
+        print("🛑 [MQTT] Stopping MQTT receiver...")
+        try:
+            _mqtt_client.loop_stop()
+            _mqtt_client.disconnect()
+        except Exception as exc:
+            print(f"⚠️ [MQTT] Shutdown error: {exc}")
+        finally:
+            _mqtt_client = None
+            _mqtt_connected.clear()
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    
+    # ดึงฟังก์ชัน AI จาก app.py (สมมติว่าถ้าไม่มีให้ mock ไว้ก่อนสำหรับทดสอบ)
+    try:
+        from app import run_kws_inference
+        ai_func = run_kws_inference
+    except ImportError:
+        logger.warning("Could not import AI function from app.py. Using mock AI.")
+        def mock_ai(wav_bytes):
+            return {"detected": "no", "probability": 0.0}
+        ai_func = mock_ai
+
+    try:
+        start_receiver(ai_func)
+        print("📡 MQTT Audio Receiver is running. Press Ctrl+C to stop.")
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        shutdown_receiver()
+
+
