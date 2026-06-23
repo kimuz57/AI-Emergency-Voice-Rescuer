@@ -97,7 +97,37 @@ export default function DeviceRegistrationPage() {
         {/* Header */}
         <div className="text-center mb-10">
           <div className="dark:bg-slate-800 inline-flex items-center justify-center w-16 h-16 rounded-2xl dark:bg-none bg-gradient-to-br from-blue-100 to-purple-100 mb-4 shadow-sm">
-            <span className="text-3xl">📝</span>
+            <span className="text-3xl">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-8 h-8"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+                <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+                <path d="M12 11h4" />
+                <path d="M12 16h4" />
+                <circle
+                  cx="8"
+                  cy="11"
+                  r="1"
+                  fill="currentColor"
+                  stroke="none"
+                />
+                <circle
+                  cx="8"
+                  cy="16"
+                  r="1"
+                  fill="currentColor"
+                  stroke="none"
+                />
+              </svg>
+            </span>
           </div>
           <h1 className="text-3xl p-4 md:text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-purple-600 bg-clip-text text-transparent">
             ลงทะเบียนผู้ป่วยใหม่
@@ -116,7 +146,22 @@ export default function DeviceRegistrationPage() {
             <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-purple-500"></div>
 
             <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2 dark:text-slate-200">
-              <span className="text-purple-500 dark:text-white">👤</span> ข้อมูลผู้ป่วย
+              <span className="text-purple-500 dark:text-white">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </span>{" "}
+              ข้อมูลผู้ป่วย
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -206,6 +251,7 @@ export default function DeviceRegistrationPage() {
                   <span className="text-red-500">*</span>
                 </label>
                 <input
+                  required
                   type="email"
                   name="caregiverEmail"
                   value={formData.caregiverEmail}
@@ -251,7 +297,22 @@ export default function DeviceRegistrationPage() {
             <div className=" absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-teal-500"></div>
 
             <h2 className="dark:text-white text-xl font-bold text-slate-800 flex items-center gap-2">
-              <span className="text-emerald-500 ">📡</span> ผูกอุปกรณ์EVR Sensor
+              <span className="text-emerald-500 ">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-5 h-5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="2" />
+                  <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
+                </svg>
+              </span>{" "}
+              ผูกอุปกรณ์EVR Sensor
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

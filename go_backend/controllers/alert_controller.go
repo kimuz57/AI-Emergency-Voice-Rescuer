@@ -19,7 +19,7 @@ func CreateAlert(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "รูปแบบข้อมูลไม่ถูกต้อง"})
 	}
 
-	// 🟢 2. เอา BoardID (MAC Address) ไปค้นหาในตารางอุปกรณ์ (devices)
+	// 🟢 1. เอา BoardID (MAC Address) ไปค้นหาในตารางอุปกรณ์ (devices)
 	var device models.Device
 	if err := database.DB.Where("mac_address = ?", input.BoardID).First(&device).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
@@ -27,15 +27,16 @@ func CreateAlert(c *fiber.Ctx) error {
 		})
 	}
 
-	// 🟢 3. พอรู้แล้วว่าบอร์ดนี้เป็นของใคร ก็ไปดึงข้อมูลผู้ป่วย (patients) คนนั้นมา
+	// 🟢 2. ดึงข้อมูลผู้ป่วย พร้อมโหลดรายชื่อผู้ดูแล (Caregivers)
 	var patient models.Patient
-	if err := database.DB.First(&patient, device.PatientID).Error; err != nil {
+	// ใช้ Preload เพื่อให้ GORM ไปดึงตาราง Caregivers ที่ผูกแบบ Many-to-Many มาให้ด้วย
+	if err := database.DB.Preload("Caregivers").First(&patient, device.PatientID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "ไม่พบข้อมูลผู้ป่วยที่ผูกกับอุปกรณ์นี้",
 		})
 	}
 
-	// 🟢 4. สร้างประวัติแจ้งเตือน โดยใส่ ID ให้ครบ เพื่อให้หน้าเว็บดึงไปโชว์ได้เป๊ะๆ
+	// 🟢 3. สร้างประวัติแจ้งเตือน
 	alert := models.DetectionLog{
 		PatientID:    &patient.ID,
 		DeviceMAC:    device.MACAddress,
@@ -43,16 +44,18 @@ func CreateAlert(c *fiber.Ctx) error {
 		Status:       "needs_help",
 	}
 
-	// 5. บันทึกลงตาราง detection_logs
 	if err := database.DB.Create(&alert).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "บันทึกข้อมูลไม่ได้"})
 	}
 
 	// ==========================================
-	// 🟢 6. กระจายงานให้แผนก LINE และ Telegram ไปจัดการต่อ (ทำงานเบื้องหลัง)
+	// 🟢 4. กระจายงานให้แผนก LINE และ Telegram 
 	// ==========================================
-	go TriggerLineAlert(patient.UserID, patient.Name, patient.RoomNumber)
-	go TriggerTelegramAlert(patient.UserID, patient.Name, patient.RoomNumber)
+	// วนลูปส่งแจ้งเตือนไปให้ผู้ดูแลทุกคนที่มีรายชื่ออยู่ใน Caregivers ของผู้ป่วยคนนี้
+	for _, caregiver := range patient.Caregivers {
+		go TriggerLineAlert(caregiver.ID, patient.Name, patient.RoomNumber)
+		go TriggerTelegramAlert(caregiver.ID, patient.Name, patient.RoomNumber)
+	}
 
 	return c.JSON(fiber.Map{"message": "บันทึกเหตุฉุกเฉินลง DB เรียบร้อย!"})
 }
@@ -92,7 +95,7 @@ func GetActiveAlerts(c *fiber.Ctx) error {
 			"patients.name as patient_name, "+
 			"patients.room_number as room_number").
 		Joins("LEFT JOIN patients ON patients.id = detection_logs.patient_id").
-		Where("patients.user_id = ? AND detection_logs.status = ?", user.ID, "needs_help"). // ⚠️ แก้ตรงนี้ให้ตรงกับ Status ที่ใช้จริง
+		Where("patients.id IN (SELECT patient_id FROM caregiver_patients WHERE user_id = ?) AND detection_logs.status = ?", user.ID, "needs_help").
 		Order("detection_logs.created_at DESC").
 		Scan(&alerts).Error
 

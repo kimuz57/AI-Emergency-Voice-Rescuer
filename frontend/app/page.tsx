@@ -83,7 +83,25 @@ export default function LandingPage() {
             href="/login"
             className="px-3 sm:px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5 text-xs sm:text-base whitespace-nowrap flex items-center gap-1"
           >
-            Get Started <span className="hidden sm:inline">✨</span>
+            Get Started{" "}
+            <span className="text-amber-300 group-hover:rotate-12 transition-transform duration-300 hidden sm:inline">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-5 h-5"
+              >
+                <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+                <path d="M5 3v4" />
+                <path d="M7 5H3" />
+                <path d="M19 17v4" />
+                <path d="M21 19h-4" />
+              </svg>
+            </span>
           </a>
         </div>
       </nav>
@@ -146,7 +164,26 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           <div className="p-6 md:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/50 dark:to-blue-800/30 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
-              🧠
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-6 h-6 text-pink-500"
+              >
+                <path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z" />
+                <path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z" />
+                <path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4" />
+                <path d="M17.599 6.5a3 3 0 0 0 .399-1.375" />
+                <path d="M6.003 5.125A3 3 0 0 0 6.401 6.5" />
+                <path d="M3.477 10.896a4 4 0 0 1 .585-.396" />
+                <path d="M19.938 10.5a4 4 0 0 1 .585.396" />
+                <path d="M6 18a4 4 0 0 1-1.967-.516" />
+                <path d="M19.967 17.484A4 4 0 0 1 18 18" />
+              </svg>
             </div>
 
             <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-100">
@@ -162,7 +199,18 @@ export default function LandingPage() {
 
           <div className="p-6 md:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-indigo-100 to-indigo-50 dark:from-indigo-900/50 dark:to-indigo-800/30 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
-              ⚡
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-6 h-6 text-orange-500"
+              >
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
             </div>
 
             <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-100">
@@ -177,7 +225,19 @@ export default function LandingPage() {
 
           <div className="p-6 md:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-900/50 dark:to-purple-800/30 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
-              🛡️
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-6 h-6 text-blue-500"
+              >
+                <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2-1 4-2 7-2 2.5 0 4.5 1 6 2a1 1 0 0 1 1 1v7z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
             </div>
 
             <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-100">
@@ -192,7 +252,20 @@ export default function LandingPage() {
 
           <div className="p-6 md:p-8 bg-white/80 dark:bg-slate-800/80 backdrop-blur-lg rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
             <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-sky-100 to-sky-50 dark:from-sky-900/50 dark:to-sky-800/30 rounded-2xl flex items-center justify-center mb-4 md:mb-6 text-xl md:text-2xl group-hover:scale-110 transition-transform">
-              🎙️
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-6 h-6 text-indigo-500"
+              >
+                <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                <line x1="12" x2="12" y1="19" y2="22" />
+              </svg>
             </div>
 
             <h3 className="font-bold text-base md:text-lg mb-2 text-slate-800 dark:text-slate-100">

@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 	"go_backend/controllers"
+	"go_backend/middleware"
 )
 
 func SetupRoutes(app *fiber.App) {
@@ -12,6 +13,7 @@ func SetupRoutes(app *fiber.App) {
 	
 	app.Post("/api/line/webhook", controllers.LineWebhook)
 	app.Delete("/api/user/telegram/disconnect", controllers.DisconnectTelegram)
+
 	// 🟢 2. เส้นทางเช็คสถานะ API
 	app.Get("/api/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"status": "ok", "message": "Guardian AI API is running smoothly! 🚀"})
@@ -26,8 +28,25 @@ func SetupRoutes(app *fiber.App) {
 		authGroup.Post("/login", controllers.LoginWithEmail) // รวบมาไว้ที่นี่หมดแล้ว
 		authGroup.Post("/register", controllers.Register)
 		authGroup.Post("/logout", controllers.Logout)
+		authGroup.Get("/verify-email", controllers.VerifyEmail)
 	}
 
+	adminGroup := app.Group("/api/admin", middleware.RequireAuth, middleware.RequireAdmin)
+	{
+		adminGroup.Get("/users", controllers.AdminGetAllUsers)
+    	adminGroup.Delete("/users/:id", controllers.AdminDeleteUser)
+    	adminGroup.Put("/users/:id", controllers.AdminUpdateUser)
+
+		adminGroup.Get("/patients", controllers.AdminGetAllPatients)
+        adminGroup.Delete("/patients/:id", controllers.AdminDeletePatient)
+        adminGroup.Put("/patients/:id", controllers.AdminUpdatePatient)
+		
+	}
+	adminGroup.Get("/test", func(c *fiber.Ctx) error {
+		return c.JSON(fiber.Map{
+			"message": "ยินดีต้อนรับเข้าสู่โซน Admin!",
+		})
+	})
 	// ==========================================
 	// 📍 หมวดหมู่ User (จัดการข้อมูลผู้ใช้งาน)
 	// ==========================================
@@ -50,6 +69,7 @@ func SetupRoutes(app *fiber.App) {
 		patientGroup.Get("/", controllers.GetPatientsByCaretaker) // ย้ายจากข้างบนมารวมกลุ่ม
 		patientGroup.Post("/", controllers.CreatePatient)
 		patientGroup.Post("/register", controllers.RegisterPatientWithDevice)
+		patientGroup.Delete("/:id", controllers.DeletePatient)
 	}
 
 	// ==========================================
@@ -79,4 +99,5 @@ func SetupRoutes(app *fiber.App) {
 		audioGroup.Get("/:filename", controllers.GetAudioFile)
 		audioGroup.Delete("/:filename", controllers.DeleteAudioFile)
 	}
+	
 }

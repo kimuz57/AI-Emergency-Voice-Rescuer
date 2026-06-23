@@ -1,3 +1,4 @@
+import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 
 export default function DashboardLayout({
@@ -17,16 +18,7 @@ export default function DashboardLayout({
       </main>
 
       {/* 3. ส่วนท้ายหน้าเว็บ (Footer) */}
-      <footer className="py-8 mt-auto border-t border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-500 text-xs uppercase tracking-[0.2em] font-bold">
-          <p className="dark:text-slate-400">© 2026 Emergency Voice Rescuer</p>
-          <div className="flex items-center gap-2">
-            <span className="text-sm">🔒</span>
-            <p className="dark:text-slate-400">สภาพแวดล้อมที่เป็นส่วนตัวและปลอดภัย</p>
-          </div>
-        </div>
-      </footer>
-
+      <Footer />
     </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import Link from "next/link";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 // กำหนดโครงสร้างข้อมูล User
 type UserProfile = {
@@ -14,6 +16,11 @@ type UserProfile = {
 export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  useEffect(() => {
+    const role = localStorage.getItem("userRole");
+    setUserRole(role ? role.toLowerCase() : null);
+  }, []);
 
   // 🟢 1. เปลี่ยนจากฟิกค่า เป็นการตั้ง State เริ่มต้นเป็นค่าว่าง
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -200,7 +207,10 @@ export default function Navbar() {
           ></div>
         </div>
         <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          <a href="/dashboard" className="hover:text-blue-600 transition-colors">
+          <a
+            href="/dashboard"
+            className="hover:text-blue-600 transition-colors"
+          >
             Emergency Voice Rescuer
           </a>
         </span>
@@ -266,47 +276,192 @@ export default function Navbar() {
               <div className="py-1">
                 <a
                   href="/"
-                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  🏠 หน้าแรก
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                    <polyline points="9 22 9 12 15 12 15 22" />
+                  </svg>
+                  หน้าแรก
                 </a>
                 <a
                   href="/dashboard"
-                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  📊 แดชบอร์ด
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect width="7" height="9" x="3" y="3" rx="1" />
+                    <rect width="7" height="5" x="14" y="3" rx="1" />
+                    <rect width="7" height="9" x="14" y="12" rx="1" />
+                    <rect width="7" height="5" x="3" y="16" rx="1" />
+                  </svg>
+                  แดชบอร์ด
                 </a>
                 <a
                   href="/profile"
-                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  👤 ข้อมูลส่วนตัว
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                  </svg>
+                  ข้อมูลส่วนตัว
                 </a>
                 <a
                   href="#"
-                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  🔔 การแจ้งเตือน
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+                  </svg>
+                  การแจ้งเตือน
                 </a>
                 <a
                   href="/devices"
-                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  📝 ลงทะเบียนเพิ่มผู้ป่วย
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <line x1="19" x2="19" y1="8" y2="14" />
+                    <line x1="22" x2="16" y1="11" y2="11" />
+                  </svg>
+                  ลงทะเบียนเพิ่มผู้ป่วย
                 </a>
                 <a
                   href="/patients"
-                  className="block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
-                  🩺 ข้อมูลผู้ป่วย
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+                  </svg>
+                  ข้อมูลผู้ป่วย
                 </a>
               </div>
+              {/* ======================================= */}
+              {/* เมนูที่ 2: จัดการระบบ (Admin เท่านั้นที่เห็น) */}
+              {/* ======================================= */}
+              {userRole === "admin" && (
+                <>
+                  {/* 1. เมนูจัดการผู้ป่วย (ที่คุณมีอยู่แล้ว) */}
+                  <Link
+                    href="/admin/patients"
+                    className="flex items-center gap-2 block px-4 py-2.5 text-sm text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-700 hover:text-purple-800 dark:hover:text-purple-300 transition-colors font-medium border-l-2 border-transparent hover:border-purple-500"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    </svg>
+                    จัดการข้อมูลผู้ป่วย
+                  </Link>
+
+                  {/* 🟢 2. เมนูจัดการผู้ใช้งาน (เพิ่มใหม่ล่าสุด) */}
+                  <Link
+                    href="/admin/users" // 👈 ชี้ไปที่หน้า Admin Users ที่เพิ่งสร้าง
+                    className="flex items-center gap-2 block px-4 py-2.5 text-sm text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-700 hover:text-purple-800 dark:hover:text-purple-300 transition-colors font-medium border-l-2 border-transparent hover:border-purple-500"
+                  >
+                    {/* ไอคอนรูปกลุ่มผู้ใช้ (Users) */}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="9" cy="7" r="4"></circle>
+                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                    </svg>
+                    จัดการผู้ใช้งาน
+                  </Link>
+                </>
+              )}
               <div className="border-t border-gray-100 dark:border-slate-700 py-1 bg-gray-50 dark:bg-slate-700/50">
                 <button
                   onClick={handleLogout}
-                  className="w-full text-left block px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:font-bold transition-colors"
+                  className="flex items-center gap-2 w-full text-left block px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:font-bold transition-colors"
                 >
-                  🚪 ออกจากระบบ
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" x2="9" y1="12" y2="12" />
+                  </svg>
+                  ออกจากระบบ
                 </button>
               </div>
             </div>

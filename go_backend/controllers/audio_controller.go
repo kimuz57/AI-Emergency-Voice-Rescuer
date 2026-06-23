@@ -185,28 +185,31 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	// ==========================================
 	if patientID != nil {
 		var patientData models.Patient
-		// 1. ดึงข้อมูลผู้ป่วยเพื่อเอา UserID (คนดูแล), ชื่อผู้ป่วย และห้องพัก
-		if err := database.DB.First(&patientData, *patientID).Error; err == nil {
+		// 🟢 1. ดึงข้อมูลผู้ป่วย พร้อมโหลดข้อมูลผู้ดูแล (Caregivers) 
+		if err := database.DB.Preload("Caregivers").First(&patientData, *patientID).Error; err == nil {
 			
-			// 🟢 --- แผนก LINE OA ---
-			var lineMapping models.UserLineMapping
-			if err := database.DB.Where("user_id = ?", patientData.UserID).First(&lineMapping).Error; err == nil {
-				fmt.Println("👉 [LINE] เจอคนผูกไลน์แล้ว! เตรียมยิงไปที่ LineUserID:", lineMapping.LineUserID)
-				go sendLineOAPushMessage(lineMapping.LineUserID, patientData.Name, patientData.RoomNumber)
-			} else {
-				fmt.Println("⚠️ [LINE] คนดูแล ID", patientData.UserID, "ยังไม่ได้ผูกบัญชี LINE OA")
-			}
-
-			// 🟢 --- แผนก Telegram (เพิ่มใหม่) ---
-			var tgMapping models.UserTelegramMapping
-			// เช็กว่าเชื่อมต่อแล้ว (is_telegram_connected = true) และเปิดสวิตช์แจ้งเตือนแล้ว (notify_telegram = true)
-			if err := database.DB.Where("user_id = ? AND is_telegram_connected = ? AND notify_telegram = ?", patientData.UserID, true, true).First(&tgMapping).Error; err == nil {
-				fmt.Println("👉 [TELEGRAM] เจอคนผูก Telegram แล้ว! เตรียมยิงไปที่ ChatID:", tgMapping.TelegramChatID)
+			// 🟢 2. วนลูปรายชื่อผู้ดูแลทุกคน
+			for _, caregiver := range patientData.Caregivers {
 				
-				// เรียกใช้ฟังก์ชันส่ง Telegram (ที่สร้างไว้ในไฟล์ telegram_alert_controller.go)
-				go sendTelegramPushMessage(tgMapping.TelegramChatID, patientData.Name, patientData.RoomNumber)
-			} else {
-				fmt.Println("⚠️ [TELEGRAM] ผู้ดูแลไม่ได้ผูก Telegram หรือปิดแจ้งเตือนไว้")
+				// --- แผนก LINE OA ---
+				var lineMapping models.UserLineMapping
+				// เปลี่ยนมาใช้ caregiver.ID แทน patientData.UserID
+				if err := database.DB.Where("user_id = ?", caregiver.ID).First(&lineMapping).Error; err == nil {
+					fmt.Println("👉 [LINE] เจอคนผูกไลน์แล้ว! เตรียมยิงไปที่ LineUserID:", lineMapping.LineUserID)
+					go sendLineOAPushMessage(lineMapping.LineUserID, patientData.Name, patientData.RoomNumber)
+				} else {
+					fmt.Printf("⚠️ [LINE] คนดูแล ID %d ยังไม่ได้ผูกบัญชี LINE OA\n", caregiver.ID)
+				}
+
+				// --- แผนก Telegram ---
+				var tgMapping models.UserTelegramMapping
+				// เปลี่ยนมาใช้ caregiver.ID แทน patientData.UserID
+				if err := database.DB.Where("user_id = ? AND is_telegram_connected = ? AND notify_telegram = ?", caregiver.ID, true, true).First(&tgMapping).Error; err == nil {
+					fmt.Println("👉 [TELEGRAM] เจอคนผูก Telegram แล้ว! เตรียมยิงไปที่ ChatID:", tgMapping.TelegramChatID)
+					go sendTelegramPushMessage(tgMapping.TelegramChatID, patientData.Name, patientData.RoomNumber)
+				} else {
+					fmt.Printf("⚠️ [TELEGRAM] ผู้ดูแล ID %d ไม่ได้ผูก Telegram หรือปิดแจ้งเตือนไว้\n", caregiver.ID)
+				}
 			}
 			
 		} else {

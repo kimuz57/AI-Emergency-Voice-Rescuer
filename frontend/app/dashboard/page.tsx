@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CustomAudioPlayer from "@/components/CustomAudioPlayer"; // ปรับ Path ให้ตรง
+import PhoneReminder from "@/components/PhoneReminder";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -20,7 +21,7 @@ type EmergencyAlert = {
 export default function Dashboard() {
   const router = useRouter();
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
-
+  const [userData, setUserData] = useState<any>(null);
   // 🟢 State จำลองรายชื่อผู้ป่วย (เดี๋ยวเราค่อยทำ API ดึงจาก Go มาใส่แทน)
   // ลองเปลี่ยนเป็น [] เพื่อดูหน้าจอ "ไม่มีผู้ป่วย (Empty State)"
   const [patients, setPatients] = useState<any[]>([]);
@@ -129,6 +130,7 @@ export default function Dashboard() {
 
   return (
     <div className="dark:bg-slate-800 relative min-h-screen bg-slate-50 flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden dark:bg-slate-800">
+      <PhoneReminder hasPhone={!!userData?.phone} />
       {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
       <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-red-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-20 animate-pulse pointer-events-none"></div>
       <div
@@ -141,7 +143,27 @@ export default function Dashboard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-4 mb-10 text-center md:text-left bg-white/60 dark:bg-slate-800 backdrop-blur-md p-6 rounded-3xl border border-white/60 shadow-sm">
           <div className="p-3 bg-gradient-to-br rounded-2xl animate-bounce shadow-sm ">
-            <span className="text-3xl md:text-4xl">🚨</span>
+            <span className="text-3xl md:text-4xl">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-9 h-9 text-rose-500"
+              >
+                {/* ฐานไซเรน */}
+                <rect x="4" y="16" width="16" height="4" rx="1" />
+                {/* โดมไฟ */}
+                <path d="M7 16v-4a5 5 0 0 1 10 0v4" />
+                {/* แสงไฟ 3 แฉก (บน, ซ้าย, ขวา) */}
+                <line x1="12" x2="12" y1="2" y2="5" />
+                <line x1="6" x2="8" y1="5" y2="7" />
+                <line x1="18" x2="16" y1="5" y2="7" />
+              </svg>
+            </span>
           </div>
           <div>
             <h1 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent tracking-tight dark:text-white">
@@ -232,7 +254,6 @@ export default function Dashboard() {
             </h2>
             <p className="dark:bg-slate-700 relative z-10 text-emerald-600/80 font-medium bg-white/50  px-6 py-2 rounded-full backdrop-blur-sm dark:text-emerald-400">
               ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบ AI กำลังเฝ้าระวัง...
-              🛡️
             </p>
           </div>
         ) : (

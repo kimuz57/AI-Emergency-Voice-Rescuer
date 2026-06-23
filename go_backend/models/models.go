@@ -23,8 +23,7 @@ type Patient struct {
 	Devices []Device
 	// 1 ผู้ป่วย มีประวัติเสียงร้องขอความช่วยเหลือหลายครั้ง
 	DetectionLogs []DetectionLog
-	DeviceMAC     *string `json:"device_mac,omitempty"`
-	UserID        uint    `json:"user_id"`
+	
 }
 
 // 3. ตารางอุปกรณ์ IoT / ESP32 (Devices)
@@ -53,4 +52,11 @@ type DetectionLog struct {
 
 	AudioURL string `json:"audio_url"`
 	Status   string `gorm:"default:'needs_help'" json:"status"`
+}
+// 5. ตารางเชื่อม Many-to-Many ระหว่าง Caregiver (User) และ Patient
+type CaregiverPatient struct {
+	PatientID uint           `gorm:"primaryKey"`
+	UserID    uint           `gorm:"primaryKey"`
+	CreatedAt time.Time      `json:"created_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }

@@ -8,7 +8,7 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 export default function LoginPage() {
   const router = useRouter();
   const [isLogin, setIsLogin] = useState(true);
-  
+
   // States สำหรับเก็บข้อมูลฟอร์ม
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -29,13 +29,25 @@ export default function LoginPage() {
 
   const handleStandardAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    setErrors({ name: "", email: "", password: "", confirmPassword: "", general: "" });
+
+    setErrors({
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      general: "",
+    });
     setSuccessMsg("");
 
+    // ==============================================
+    // 📝 โหมดสมัครสมาชิก (Register)
+    // ==============================================
     if (!isLogin) {
       if (password !== confirmPassword) {
-        setErrors((prev) => ({ ...prev, confirmPassword: "รหัสผ่านไม่ตรงกัน กรุณากรอกใหม่" }));
+        setErrors((prev) => ({
+          ...prev,
+          confirmPassword: "รหัสผ่านไม่ตรงกัน กรุณากรอกใหม่",
+        }));
         return;
       }
       try {
@@ -52,14 +64,20 @@ export default function LoginPage() {
         const data = await response.json().catch(() => ({}));
 
         if (response.ok) {
-          setSuccessMsg("สมัครสมาชิกสำเร็จ! กรุณาเข้าสู่ระบบ");
-          setIsLogin(true);
+          // 🟢 แก้ไขข้อความแจ้งเตือนให้ไปเช็คอีเมล
+          setSuccessMsg(
+            "🎉 สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบกล่องข้อความในอีเมลของคุณเพื่อยืนยันบัญชี",
+          );
+          setIsLogin(true); // สลับไปหน้าล็อกอินรอไว้
           setName("");
-          setEmail("");
+          // เคลียร์รหัสผ่านทิ้ง แต่สามารถเก็บ email ไว้ในช่องกรอกได้เพื่อให้ผู้ใช้ไม่ต้องพิมพ์ใหม่
           setPassword("");
           setConfirmPassword("");
         } else {
-          if (response.status === 409 || (data.error && data.error.toLowerCase().includes("email"))) {
+          if (
+            response.status === 409 ||
+            (data.error && data.error.toLowerCase().includes("email"))
+          ) {
             setErrors((prev) => ({
               ...prev,
               email: "มีอีเมลนี้ในระบบแล้ว กรุณาเข้าสู่ระบบ",
@@ -67,7 +85,7 @@ export default function LoginPage() {
           } else {
             setErrors((prev) => ({
               ...prev,
-              general: "เกิดข้อผิดพลาดในการสมัครสมาชิก",
+              general: data.error || "เกิดข้อผิดพลาดในการสมัครสมาชิก",
             }));
           }
         }
@@ -78,6 +96,10 @@ export default function LoginPage() {
           general: "เกิดข้อผิดพลาดในการเชื่อมต่อกับเซิร์ฟเวอร์",
         }));
       }
+
+      // ==============================================
+      // 🔐 โหมดเข้าสู่ระบบ (Login)
+      // ==============================================
     } else {
       try {
         const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
@@ -90,21 +112,49 @@ export default function LoginPage() {
         const data = await response.json().catch(() => ({}));
 
         if (response.ok) {
-          setErrors({ name: "", email: "", password: "", confirmPassword: "", general: "" });
-          setSuccessMsg(`เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ ${data.user?.name || "ผู้ใช้งาน"}`);
-          
+          setErrors({
+            name: "",
+            email: "",
+            password: "",
+            confirmPassword: "",
+            general: "",
+          });
+          setSuccessMsg(
+            `เข้าสู่ระบบสำเร็จ! ยินดีต้อนรับคุณ ${data.user?.name || "ผู้ใช้งาน"}`,
+          );
+
           const loggedInEmail = data.user?.email || email;
           localStorage.setItem("userEmail", loggedInEmail);
-          
-          setTimeout(() => {
-             router.push("/dashboard");
-          }, 500);
 
+          if (data.user?.role) {
+            localStorage.setItem("userRole", data.user.role);
+          }
+
+          // 🟢 เพิ่ม 3 บรรทัดนี้เข้าไปครับ! (หัวใจสำคัญเลย)
+          // เช็คว่า Backend ของคุณส่ง Token มาในชื่อ data.token หรือ data.accessToken
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          } else if (data.accessToken) {
+            localStorage.setItem("token", data.accessToken);
+          }
+
+          setTimeout(() => {
+            router.push("/dashboard");
+          }, 500);
         } else {
-          setErrors((prev) => ({
-            ...prev,
-            password: data.error || "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
-          }));
+          // 🟢 ดักจับ Error 403: กรณีที่ยังไม่ได้ยืนยันอีเมล
+          if (response.status === 403) {
+            setErrors((prev) => ({
+              ...prev,
+              general: data.error || "กรุณายืนยันอีเมลของคุณก่อนเข้าสู่ระบบ",
+            }));
+          } else {
+            // Error อื่นๆ (เช่น รหัสผ่านผิด, ไม่พบอีเมล)
+            setErrors((prev) => ({
+              ...prev,
+              password: data.error || "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+            }));
+          }
         }
       } catch (error) {
         console.error("Error:", error);
@@ -118,199 +168,467 @@ export default function LoginPage() {
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
-    setErrors({ name: "", email: "", password: "", confirmPassword: "", general: "" });
+    setErrors({
+      name: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+      general: "",
+    });
     setSuccessMsg("");
     setConfirmPassword("");
   };
 
   return (
     <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 md:p-8 overflow-hidden font-sans transition-colors duration-300">
-      
       {/* 🌟 Background Glowing Orbs (เพิ่ม pointer-events-none เพื่อไม่ให้บังการกดปุ่ม) */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none" style={{ animationDelay: '2s' }}></div>
+      <div
+        className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"
+        style={{ animationDelay: "2s" }}
+      ></div>
 
       {/* 📦 Main Container (เพิ่ม z-10 เพื่อยกระดับให้เหนือพื้นหลัง) */}
       <div className="relative z-10 w-full max-w-[900px] min-h-[600px] bg-white/80 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50 dark:border-slate-600/50">
-        
         {/* ========================================== */}
         {/* 🟢 1. SIGN UP FORM */}
         {/* ========================================== */}
-        <div className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
-          ${isLogin ? 'opacity-0 z-10 md:translate-x-0 hidden md:flex' : 'opacity-100 z-20 md:translate-x-full flex'}`}>
-          
+        <div
+          className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
+          ${isLogin ? "opacity-0 z-10 md:translate-x-0 hidden md:flex" : "opacity-100 z-20 md:translate-x-full flex"}`}
+        >
           <div className="text-center mb-4">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1"> Emergency Voice Rescuer</h1>
-            <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">สร้างบัญชีใหม่</h2>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">
+              {" "}
+              Emergency Voice Rescuer
+            </h1>
+            <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              สร้างบัญชีใหม่
+            </h2>
           </div>
 
-          {errors.general && <div className="mb-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center font-medium">{errors.general}</div>}
-          {successMsg && <div className="mb-3 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 text-center font-medium">{successMsg}</div>}
+          {errors.general && (
+            <div className="mb-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center font-medium">
+              {errors.general}
+            </div>
+          )}
+          {successMsg && (
+            <div className="mb-3 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 text-center font-medium">
+              {successMsg}
+            </div>
+          )}
 
           <form onSubmit={handleStandardAuth} className="flex flex-col gap-3">
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">ชื่อผู้ใช้งาน</label>
-              <input type="text" placeholder="กรอกชื่อของคุณ" required value={name} onChange={(e) => setName(e.target.value)} 
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
-              {errors.name && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.name}</span>}
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+                ชื่อผู้ใช้งาน
+              </label>
+              <input
+                type="text"
+                placeholder="กรอกชื่อของคุณ"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm"
+              />
+              {errors.name && (
+                <span className="text-red-500 text-xs ml-1 mt-1 block">
+                  {errors.name}
+                </span>
+              )}
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">อีเมล</label>
-              <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
-              {errors.email && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.email}</span>}
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+                อีเมล
+              </label>
+              <input
+                type="email"
+                placeholder="Email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm"
+              />
+              {errors.email && (
+                <span className="text-red-500 text-xs ml-1 mt-1 block">
+                  {errors.email}
+                </span>
+              )}
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">รหัสผ่าน</label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+                รหัสผ่าน
+              </label>
               <div className="relative mt-1">
-                <input type={showPassword ? "text" : "password"} placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm" />
-                <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
                   {showPassword ? (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+                      />
+                    </svg>
                   ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
                   )}
                 </button>
               </div>
-              {errors.password && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.password}</span>}
+              {errors.password && (
+                <span className="text-red-500 text-xs ml-1 mt-1 block">
+                  {errors.password}
+                </span>
+              )}
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">ยืนยันรหัสผ่าน</label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+                ยืนยันรหัสผ่าน
+              </label>
               <div className="relative mt-1">
-                <input type={showConfirmPassword ? "text" : "password"} placeholder="Confirm Password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
-                  className={"w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border dark:text-slate-100 dark:placeholder-slate-400 focus:ring-2 outline-none transition-all text-sm " +
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm Password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={
+                    "w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border dark:text-slate-100 dark:placeholder-slate-400 focus:ring-2 outline-none transition-all text-sm " +
                     (errors.confirmPassword
                       ? "border-red-400 focus:border-red-400 focus:ring-red-200"
-                      : "border-slate-200 dark:border-slate-600 focus:border-purple-500 focus:ring-purple-200")} />
-                <button type="button" tabIndex={-1} onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                      : "border-slate-200 dark:border-slate-600 focus:border-purple-500 focus:ring-purple-200")
+                  }
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
                   {showConfirmPassword ? (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+                      />
+                    </svg>
                   ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
                   )}
                 </button>
               </div>
-              {errors.confirmPassword && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.confirmPassword}</span>}
+              {errors.confirmPassword && (
+                <span className="text-red-500 text-xs ml-1 mt-1 block">
+                  {errors.confirmPassword}
+                </span>
+              )}
             </div>
-            
-            <button type="submit" className="w-full py-3 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5">
+
+            <button
+              type="submit"
+              className="w-full py-3 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5"
+            >
               สมัครสมาชิก
             </button>
           </form>
 
           <div className="flex items-center my-4">
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />
-            <span className="px-3 text-slate-400 dark:text-slate-500 text-xs">หรือ</span>
+            <span className="px-3 text-slate-400 dark:text-slate-500 text-xs">
+              หรือ
+            </span>
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />
           </div>
-          <button type="button" onClick={() => signIn("google", { callbackUrl: "/dashboard" })} className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all font-semibold shadow-sm text-sm">
-            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all font-semibold shadow-sm text-sm"
+          >
+            <img
+              src="https://www.svgrepo.com/show/475656/google-color.svg"
+              alt="Google Logo"
+              className="w-5 h-5"
+            />
             ดำเนินการต่อด้วย Google
           </button>
 
           <p className="md:hidden text-center mt-5 text-sm text-slate-500 dark:text-slate-400">
-            มีบัญชีอยู่แล้วใช่ไหม? <span onClick={toggleMode} className="text-purple-600 font-bold ml-1 cursor-pointer hover:underline">เข้าสู่ระบบที่นี่</span>
+            มีบัญชีอยู่แล้วใช่ไหม?{" "}
+            <span
+              onClick={toggleMode}
+              className="text-purple-600 font-bold ml-1 cursor-pointer hover:underline"
+            >
+              เข้าสู่ระบบที่นี่
+            </span>
           </p>
         </div>
 
         {/* ========================================== */}
         {/* 🔵 2. SIGN IN FORM */}
         {/* ========================================== */}
-        <div className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
-          ${isLogin ? 'opacity-100 z-20 md:translate-x-0 flex' : 'opacity-0 z-10 md:translate-x-full hidden md:flex'}`}>
-          
+        <div
+          className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
+          ${isLogin ? "opacity-100 z-20 md:translate-x-0 flex" : "opacity-0 z-10 md:translate-x-full hidden md:flex"}`}
+        >
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">Emergency Voice Rescuer</h1>
-            <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">เข้าสู่ระบบ</h2>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">
+              Emergency Voice Rescuer
+            </h1>
+            <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              เข้าสู่ระบบ
+            </h2>
           </div>
 
-          {errors.general && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center font-medium">{errors.general}</div>}
-          {successMsg && <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 text-center font-medium">{successMsg}</div>}
+          {errors.general && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center font-medium">
+              {errors.general}
+            </div>
+          )}
+          {successMsg && (
+            <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 text-center font-medium">
+              {successMsg}
+            </div>
+          )}
 
           <form onSubmit={handleStandardAuth} className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">อีเมล</label>
-              <input type="email" placeholder="Email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm" />
-              {errors.email && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.email}</span>}
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+                อีเมล
+              </label>
+              <input
+                type="email"
+                placeholder="Email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+              />
+              {errors.email && (
+                <span className="text-red-500 text-xs ml-1 mt-1 block">
+                  {errors.email}
+                </span>
+              )}
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 mb-1 block">รหัสผ่าน</label>
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 mb-1 block">
+                รหัสผ่าน
+              </label>
               <div className="relative">
-                <input type={showLoginPassword ? "text" : "password"} placeholder="Password" required value={password} onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm" />
-                <button type="button" tabIndex={-1} onClick={() => setShowLoginPassword(!showLoginPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                <input
+                  type={showLoginPassword ? "text" : "password"}
+                  placeholder="Password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowLoginPassword(!showLoginPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                >
                   {showLoginPassword ? (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" /></svg>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88"
+                      />
+                    </svg>
                   ) : (
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth="2"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
                   )}
                 </button>
               </div>
-              {errors.password && <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.password}</span>}
+              {errors.password && (
+                <span className="text-red-500 text-xs ml-1 mt-1 block">
+                  {errors.password}
+                </span>
+              )}
             </div>
-            
-            <button type="submit" className="w-full py-3 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition-all hover:-translate-y-0.5">
+
+            <button
+              type="submit"
+              className="w-full py-3 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition-all hover:-translate-y-0.5"
+            >
               เข้าสู่ระบบ
             </button>
           </form>
 
           <div className="flex items-center my-5">
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />
-            <span className="px-3 text-slate-400 dark:text-slate-500 text-xs">หรือ</span>
+            <span className="px-3 text-slate-400 dark:text-slate-500 text-xs">
+              หรือ
+            </span>
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />
           </div>
-          <button type="button" onClick={() => signIn("google", { callbackUrl: "/dashboard" })} className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all font-semibold shadow-sm text-sm">
-            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-600 transition-all font-semibold shadow-sm text-sm"
+          >
+            <img
+              src="https://www.svgrepo.com/show/475656/google-color.svg"
+              alt="Google Logo"
+              className="w-5 h-5"
+            />
             ดำเนินการต่อด้วย Google
           </button>
 
           <p className="md:hidden text-center mt-6 text-sm text-slate-500 dark:text-slate-400">
-            ยังไม่มีบัญชีใช่ไหม? <span onClick={toggleMode} className="text-blue-600 font-bold ml-1 cursor-pointer hover:underline">สมัครสมาชิกที่นี่</span>
+            ยังไม่มีบัญชีใช่ไหม?{" "}
+            <span
+              onClick={toggleMode}
+              className="text-blue-600 font-bold ml-1 cursor-pointer hover:underline"
+            >
+              สมัครสมาชิกที่นี่
+            </span>
           </p>
         </div>
 
         {/* ========================================== */}
         {/* ✨ 3. SLIDING OVERLAY PANEL (Desktop Only) */}
         {/* ========================================== */}
-        <div className={`hidden md:block absolute top-0 left-1/2 w-1/2 h-full overflow-hidden transition-transform duration-700 ease-in-out z-50 
-          ${isLogin ? 'translate-x-0' : '-translate-x-full'}`}>
-          
-          <div className={`relative -left-full w-[200%] h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white transition-transform duration-700 ease-in-out 
-            ${isLogin ? 'translate-x-0' : 'translate-x-1/2'}`}>
-            
+        <div
+          className={`hidden md:block absolute top-0 left-1/2 w-1/2 h-full overflow-hidden transition-transform duration-700 ease-in-out z-50 
+          ${isLogin ? "translate-x-0" : "-translate-x-full"}`}
+        >
+          <div
+            className={`relative -left-full w-[200%] h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white transition-transform duration-700 ease-in-out 
+            ${isLogin ? "translate-x-0" : "translate-x-1/2"}`}
+          >
             {/* ⬅️ Overlay ฝั่งซ้าย (คลิกเพื่อกลับไปเข้าสู่ระบบ) */}
-            <div className={`absolute top-0 left-0 w-1/2 h-full flex flex-col justify-center items-center px-12 text-center transition-transform duration-700 ease-in-out 
-              ${isLogin ? '-translate-x-[20%]' : 'translate-x-0'}`}>
-              <h2 className="text-4xl font-extrabold mb-4 drop-shadow-md">Welcome Back!</h2>
-              <p className="mb-8 text-indigo-100">มีบัญชีอยู่แล้วใช่ไหม? <br/>เข้าสู่ระบบเพื่อเฝ้าระวังคนที่คุณรักต่อได้เลย</p>
-              
+            <div
+              className={`absolute top-0 left-0 w-1/2 h-full flex flex-col justify-center items-center px-12 text-center transition-transform duration-700 ease-in-out 
+              ${isLogin ? "-translate-x-[20%]" : "translate-x-0"}`}
+            >
+              <h2 className="text-4xl font-extrabold mb-4 drop-shadow-md">
+                Welcome Back!
+              </h2>
+              <p className="mb-8 text-indigo-100">
+                มีบัญชีอยู่แล้วใช่ไหม? <br />
+                เข้าสู่ระบบเพื่อเฝ้าระวังคนที่คุณรักต่อได้เลย
+              </p>
+
               {/* เปลี่ยนเป็น type="button" เผื่อความชัวร์ */}
-              <button type="button" onClick={toggleMode} className="relative z-50 px-10 py-3 rounded-full border-2 border-white/50 hover:bg-white hover:text-indigo-600 transition-all font-bold tracking-wide">
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="relative z-50 px-10 py-3 rounded-full border-2 border-white/50 hover:bg-white hover:text-indigo-600 transition-all font-bold tracking-wide"
+              >
                 เข้าสู่ระบบ
               </button>
             </div>
 
             {/* ➡️ Overlay ฝั่งขวา (คลิกเพื่อไปสมัครสมาชิก) */}
-            <div className={`absolute top-0 right-0 w-1/2 h-full flex flex-col justify-center items-center px-12 text-center transition-transform duration-700 ease-in-out 
-              ${isLogin ? 'translate-x-0' : 'translate-x-[20%]'}`}>
-              <h2 className="text-4xl font-extrabold mb-4 drop-shadow-md">Hello, Guardian!</h2>
-              <p className="mb-8 text-indigo-100">เพิ่งเคยเข้ามาครั้งแรกหรือเปล่า? <br/>สมัครสมาชิกเพื่อเริ่มใช้งาน Emergency Voice Rescuer</p>
-              
+            <div
+              className={`absolute top-0 right-0 w-1/2 h-full flex flex-col justify-center items-center px-12 text-center transition-transform duration-700 ease-in-out 
+              ${isLogin ? "translate-x-0" : "translate-x-[20%]"}`}
+            >
+              <h2 className="text-4xl font-extrabold mb-4 drop-shadow-md">
+                Hello, Guardian!
+              </h2>
+              <p className="mb-8 text-indigo-100">
+                เพิ่งเคยเข้ามาครั้งแรกหรือเปล่า? <br />
+                สมัครสมาชิกเพื่อเริ่มใช้งาน Emergency Voice Rescuer
+              </p>
+
               {/* เปลี่ยนเป็น type="button" เผื่อความชัวร์ */}
-              <button type="button" onClick={toggleMode} className="relative z-50 px-10 py-3 rounded-full border-2 border-white/50 hover:bg-white hover:text-indigo-600 transition-all font-bold tracking-wide">
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="relative z-50 px-10 py-3 rounded-full border-2 border-white/50 hover:bg-white hover:text-indigo-600 transition-all font-bold tracking-wide"
+              >
                 สมัครสมาชิก
               </button>
             </div>
-
           </div>
         </div>
       </div>

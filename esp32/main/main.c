@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
@@ -54,33 +53,12 @@ char mqtt_broker_uri_dynamic[128] = "wss://mqtt.wattanapong.com/mqtt";
   
 #define AUDIO_CHUNK_SAMPLES 2048    
 #define I2S_DMA_BUF_LEN     1024   
-#define AUDIO_GATE_THRESHOLD_DBFS -45.0f
-#define AUDIO_GATE_HOLD_CHUNKS 8
 
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 static bool client_connected = false;  
 static bool mqtt_connected = false;
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
-
-static float calculate_dbfs(const int16_t *samples, int sample_count) {
-    if (samples == NULL || sample_count <= 0) {
-        return -96.0f;
-    }
-
-    double energy = 0.0;
-    for (int i = 0; i < sample_count; i++) {
-        float normalized = (float)samples[i] / 32768.0f;
-        energy += normalized * normalized;
-    }
-
-    float rms = (float)sqrt(energy / sample_count);
-    if (rms < 1e-6f) {
-        return -96.0f;
-    }
-
-    return 20.0f * log10f(rms);
-}
 
 // ==========================================
 // ระบบบันทึก/โหลด NVS (MQTT & Wi-Fi)
@@ -219,10 +197,35 @@ void restart_mqtt_client(void) {
         esp_mqtt_client_destroy(mqtt_client);
         mqtt_client = NULL;
     }
+
     const esp_mqtt_client_config_t mqtt_cfg = {
-        .broker = { .address = { .uri = mqtt_broker_uri_dynamic } },
-        .session = { .last_will = { .topic = status_topic_dynamic, .msg = "offline", .qos = 1, .retain = 1 } },
+        .broker = {
+            .address = {
+                // 🟢 บังคับพิมพ์ URL ตรงๆ ไว้ตรงนี้เลย เพื่อป้องกัน NVS ดึงค่าเก่ามาหลอก!
+                .uri = "wss://mqtt.wattanapong.com:443/mqtt", 
+            },
+            .verification = {
+                .skip_cert_common_name_check = true,       
+                .use_global_ca_store = false,             
+                .crt_bundle_attach = esp_crt_bundle_attach, 
+            },
+        },
+        .credentials = {
+            .username = "kws",
+            .authentication = {
+                .password = "31J6LEg4T$4dtwCf",
+            },
+        },
+        .session = { 
+            .last_will = { 
+                .topic = status_topic_dynamic, 
+                .msg = "offline", 
+                .qos = 1, 
+                .retain = 1 
+            } 
+        },
     };
+
     mqtt_client = esp_mqtt_client_init(&mqtt_cfg);
     esp_mqtt_client_register_event(mqtt_client, ESP_EVENT_ANY_ID, mqtt_event_handler, NULL);
     esp_mqtt_client_start(mqtt_client);
@@ -384,10 +387,7 @@ void audio_record_task(void *pvParameters) {
     if (!chunk_buf || !raw_buf) { free(chunk_buf); free(raw_buf); vTaskDelete(NULL); return; }
     
     uint32_t chunk_seq = 0;
-    uint32_t status_seq = 0;
     bool led_state = false; // 🟢 ตัวแปรสำหรับจำสถานะไฟปัจจุบัน
-    int gate_hold_chunks = 0;
-    bool gate_open = false;
 
     while (1) {
         // ❌ เอาคำสั่ง set_record_led รัวๆ ออกไป
@@ -398,51 +398,23 @@ void audio_record_task(void *pvParameters) {
             for (int i = 0; i < num_samples; i++) { 
                 chunk_buf[i] = (int16_t)(raw_buf[i] >> 16); 
             }
-
-            float chunk_dbfs = calculate_dbfs(chunk_buf, num_samples);
-            bool should_publish_audio = false;
-
-            if (chunk_dbfs >= AUDIO_GATE_THRESHOLD_DBFS) {
-                gate_hold_chunks = AUDIO_GATE_HOLD_CHUNKS;
-                should_publish_audio = true;
-
-                if (!gate_open) {
-                    gate_open = true;
-                    ESP_LOGI(TAG, "🎙️ Audio gate opened at %.1f dBFS", chunk_dbfs);
-                }
-            } else if (gate_hold_chunks > 0) {
-                gate_hold_chunks--;
-                should_publish_audio = true;
-            } else if (gate_open) {
-                gate_open = false;
-                ESP_LOGI(TAG, "🔇 Audio gate closed at %.1f dBFS", chunk_dbfs);
-            }
             
-            if (should_publish_audio) {
-                esp_mqtt_client_publish(mqtt_client, mqtt_topic_dynamic, (const char *)chunk_buf, num_samples * sizeof(int16_t), 0, 0);
-
-                chunk_seq++;
-
-                // 🟢 ให้สลับสถานะไฟทุกๆ 4 รอบการส่ง (ประมาณ 0.5 วินาที)
-                if (chunk_seq % 4 == 0) {
-                    led_state = !led_state; // สลับสถานะ (ถ้าดับอยู่ให้ติด, ถ้าติดอยู่ให้ดับ)
-                    set_record_led(led_state ? 1 : 0);
-                }
-            } else {
-                led_state = false;
-                set_record_led(0);
+            esp_mqtt_client_publish(mqtt_client, mqtt_topic_dynamic, (const char *)chunk_buf, num_samples * sizeof(int16_t), 0, 0);
+            
+            chunk_seq++;
+            
+            // 🟢 ให้สลับสถานะไฟทุกๆ 4 รอบการส่ง (ประมาณ 0.5 วินาที)
+            if (chunk_seq % 4 == 0) {
+                led_state = !led_state; // สลับสถานะ (ถ้าดับอยู่ให้ติด, ถ้าติดอยู่ให้ดับ)
+                set_record_led(led_state ? 1 : 0);
             }
 
-            status_seq++;
             // ส่งสถานะ online ไปเรื่อยๆ
-            if (status_seq % 50 == 0) { 
+            if (chunk_seq % 50 == 0) { 
                 esp_mqtt_client_publish(mqtt_client, status_topic_dynamic, "online", 6, 1, 1); 
             }
         } else {
             // 🟢 ถ้าไม่ได้ต่อเน็ต หรือไม่ได้บันทึกเสียง ให้ปิดไฟ
-            gate_open = false;
-            gate_hold_chunks = 0;
-            led_state = false;
             set_record_led(0);
         }
     }

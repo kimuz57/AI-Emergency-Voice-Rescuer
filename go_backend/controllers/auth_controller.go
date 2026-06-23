@@ -8,7 +8,7 @@ import (
 	"go_backend/database"
 	"go_backend/models"
 	"go_backend/utils"
-	"golang.org/x/crypto/bcrypt" // 🟢 นำเข้า bcrypt สำหรับเข้ารหัสผ่าน
+	"golang.org/x/crypto/bcrypt"
 )
 
 // ==========================================
@@ -39,7 +39,6 @@ type GoogleLoginInput struct {
 func GoogleLogin(c *fiber.Ctx) error {
 	input := new(GoogleLoginInput)
 
-	// ดึงข้อมูลที่ Next.js ส่งมา
 	if err := c.BodyParser(input); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ข้อมูลไม่ถูกต้อง"})
 	}
@@ -47,17 +46,14 @@ func GoogleLogin(c *fiber.Ctx) error {
 	fmt.Println("รับข้อมูลจาก Next.js - Email:", input.Email, "Profile:", input.Profile)
 
 	var user models.User
-
-	// ค้นหาว่ามี User คนนี้ในระบบหรือยัง?
 	result := database.DB.Where("email = ?", input.Email).First(&user)
 
 	if result.Error != nil {
-		// ถ้าไม่เจอ (เป็นคนใหม่) ให้สร้าง User ใหม่
 		user = models.User{
 			Name:       input.Name,
 			Email:      input.Email,
 			Profile:    input.Profile,
-			IsVerified: true, // กำหนดให้ยืนยันตัวตนผ่าน Google เรียบร้อย
+			IsVerified: true, // 🟢 ล็อกอินผ่าน Google ถือว่ายืนยันอีเมลแล้ว
 		}
 
 		if err := database.DB.Create(&user).Error; err != nil {
@@ -65,31 +61,25 @@ func GoogleLogin(c *fiber.Ctx) error {
 		}
 		fmt.Println("✅ สร้างบัญชีใหม่สำเร็จ:", user.Email)
 	} else {
-		// ถ้าเจอคนเดิม ให้อัปเดตเฉพาะรูปโปรไฟล์ (เผื่อเขาเปลี่ยนรูปใน Google)
 		err := database.DB.Model(&user).UpdateColumn("profile", input.Profile).Error
 		if err != nil {
 			fmt.Println("❌ อัปเดตรูปโปรไฟล์ลง Database ไม่สำเร็จ เกิดข้อผิดพลาด:", err)
-		} else {
-			fmt.Println("✅ อัปเดตรูปโปรไฟล์สำเร็จ")
 		}
 	}
 
-	// 🟢 ใช้งานฟังก์ชันสร้าง Token จาก utils/jwt.go
 	tokenString, err := utils.GenerateToken(user.ID, user.Email)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถสร้าง Token ได้"})
 	}
 
-	// สร้าง Cookie ชื่อ "token" เพื่อแนบกลับไปให้หน้าบ้าน
 	c.Cookie(&fiber.Cookie{
 		Name:     "token",
 		Value:    tokenString,
-		Expires:  time.Now().Add(time.Hour * 72), // ตรงกับที่ตั้งไว้ใน utils
+		Expires:  time.Now().Add(time.Hour * 72),
 		HTTPOnly: true,
 		SameSite: "Lax",
 	})
 
-	// ส่งข้อมูลกลับ
 	return c.JSON(fiber.Map{
 		"message": "ล็อกอินสำเร็จ",
 		"user":    user,
@@ -100,7 +90,6 @@ func GoogleLogin(c *fiber.Ctx) error {
 // 3. ฟังก์ชันสำหรับออกจากระบบ (Logout)
 // ==========================================
 func Logout(c *fiber.Ctx) error {
-	// สั่งล้างคุกกี้โดยการตั้งค่าให้หมดอายุย้อนหลัง
 	c.Cookie(&fiber.Cookie{
 		Name:     "token",
 		Value:    "",
@@ -115,7 +104,7 @@ func Logout(c *fiber.Ctx) error {
 }
 
 // ==========================================
-// 4. ฟังก์ชันดึงข้อมูลโปรไฟล์ (ใช้เช็คว่า Token ยังใช้งานได้ไหม)
+// 4. ฟังก์ชันดึงข้อมูลโปรไฟล์
 // ==========================================
 func GetProfile(c *fiber.Ctx) error {
 	tokenString := c.Cookies("token")
@@ -136,25 +125,46 @@ func GetProfile(c *fiber.Ctx) error {
 // 5. สมัครสมาชิก (ด้วย Email/Password ปกติ)
 // ==========================================
 func Register(c *fiber.Ctx) error {
-	user := new(models.User)
-	if err := c.BodyParser(user); err != nil {
+	var input struct {
+		Name     string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "ข้อมูลไม่ถูกต้อง"})
 	}
-	
-	// เข้ารหัสผ่านก่อนเซฟลง Database
-	hashedPassword, err := HashPassword(user.Password) 
+
+	if input.Password == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "กรุณากรอกรหัสผ่าน"})
+	}
+
+	hashedPassword, err := HashPassword(input.Password)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "เข้ารหัสผ่านไม่สำเร็จ"})
 	}
-	user.Password = hashedPassword
+
+	// 🟢 1. สร้าง Token สำหรับยืนยันอีเมล (ต้องสร้างฟังก์ชันนี้ใน utils/email.go)
+	verifyToken := utils.GenerateVerificationToken()
+
+	user := models.User{
+		Name:              input.Name,
+		Email:             input.Email,
+		Password:          hashedPassword,
+		IsVerified:        false,       // 🟢 ให้สถานะเป็น False จนกว่าจะกดลิงก์
+		VerificationToken: verifyToken, // 🟢 บันทึก Token ลง DB
+	}
 
 	result := database.DB.Create(&user)
 	if result.Error != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "อีเมลนี้มีในระบบแล้ว หรือบันทึกไม่สำเร็จ"})
 	}
 
+	// 🟢 2. สั่งให้ส่งอีเมลทำงานเบื้องหลัง
+	go utils.SendVerificationEmail(user.Email, user.Name, verifyToken)
+
 	return c.Status(201).JSON(fiber.Map{
-		"message": "สมัครสมาชิกสำเร็จ!",
+		"message": "สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี",
 		"email":   user.Email,
 	})
 }
@@ -177,12 +187,27 @@ func LoginWithEmail(c *fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"error": "ไม่พบอีเมลนี้ในระบบ"})
 	}
 
-	// ตรวจสอบความถูกต้องของรหัสผ่าน
-	if !CheckPasswordHash(input.Password, user.Password) { 
+	// 🟢 2. ดักจับ! เช็คว่ายืนยันอีเมลหรือยังก่อนเช็ครหัสผ่าน
+	if !user.IsVerified {
+		// 🟢 2.1 สร้าง Token ยืนยันตัวใหม่
+		newToken := utils.GenerateVerificationToken()
+
+		// 🟢 2.2 อัปเดต Token ใหม่นี้ลงไปในฐานข้อมูลแทนของเดิม
+		database.DB.Model(&user).Update("verification_token", newToken)
+
+		// 🟢 2.3 สั่งให้ระบบส่งอีเมลยืนยันไปใหม่อีกรอบ (ทำงานเบื้องหลัง)
+		go utils.SendVerificationEmail(user.Email, user.Name, newToken)
+
+		// 🟢 2.4 ส่ง Status 403 กลับไป พร้อมเปลี่ยนข้อความให้ผู้ใช้รู้ว่าส่งเมลไปให้ใหม่แล้ว
+		return c.Status(403).JSON(fiber.Map{
+			"error": "คุณยังไม่ได้ยืนยันอีเมล ระบบได้ส่งลิงก์ใหม่ไปให้แล้ว กรุณาตรวจสอบกล่องข้อความอีกครั้ง",
+		})
+	}
+
+	if !CheckPasswordHash(input.Password, user.Password) {
 		return c.Status(401).JSON(fiber.Map{"error": "รหัสผ่านไม่ถูกต้อง"})
 	}
 
-	// 🟢 ใช้ GenerateToken จาก utils ที่เราทำไว้!
 	tokenString, err := utils.GenerateToken(user.ID, user.Email)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "สร้าง Token ไม่สำเร็จ"})
@@ -201,6 +226,31 @@ func LoginWithEmail(c *fiber.Ctx) error {
 		"user": fiber.Map{
 			"name":  user.Name,
 			"email": user.Email,
+			"role":  user.Role,
 		},
 	})
+}
+
+// ==========================================
+// 7. ฟังก์ชันยืนยันอีเมล (Verify Email) 🟢 (เพิ่มใหม่)
+// ==========================================
+func VerifyEmail(c *fiber.Ctx) error {
+	token := c.Query("token")
+	if token == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "ไม่พบข้อมูล Token"})
+	}
+
+	var user models.User
+	// ค้นหา User ที่มี Token ตรงกับที่ส่งมาใน URL
+	if err := database.DB.Where("verification_token = ?", token).First(&user).Error; err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "ลิงก์ไม่ถูกต้อง หรืออีเมลนี้ได้รับการยืนยันไปแล้ว"})
+	}
+
+	// อัปเดตให้ IsVerified เป็น true และล้างค่า Token เดิมทิ้ง
+	database.DB.Model(&user).Updates(map[string]interface{}{
+		"is_verified":        true,
+		"verification_token": "", 
+	})
+
+	return c.JSON(fiber.Map{"message": "ยืนยันอีเมลสำเร็จ! บัญชีของคุณพร้อมใช้งานแล้ว"})
 }
