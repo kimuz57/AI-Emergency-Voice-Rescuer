@@ -208,8 +208,7 @@ print(r.json())
 | Branch             | เนื้อหา                                              |
 | ------------------ | ---------------------------------------------------- |
 | `main`             | Production-ready code รวมทุกส่วน                     |
-| `python-ai-server` | Python AI server + Go backend + ESP32 + mobile (แยก) |
-| `golangBackend`    | Go backend เก่า                                      |
-| `dev`              | Development branch                                   |
+| `python-ai-serve` | Python AI server + Go backend + ESP32 + mobile (แยก) |
+| `demo`              | developer mobile                                   |
 
 ---
