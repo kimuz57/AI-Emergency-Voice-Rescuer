@@ -51,7 +51,7 @@ func main() {
 	app.Post("/webhook", adaptor.HTTPHandlerFunc(linebot.WebhookHandler))
 
 	log.Printf("🚀 Server is running on port %s", port)
-	if err := app.Listen(":" + port); err != nil {
+	if err := app.Listen(":"+port); err != nil {
 		log.Fatal("เซิร์ฟเวอร์ Fiber มีปัญหา: ", err)
 	}
 }

@@ -33,9 +33,9 @@ type Device struct {
 	MACAddress string `gorm:"unique;not null" json:"board_id"`
 	Name       string `json:"deviceName"` // เช่น "ไมค์ห้องนั่งเล่น", "เซนเซอร์ห้องน้ำ"
 	Status     string `gorm:"default:'offline'" json:"status"`
-
 	// Foreign Key เชื่อมกับผู้ป่วย (อุปกรณ์นี้เป็นของใคร/อยู่ห้องใคร)
 	PatientID uint `json:"patientId"`
+	IsActive   bool   `gorm:"default:false" json:"is_active"`
 }
 
 // 4. ตารางเก็บประวัติการตรวจจับเสียง (Detection Logs)

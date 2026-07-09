@@ -4,6 +4,10 @@ import os
 import sys
 import time
 import wave
+import ssl # 🌟 1. เพิ่ม import ssl เข้ามาสำหรับ WSS
+import threading # 🌟 เพิ่ม
+import queue
+
 import paho.mqtt.client as mqtt
 import requests
 from dotenv import load_dotenv
@@ -18,9 +22,10 @@ def get_env_required(key: str) -> str:
     return value
 
 BROKER_HOST = get_env_required("MQTT_BROKER_HOST")
-BROKER_PORT = int(os.getenv("MQTT_BROKER_PORT", 1883))
+BROKER_PORT = int(os.getenv("MQTT_BROKER_PORT", 8083)) # 🌟 ค่าเริ่มต้นเปลี่ยนเป็น 8083 สำหรับ WSS
+MQTT_USER = os.getenv("MQTT_USER")
+MQTT_PASSWORD = os.getenv("MQTT_PASSWORD")
 GO_SERVER_URL = get_env_required("GO_SERVER_URL")
-# (ลบ AI_SERVER_URL ออกไปแล้ว เพราะเราทำงานจบใน Memory เลย)
 
 SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", 16000))  
 SECONDS_PER_WINDOW = 2            
@@ -32,9 +37,63 @@ VOLUME_GAIN = 3.0
 
 _BYTES_PER_WINDOW = SAMPLE_RATE * CHANNELS * SAMPLE_WIDTH * SECONDS_PER_WINDOW
 _device_states = {}
+_device_activation_cache = {}
 
-# 🌟 ตัวแปรสำหรับรับฟังก์ชัน AI จาก app2.py
 _ai_inference_function = None
+audio_data_queue = queue.Queue(maxsize=20)
+
+def is_device_activated(device_mac: str) -> bool:
+    """ตรวจสอบสถานะจาก RAM ก่อน ถ้าไม่มีค่อยถาม Go Backend"""
+    now = time.time()
+    
+    # 1. เช็คใน Cache ก่อน
+    if device_mac in _device_activation_cache:
+        cache_entry = _device_activation_cache[device_mac]
+        if cache_entry["is_active"]:
+            return True  # ผ่านตลอดกาล
+        elif (now - cache_entry["check_time"]) < 10:
+            return False # โดนบล็อกอยู่ (รอจนกว่าจะครบ 10 วิ ถึงจะยอมถามเซิร์ฟใหม่)
+            
+    # 2. ถ้ายังไม่เคยถาม หรือ Cache การบล็อกหมดอายุ ให้ยิงถาม Go Backend
+    check_url = f"{GO_SERVER_URL}/api/devices/check-activation"
+    is_local = (app_env == "development")
+    
+    try:
+        # 🔨 ปิดการตรวจ SSL (เหมือนที่ทำกับ WSS)
+        context = ssl.create_default_context()
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        
+        # ยิงถาม Go Backend
+        response = requests.get(
+            check_url, 
+            params={"mac": device_mac}, 
+            timeout=5, 
+            verify=not is_local # ข้ามตรวจ Cert ถ้าเป็น Local
+        )
+        
+        if response.status_code == 200:
+            is_active = response.json().get("is_active", False)
+        else:
+            is_active = False # ถ้าเซิร์ฟ Error ให้ตีว่าไม่ผ่านไปก่อน
+            
+        # 3. บันทึกผลลัพธ์ลง RAM
+        _device_activation_cache[device_mac] = {
+            "is_active": is_active,
+            "check_time": now
+        }
+        
+        if is_active:
+            print(f"🔓 [AUTH] อนุมัติ! บอร์ด [{device_mac}] ยืนยันตัวตนผ่านแล้ว")
+        else:
+            print(f"🔒 [AUTH] ปฏิเสธ! บอร์ด [{device_mac}] ยังไม่ถูก Activate")
+            
+        return is_active
+        
+    except Exception as e:
+        print(f"⚠️ [AUTH] ติดต่อ Go Backend ไม่ได้: {e}")
+        return False
+
 
 def amplify_audio(pcm_data: bytes, volume_gain: float) -> bytes:
     if volume_gain == 1.0: 
@@ -56,22 +115,31 @@ def _build_wav_in_memory(pcm_data: bytes) -> bytes:
         wf.writeframes(pcm_data)
     return buf.getvalue()
 
+def _send_to_go_async(url, wav_bytes, filename, payload, is_local):
+    """ฟังก์ชันทำงานเบื้องหลังสำหรับยิง API โดยไม่บล็อกระบบหลัก"""
+    try:
+        requests.post(
+            url,
+            files={"audio": (filename, io.BytesIO(wav_bytes), "audio/wav")},
+            data=payload,
+            timeout=5,
+            verify=not is_local
+        )
+    except Exception as exc:
+        print(f"⚠️ [GO Backend] ยิง API ไม่สำเร็จ: {exc}")
+
 def _process_and_forward(pcm_bytes: bytes, device_mac: str) -> None:
-    """ส่งเสียงเข้า AI Core ทันที -> แล้วส่งผลลัพธ์ให้ Go Backend"""
     wav_bytes = _build_wav_in_memory(pcm_bytes)
     
-    # 1. เช็คว่ามีฟังก์ชัน AI ส่งมาหรือยัง
     if _ai_inference_function is None:
         print("❌ [MQTT] Error: AI Inference Function is not set! (app2.py did not send it)")
         return
 
-    # 2. ประมวลผลด้วย AI ภายในแรม (เร็วมาก)
     try:
         ai_result = _ai_inference_function(wav_bytes)
         detected = ai_result.get("detected", "no")
         probability = ai_result.get("probability", 0.0)
         
-        # 3. เตรียมข้อมูลส่งต่อให้ Go Backend
         go_base_url = f"{GO_SERVER_URL}/api/audio"
         payload_data = {
             'device_mac': device_mac,
@@ -79,24 +147,22 @@ def _process_and_forward(pcm_bytes: bytes, device_mac: str) -> None:
             'confidence': probability
         }
         
+        is_local = (app_env == "development")
         if detected == "yes":
-            if app_env == "development":
-                print(f"🚨 [AI] EMERGENCY (prob={probability:.4f}) from [{device_mac}] -> ยิงไปที่ Go Backend")
-            requests.post(
-                f"{go_base_url}/emergency",
-                files={"audio": ("emergency.wav", io.BytesIO(wav_bytes), "audio/wav")},
-                data=payload_data,
-                timeout=5
-            )
+            if is_local:
+                print(f"🚨 [AI] EMERGENCY (prob={probability:.4f}) -> โยนงานยิง API เบื้องหลัง")
+            
+            threading.Thread(target=_send_to_go_async, args=(
+                f"{go_base_url}/emergency", wav_bytes, "emergency.wav", payload_data, is_local
+            ), daemon=True).start()
+
         else:
-            if app_env == "development":
-                print(f"✅ [AI] normal (prob={probability:.4f}) from [{device_mac}] -> ยิงไปที่ Go Backend")
-            requests.post(
-                f"{go_base_url}/negative",
-                files={"audio": ("negative.wav", io.BytesIO(wav_bytes), "audio/wav")},
-                data=payload_data,
-                timeout=5
-            )
+            if is_local:
+                print(f"✅ [AI] normal (prob={probability:.4f}) -> โยนงานยิง API เบื้องหลัง")
+                
+            threading.Thread(target=_send_to_go_async, args=(
+                f"{go_base_url}/negative", wav_bytes, "negative.wav", payload_data, is_local
+            ), daemon=True).start()
 
     except Exception as exc:
         print(f"[ERROR] ✗ Processing or Go Routing failed: {exc}")
@@ -112,17 +178,15 @@ def _flush_buffer(device_mac: str) -> None:
         total_sec = len(pcm_data) / (SAMPLE_RATE * CHANNELS * SAMPLE_WIDTH)
         print(f"[SEND] {device_mac} : {len(pcm_data) / 1024:.1f} KB ({total_sec:.1f}s) → Core AI")
     
-    # โยนเข้าฟังก์ชันประมวลผล
     _process_and_forward(pcm_data, device_mac)
     
-    # เคลียร์ถัง
     _device_states[device_mac]["buffer"] = []
     _device_states[device_mac]["chunks"] = 0
     _device_states[device_mac]["start_time"] = time.time()
 
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
-        print(f"[MQTT] Connected to {BROKER_HOST}:{BROKER_PORT}")
+        print(f"[MQTT] Connected to {BROKER_HOST}:{BROKER_PORT} (WSS)")
         client.subscribe(TOPIC_SUBSCRIBE, qos=0)
         client.subscribe(STATUS_TOPIC, qos=0)
     else:
@@ -137,9 +201,23 @@ def on_message(client, userdata, msg):
         topic_parts = topic.split('/')
         device_mac = topic_parts[-1] if len(topic_parts) > 0 else "UNKNOWN_MAC"
         
+        if not is_device_activated(device_mac):
+            return
+        
         data = msg.payload
         if not data: return
 
+        # 🌟 โยนเข้าคิวแล้วจบทันที ไม่รอ AI
+        try:
+            audio_data_queue.put_nowait((data, device_mac)) 
+        except queue.Full:
+            print(f"⚠️ [WARNING] Queue เต็ม! กำลังทิ้งข้อมูลของ {device_mac}")
+
+def ai_worker():
+    """Thread นี้จะคอยหยิบข้อมูลจากคิวมาทำ AI ตลอดเวลา"""
+    while True:
+        data, device_mac = audio_data_queue.get() # รอข้อมูลในคิว
+        
         if device_mac not in _device_states:
             _device_states[device_mac] = {"buffer": [], "chunks": 0, "start_time": time.time()}
 
@@ -149,17 +227,21 @@ def on_message(client, userdata, msg):
 
         buffered_bytes = sum(len(b) for b in state["buffer"])
 
-        if state["chunks"] % 50 == 0:
-            elapsed = time.time() - state["start_time"]
-            print(f"[AUDIO] [{device_mac}] chunk={state['chunks']:5d}  buffer={buffered_bytes / 1024:.1f} KB")
-
+        # ถ้าข้อมูลครบ 1 Window ให้ประมวลผล
         if buffered_bytes >= _BYTES_PER_WINDOW:
             _flush_buffer(device_mac)
+            
+        audio_data_queue.task_done()
+
+# 🌟 สตาร์ท Worker Thread นี้ตอนเริ่มทำงาน
+threading.Thread(target=ai_worker, daemon=True).start()
 
 def on_disconnect(client, userdata, flags, rc, properties=None):
     print(f"[MQTT] Disconnected (rc={rc})")
 
-# 🌟 นี่คือจุดที่เกิด Error ครับ เพราะของเดิมรับพารามิเตอร์นี้ไม่ได้
+# ==========================================
+# 🌟 ส่วนที่อัปเกรดให้รองรับ WSS (WebSockets + SSL)
+# ==========================================
 def start_receiver(inference_callback=None):
     global _ai_inference_function
     if inference_callback:
@@ -167,15 +249,37 @@ def start_receiver(inference_callback=None):
         print("✅ [MQTT] Linked AI Inference Core Successfully.")
 
     print("=" * 60)
-    print("  SmartVoice MQTT Background Thread (Direct ML Inference)")
+    print("  SmartVoice MQTT Background Thread (WSS Ready)")
     print("=" * 60)
+    
+    # 🌟 เปลี่ยน transport เป็น "websockets"
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="smartvoice_ai_forwarder", transport="websockets")
+    
+    if MQTT_USER and MQTT_PASSWORD:
+        client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
 
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="smartvoice_ai_forwarder")
+    # 🌟 ตั้งค่าระบบรักษาความปลอดภัย (SSL/TLS)
+    is_local = (app_env == "development")
+    if is_local:
+        # 🔨 ใช้ Custom SSL บังคับปิดการตรวจ IP และ ใบรับรองขั้นเด็ดขาด 100%
+        context = ssl.create_default_context()
+        context.check_hostname = False      # เลิกสนว่า IP/ชื่อโดเมน จะตรงกับใบรับรองไหม
+        context.verify_mode = ssl.CERT_NONE # ไม่ต้องเช็กความน่าเชื่อถือ
+        client.tls_set_context(context)
+        client.tls_insecure_set(True)
+    else:
+        # 🌐 ขึ้น Server จริง ตรวจใบรับรองตามปกติ
+        client.tls_set()
+
+    # 🌟 กำหนดเส้นทาง URL (Path) ให้ตรงกับ Mosquitto
+    client.ws_set_options(path="/mqtt")
+
     client.on_connect = on_connect
     client.on_message = on_message
     client.on_disconnect = on_disconnect
 
     try:
+        print(f"⏳ [MQTT] กำลังพยายามเชื่อมต่อ WSS ไปที่ wss://{BROKER_HOST}:{BROKER_PORT}/mqtt ...")
         client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
         client.loop_start()
     except Exception as exc:

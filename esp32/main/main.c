@@ -18,6 +18,9 @@
 #include "esp_rom_gpio.h"
 #include "esp_http_client.h" 
 #include "esp_crt_bundle.h"  
+#include "esp_mac.h"
+#include "esp_sntp.h"
+#include <time.h>
 #include "lwip/sockets.h"
 #include "web_server.h"
 
@@ -49,16 +52,34 @@ static int s_retry_num = 0;
 
 char mqtt_topic_dynamic[128] = "voice/audio/";
 char status_topic_dynamic[128] = "device/status/";
-char mqtt_broker_uri_dynamic[128] = "wss://mqtt.wattanapong.com/mqtt";
+char mqtt_broker_uri_dynamic[128] = "wss://192.168.1.109:8083";
   
-#define AUDIO_CHUNK_SAMPLES 2048    
+#define AUDIO_CHUNK_SAMPLES 1024    
 #define I2S_DMA_BUF_LEN     1024   
+
+// ==========================================
+// 🌟 สวิตช์สลับโหมด (เปลี่ยนแค่บรรทัดนี้บรรทัดเดียว!)
+// 1 = รันบน Local (คอมตัวเอง) | 0 = รันบน Server จริง
+// ==========================================
+#define IS_LOCAL_ENV 1 
+#if IS_LOCAL_ENV
+    // --- ตั้งค่าสำหรับ Local ---
+    #define TARGET_GO_API "http://127.0.0.1:8080/api/checkin?ip=%s"
+    #define TARGET_MQTT_URI "wss://192.168.1.109:8083"
+    #define SKIP_CERT_CHECK true  // Local มักจะใช้ Cert จำลอง เลยต้องกดข้าม
+#else
+    // --- ตั้งค่าสำหรับ Server จริง ---
+    #define TARGET_GO_API "https://kwsapi.wattanapong.com/api/checkin?ip=%s"
+    #define TARGET_MQTT_URI "wss://mqtt.wattanapong.com:443/mqtt"
+    #define SKIP_CERT_CHECK false // Server จริงต้องตรวจสอบ Cert เพื่อความปลอดภัย
+#endif
 
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 static bool client_connected = false;  
 static bool mqtt_connected = false;
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
+static const char *server_cert; // 🔧 forward-declare: ตัวจริงถูกกำหนดค่าไว้ด้านล่างของไฟล์
 
 // ==========================================
 // ระบบบันทึก/โหลด NVS (MQTT & Wi-Fi)
@@ -95,13 +116,13 @@ void save_wifi_to_nvs(const char* ssid, const char* password) {
     }
 }
 
-bool load_wifi_from_nvs(char* ssid, char* password, size_t max_len) {
+bool load_wifi_from_nvs(char* ssid, size_t ssid_max_len, char* password, size_t password_max_len) {
     nvs_handle_t my_handle;
     bool found = false;
     if (nvs_open("storage", NVS_READONLY, &my_handle) == ESP_OK) {
-        size_t len = max_len;
+        size_t len = ssid_max_len;
         if (nvs_get_str(my_handle, "wifi_ssid", ssid, &len) == ESP_OK) {
-            len = max_len;
+            len = password_max_len;
             if (nvs_get_str(my_handle, "wifi_pass", password, &len) == ESP_OK) {
                 found = true;
                 ESP_LOGI(TAG, "พบข้อมูล Wi-Fi เดิมในระบบ: %s", ssid);
@@ -149,13 +170,18 @@ static void kwsapi_task(void *pvParameters) {
     char *ip_str = (char *)pvParameters;
     char url[128];
     
-    snprintf(url, sizeof(url), "https://kwsapi.wattanapong.com?ip=%s", ip_str);
+    snprintf(url, sizeof(url), TARGET_GO_API, ip_str);
     
     esp_http_client_config_t config = {
         .url = url, 
         .method = HTTP_METHOD_GET, 
         .timeout_ms = 5000, 
+#if IS_LOCAL_ENV
+        .cert_pem = server_cert,
+#else
         .crt_bundle_attach = esp_crt_bundle_attach,
+#endif
+        .skip_cert_common_name_check = SKIP_CERT_CHECK,
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
@@ -191,7 +217,46 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
+static const char *server_cert = 
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIF0DCCBDigAwIBAgIRAL4NdhbxmFnAoi6O1joRN80wDQYJKoZIhvcNAQELBQAw\n"
+    "gf8xHjAcBgNVBAoTFW1rY2VydCBkZXZlbG9wbWVudCBDQTFqMGgGA1UECwxhREVT\n"
+    "S1RPUC04UlNEQ1FKXEpSY29tQERFU0tUT1AtOFJTRENRSiAo4LmB4Lif4LiZ4Lic\n"
+    "4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE4Lij4LmA4LiU4Lit4Lij4LmMKTFx\n"
+    "MG8GA1UEAwxobWtjZXJ0IERFU0tUT1AtOFJTRENRSlxKUmNvbUBERVNLVE9QLThS\n"
+    "U0RDUUogKOC5geC4n+C4meC4nOC4oeC5gOC4m+C5h+C4meC4oeC4suC4quC5hOC4\n"
+    "o+C5gOC4lOC4reC4o+C5jCkwHhcNMjYwNjI0MDMxODAzWhcNMzYwNjI0MDMxODAz\n"
+    "WjCB/zEeMBwGA1UEChMVbWtjZXJ0IGRldmVsb3BtZW50IENBMWowaAYDVQQLDGFE\n"
+    "RVNLVE9QLThSU0RDUUpcSlJjb21AREVTS1RPUC04UlNEQ1FKICjguYHguJ/guJng\n"
+    "uJzguKHguYDguJvguYfguJnguKHguLLguKrguYTguKPguYDguJTguK3guKPguYwp\n"
+    "MXEwbwYDVQQDDGhta2NlcnQgREVTS1RPUC04UlNEQ1FKXEpSY29tQERFU0tUT1At\n"
+    "OFJTRENRSiAo4LmB4Lif4LiZ4Lic4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE\n"
+    "4Lij4LmA4LiU4Lit4Lij4LmMKTCCAaIwDQYJKoZIhvcNAQEBBQADggGPADCCAYoC\n"
+    "ggGBALGYNHmJBLqDVPMHc8UUIWhjBsyPg17q4yTsGRq0aQi0Udv0foVrAL3VpAK5\n"
+    "VZA8ULRtyTph7nYX/6uVV/u1tPGo2qO2khvVndB68M+im3vD5HmZXl1B+FJ7QxfC\n"
+    "/WLzPN7i/HuMLt86eIXBmkZP/LqOYintMjUxekZ1RsRMO7YgRIP8f2DQ6Hvv+L2X\n"
+    "Vw19msZI3P2jeJ7uwy0F1MOH5t7PsiXM1/SPCV4xTfVEXHxpb7+XS4TsdlRgUPWY\n"
+    "Y9v92g58yRYWmKldX4gdBqevOc1Nwjtj4mPyUnw+TfGAfsbumS8rWaKgK15VRat6\n"
+    "d5p7SDSAvFtKReKyi0mM2+F0fFKHoumCaKEdv48vI0nwFHcUIzcZk7gNk12pMOVQ\n"
+    "CVDqs1s73/Daxubwu+gB3AKbiELOo8K+7/RnsOo8mLZqVbmWzy5XaFHdBmaskYYK\n"
+    "cmGst84p5fz9rtu3ocYhassrxsAI7ylTjPKsYVKa4C3NCtrcYE8WMyozshCg5iFq\n"
+    "mMpjVwIDAQABo0UwQzAOBgNVHQ8BAf8EBAMCAgQwEgYDVR0TAQH/BAgwBgEB/wIB\n"
+    "ADAdBgNVHQ4EFgQUwMUGOy8ZeNOl6vSOezpnOPBr5TIwDQYJKoZIhvcNAQELBQAD\n"
+    "ggGBABP6MAAawnG7MeCWOR16jooZ4lFDS9gJTwNeSCs2Kd6lz9r/lW7dYxG5MbsE\n"
+    "pX2gtTvRSUjzqYvN35j8YrZzEUd7zM1C+d+I4cEYkEZWE6gpP5bLqrOS/mdBsoDC\n"
+    "ENnOqc4/aXL4nZLevgmijisk/hogWptedna+tr7wLKMYtCHXN7PJugNXwuELBPZX\n"
+    "dUY8OlKu6Nv1kDH7C0vMjRoZ6E7GdSDnFYBQwJ5dBAyynZ56nHXa/4CpHyrTkQ1u\n"
+    "VN75W4D4xwdgCxonUh0eZnlUfKY8XRdaedHzgvX1/O5sNk+jnVQek2sGZXbxhOYA\n"
+    "Apwc4bxtYCdUeOMsCEiwr4n/FGytZE/vO20YD5C16+cniy38YL7R+7v+tXoNP0q8\n"
+    "nbrIh1rd92lvkKWK7BuDXm8YT7VglcygqpBVr2d4AkR8mlTRg1IgHwpGwoG76sUD\n"
+    "O91u9I6hnyYtNB7cEnww4PnNwrpvlXarqYXRbSd8oVfcc2s7m4twpWKsTUHCVL+T\n"
+    "y9Wjyg==\n"
+    "-----END CERTIFICATE-----\n";
+
 void restart_mqtt_client(void) {
+    // 🔧 กันเคส publish หลุดไปโดนอ้างอิง client ตัวเก่าที่กำลังจะถูกทำลายทิ้ง
+    mqtt_connected = false;
+
     if (mqtt_client != NULL) {
         esp_mqtt_client_stop(mqtt_client);
         esp_mqtt_client_destroy(mqtt_client);
@@ -202,21 +267,29 @@ void restart_mqtt_client(void) {
         .broker = {
             .address = {
                 // 🟢 บังคับพิมพ์ URL ตรงๆ ไว้ตรงนี้เลย เพื่อป้องกัน NVS ดึงค่าเก่ามาหลอก!
-                .uri = "wss://mqtt.wattanapong.com:443/mqtt", 
+                // .uri = "wss://mqtt.wattanapong.com:443/mqtt", 
+                .uri = TARGET_MQTT_URI,
             },
             .verification = {
-                .skip_cert_common_name_check = true,       
+                .skip_cert_common_name_check = SKIP_CERT_CHECK,       
                 .use_global_ca_store = false,             
+#if IS_LOCAL_ENV
+                // 🔧 local ใช้ cert ที่ mosquitto เซ็นเอง (self-signed) โดยตรง
+                // เพราะ CA bundle สาธารณะของ ESP-IDF ไม่รู้จัก cert ตัวนี้แน่นอน
+                .certificate = server_cert,
+#else
                 .crt_bundle_attach = esp_crt_bundle_attach, 
+#endif
             },
         },
         .credentials = {
-            .username = "kws",
+            .username = "esp32_user",
             .authentication = {
-                .password = "31J6LEg4T$4dtwCf",
+                .password = "kws123",
             },
         },
         .session = { 
+            .keepalive = 30,
             .last_will = { 
                 .topic = status_topic_dynamic, 
                 .msg = "offline", 
@@ -260,12 +333,40 @@ void trigger_wifi_reconnect(void) {
     char saved_ssid[64] = {0};
     char saved_pass[64] = {0};
     
-    if (load_wifi_from_nvs(saved_ssid, saved_pass, sizeof(saved_pass))) {
+    if (load_wifi_from_nvs(saved_ssid, sizeof(saved_ssid), saved_pass, sizeof(saved_pass))) {
         ESP_LOGI(TAG, "กำลังพยายามเชื่อมต่อ %s อีกครั้งตามคำสั่งจากหน้าเว็บ...", saved_ssid);
         connect_to_sta(saved_ssid, saved_pass);
     } else {
         ESP_LOGW(TAG, "ไม่พบประวัติ Wi-Fi ในระบบ ไม่สามารถ Reconnect ได้");
     }
+}
+
+// ==========================================
+// 🔧 SNTP: sync เวลาให้ ESP32 รู้วันที่ปัจจุบัน
+// (ESP32 ไม่มีแบตสำรอง RTC พอบูตใหม่นาฬิกาจะรีเซ็ตไปปี 1970
+//  ถ้าไม่ sync เวลาก่อน การตรวจสอบ cert ที่มีวันหมดอายุจะ fail เสมอ)
+// ==========================================
+static void sync_time_via_sntp(void) {
+    ESP_LOGI(TAG, "กำลังขอเวลาจาก NTP server...");
+    esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
+    esp_sntp_setservername(0, "pool.ntp.org");
+    esp_sntp_setservername(1, "time.google.com");
+    esp_sntp_init();
+
+    time_t now = 0;
+    int retry = 0;
+    const int max_retry = 20; // รอสูงสุดประมาณ 10 วินาที
+    // 1700000000 ~ พ.ย. 2023 ใช้เป็นเกณฑ์คร่าวๆ ว่าเวลาเริ่มสมเหตุสมผลแล้ว (ไม่ใช่ปี 1970)
+    while (retry < max_retry) {
+        time(&now);
+        if (now > 1700000000) {
+            ESP_LOGI(TAG, "✓ Sync เวลาสำเร็จ: %lld", (long long)now);
+            return;
+        }
+        retry++;
+        vTaskDelay(500 / portTICK_PERIOD_MS);
+    }
+    ESP_LOGW(TAG, "⚠️ Sync เวลาไม่สำเร็จภายในเวลาที่กำหนด (การเชื่อมต่อ TLS อาจ verify cert ไม่ผ่าน)");
 }
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
@@ -284,8 +385,6 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
                 break;
             case WIFI_EVENT_AP_STADISCONNECTED: 
                 client_connected = false; 
-                mqtt_connected = false; 
-                set_record_led(0); 
                 break;
             case WIFI_EVENT_STA_START: 
                 ESP_LOGI(TAG, "WiFi Station Mode เริ่มต้นระบบแล้ว"); 
@@ -296,8 +395,8 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
                     s_retry_num++;
                     ESP_LOGW(TAG, "เชื่อมต่อ Wi-Fi บ้านไม่สำเร็จ กำลังลองใหม่ครั้งที่ %d...", s_retry_num);
                 } else {
-                    ESP_LOGE(TAG, "หา Wi-Fi ไม่เจอ! หยุดค้นหาและสลับกลับเป็นโหมดฮอตสปอต (AP) อย่างเดียว");
-                    esp_wifi_set_mode(WIFI_MODE_AP); 
+                    ESP_LOGE(TAG, "หา Wi-Fi ไม่เจอ! เปิดฮอตสปอต (AP) และเตรียมเรดาร์ (STA) รอคนมาตั้งค่า...");
+                    esp_wifi_set_mode(WIFI_MODE_APSTA); 
                     // 🟢 เมื่อกลับมา AP อย่างเดียว ให้เปิดไฟ SoftAP ค้างไว้
                     set_softap_led(1);
                     set_status_led(0);
@@ -313,6 +412,9 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
         // 🟢 ต่อ Wi-Fi บ้านสำเร็จแล้ว ให้ปิดไฟ SoftAP และเปิดไฟสถานะระบบ
         set_softap_led(0);
         set_status_led(1);
+        
+        esp_wifi_set_mode(WIFI_MODE_STA);
+        sync_time_via_sntp(); // 🔧 sync เวลาก่อนต่อ TLS ทุกครั้ง (ทั้ง HTTPS API และ MQTT) กัน cert verify fail เพราะนาฬิกาเพี้ยน
 
         trigger_kwsapi_website(ip_str);
         restart_mqtt_client();
@@ -346,9 +448,9 @@ void init_wifi() {
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_ap_config));
 
-    char saved_ssid[32] = {0};
+    char saved_ssid[33] = {0};
     char saved_pass[64] = {0};
-    if (load_wifi_from_nvs(saved_ssid, saved_pass, sizeof(saved_pass))) {
+    if (load_wifi_from_nvs(saved_ssid, sizeof(saved_ssid), saved_pass, sizeof(saved_pass))) {
         wifi_config_t wifi_sta_config = {0};
         strncpy((char*)wifi_sta_config.sta.ssid, saved_ssid, sizeof(wifi_sta_config.sta.ssid)-1);
         strncpy((char*)wifi_sta_config.sta.password, saved_pass, sizeof(wifi_sta_config.sta.password)-1);
@@ -384,13 +486,15 @@ void audio_record_task(void *pvParameters) {
     int16_t *chunk_buf = (int16_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int16_t));
     int32_t *raw_buf  = (int32_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int32_t));
     
-    if (!chunk_buf || !raw_buf) { free(chunk_buf); free(raw_buf); vTaskDelete(NULL); return; }
+    if (!chunk_buf || !raw_buf) { 
+        free(chunk_buf); free(raw_buf); vTaskDelete(NULL); return; 
+    }
     
     uint32_t chunk_seq = 0;
-    bool led_state = false; // 🟢 ตัวแปรสำหรับจำสถานะไฟปัจจุบัน
+    bool led_state = false;
 
     while (1) {
-        // ❌ เอาคำสั่ง set_record_led รัวๆ ออกไป
+        // 1. ดึงเสียงจากไมค์ (ถ้าไมค์ไม่มีข้อมูล CPU จะหยุดรอตรงนี้ ไม่กินโหลด)
         esp_err_t ret = i2s_read(I2S_PORT, raw_buf, AUDIO_CHUNK_SAMPLES * sizeof(int32_t), &bytes_read, portMAX_DELAY);
         
         if (ret == ESP_OK && bytes_read > 0 && mqtt_connected) {
@@ -399,23 +503,35 @@ void audio_record_task(void *pvParameters) {
                 chunk_buf[i] = (int16_t)(raw_buf[i] >> 16); 
             }
             
-            esp_mqtt_client_publish(mqtt_client, mqtt_topic_dynamic, (const char *)chunk_buf, num_samples * sizeof(int16_t), 0, 0);
+            // 🌟 2. ส่งเสียง และเช็กว่า "ท่อตัน" หรือไม่?
+            int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic_dynamic, (const char *)chunk_buf, num_samples * sizeof(int16_t), 0, 0);
+            
+            if (msg_id == -1) {
+                // ⚠️ ถ้าท่อตัน (Network ส่งไม่ทัน) ให้เบรก! พักให้ LwIP ได้เคลียร์ข้อมูลเก่า 50ms
+                // วิธีนี้จะป้องกันอาการ Buffer Overflow และลด Error transport_poll_write ได้ 99%
+                vTaskDelay(pdMS_TO_TICKS(50));
+            }
             
             chunk_seq++;
             
-            // 🟢 ให้สลับสถานะไฟทุกๆ 4 รอบการส่ง (ประมาณ 0.5 วินาที)
             if (chunk_seq % 4 == 0) {
-                led_state = !led_state; // สลับสถานะ (ถ้าดับอยู่ให้ติด, ถ้าติดอยู่ให้ดับ)
+                led_state = !led_state; 
                 set_record_led(led_state ? 1 : 0);
             }
 
-            // ส่งสถานะ online ไปเรื่อยๆ
+            // 🌟 3. เปลี่ยน QoS จาก 1 เป็น 0 เพื่อไม่ให้มันบล็อกการสตรีมเสียง!
             if (chunk_seq % 50 == 0) { 
-                esp_mqtt_client_publish(mqtt_client, status_topic_dynamic, "online", 6, 1, 1); 
+                esp_mqtt_client_publish(mqtt_client, status_topic_dynamic, "online", 6, 0, 1); 
             }
+            
+            // 🌟 4. ให้ CPU ถอนหายใจ 1 Tick เผื่อให้ Task อื่นได้แทรกมาทำงาน (รวมถึง MQTT)
+            vTaskDelay(1);
+            
         } else {
-            // 🟢 ถ้าไม่ได้ต่อเน็ต หรือไม่ได้บันทึกเสียง ให้ปิดไฟ
             set_record_led(0);
+            // 🌟 5. กันเหนียว: ถ้าไม่ได้ต่อเน็ต หรือ i2s พัง ต้องหน่วงเวลาไว้ด้วย
+            // ไม่งั้นมันจะวิ่ง while(1) แบบ 100% CPU จนบอร์ดค้าง
+            vTaskDelay(pdMS_TO_TICKS(50));
         }
     }
 }
@@ -535,11 +651,12 @@ void app_main(void) {
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     start_web_server();
 
-    xTaskCreate(captive_dns_task, "captive_dns", 2048, NULL, 5, NULL);
+// งานยิบย่อย ไม่ต้องรีบมาก ปรับลดลงมาเหลือ Priority 2
+    xTaskCreate(system_monitor_task, "monitor", 2048, NULL, 2, NULL);
+    xTaskCreate(reset_button_task, "reset_button", 2048, NULL, 2, NULL);
+    xTaskCreate(captive_dns_task, "captive_dns", 2048, NULL, 2, NULL);
     
-    init_mqtt();
-    
-    xTaskCreate(audio_record_task, "audio_record", 4096, NULL, 10, NULL);
-    xTaskCreate(system_monitor_task, "monitor", 2048, NULL, 5, NULL);
-    xTaskCreate(reset_button_task, "reset_button", 2048, NULL, 5, NULL);
+    // 🌟 งานเสียง (หัวใจหลัก) ตั้งไว้ที่ 5 เหมือนเดิม
+    // เพื่อให้มันเด่นกว่างานอื่น และมีลู่ทางทำงานร่วมกับ MQTT Task ได้ดีขึ้น
+    xTaskCreate(audio_record_task, "audio_record", 4096, NULL, 5, NULL);
 }

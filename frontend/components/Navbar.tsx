@@ -16,11 +16,6 @@ type UserProfile = {
 export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  useEffect(() => {
-    const role = localStorage.getItem("userRole");
-    setUserRole(role ? role.toLowerCase() : null);
-  }, []);
 
   // 🟢 1. เปลี่ยนจากฟิกค่า เป็นการตั้ง State เริ่มต้นเป็นค่าว่าง
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -108,22 +103,30 @@ export default function Navbar() {
   // 🟢 ฟังก์ชันสำหรับ ส่งคำสั่ง Logout ไปหลังบ้าน และล้างข้อมูลหน้าบ้าน
   const handleLogout = async () => {
     try {
-      // 1. สั่งลบคุกกี้ฝั่ง Go (ใช้ POST และ Path ตามที่อยู่ใน routes.go เป๊ะๆ)
-      await fetch(`${API_BASE_URL}/api/auth/logout`, {
+      console.log("⏳ 1. กำลังสั่งลบคุกกี้...");
+
+      // 1. รอจนกว่า API จะทำงานเสร็จ 100%
+      const res = await fetch("/api/logout", {
         method: "POST",
-        credentials: "include",
       });
+
+      if (res.ok) {
+        console.log("✅ 2. API ตอบกลับแล้วว่าลบเสร็จ!");
+      }
 
       // 2. ล้างข้อมูลหน้าบ้าน
       localStorage.removeItem("token");
       localStorage.removeItem("userEmail");
 
-      // 3. ใช้ signOut ของ next-auth โดยตรงให้มันจัดการเด้งไปหน้า login เองอย่างปลอดภัย
-      await signOut({ callbackUrl: "/" });
+      // 🛑 3. [สำคัญมาก] คอมเมนต์ signOut ของ NextAuth ทิ้งไปก่อนเลย! 🛑
+      // await signOut({ callbackUrl: "/" });
+
+      // 🌟 4. ใช้คำสั่งเปลี่ยนหน้าเว็บแบบคลาสสิกแทน (หลังจากเผื่อเวลาให้เบราว์เซอร์ 100ms)
+      setTimeout(() => {
+        window.location.href = "/";
+      }, 100);
     } catch (error) {
-      console.error("ล้มเหลวในการออกจากระบบ:", error);
-      // แผนสำรอง เผื่อบราว์เซอร์บล็อก fetch ให้เด้งหลบออกไปก่อน
-      signOut({ callbackUrl: "/" });
+      console.error("❌ ล้มเหลว:", error);
     }
   };
 
@@ -395,7 +398,7 @@ export default function Navbar() {
               {/* ======================================= */}
               {/* เมนูที่ 2: จัดการระบบ (Admin เท่านั้นที่เห็น) */}
               {/* ======================================= */}
-              {userRole === "admin" && (
+              {user?.role?.toLowerCase() === "admin" && (
                 <>
                   {/* 1. เมนูจัดการผู้ป่วย (ที่คุณมีอยู่แล้ว) */}
                   <Link

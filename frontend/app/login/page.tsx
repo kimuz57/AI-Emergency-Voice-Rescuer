@@ -139,7 +139,8 @@ export default function LoginPage() {
           }
 
           setTimeout(() => {
-            router.push("/dashboard");
+            window.location.href = "/dashboard";
+            //router.push("/dashboard");
           }, 500);
         } else {
           // 🟢 ดักจับ Error 403: กรณีที่ยังไม่ได้ยืนยันอีเมล

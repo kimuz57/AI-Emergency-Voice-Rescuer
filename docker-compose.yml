@@ -5,10 +5,12 @@ services:
     ports:
       - "1883:1883"   # สำหรับ MQTT (TCP)
       - "9001:9001"   # สำหรับ WS (WebSocket)
-      - "8084:8084"   # สำหรับ WSS (WebSocket Secure)
+      - "8083:8083"   # สำหรับ WSS (WebSocket Secure)
     volumes:
-      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
-      - ./mosquitto/certs:/mosquitto/certs  # 🟢 เพิ่มบรรทัดนี้เพื่อจำลองแฟ้มเก็บ SSL
+      - ./mosquitto/certs:/mosquitto/certs
+      - ./mosquitto/config/passwd:/mosquitto/config/passwd
+      
     restart: unless-stopped

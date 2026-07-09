@@ -175,7 +175,7 @@ static esp_err_t scanwifi_get_handler(httpd_req_t *req) {
 
 // 🟢 Route /connect (POST: รองรับรับค่าจากหน้าเว็บใหม่)
 static esp_err_t connect_post_handler(httpd_req_t *req) {
-    char buf[256];
+    char buf[512]; // ขยาย Buffer รับข้อมูล
     int ret, received = 0;
 
     if (req->content_len >= sizeof(buf)) { return ESP_FAIL; }
@@ -190,22 +190,32 @@ static esp_err_t connect_post_handler(httpd_req_t *req) {
     }
     buf[received] = '\0';
 
-    char ssid_raw[64] = {0}, pass_raw[64] = {0};
-    char ssid[64] = {0}, password[64] = {0};
+    // ขยายขนาดตัวแปรรับค่า Raw (ที่โดน encode มา)
+    char ssid_raw[256] = {0}, pass_raw[256] = {0};
+    char ssid[128] = {0}, password[128] = {0}; // ขยายที่เก็บ SSID ที่ถอดรหัสแล้ว
 
     httpd_query_key_value(buf, "ssid", ssid_raw, sizeof(ssid_raw));
     httpd_query_key_value(buf, "password", pass_raw, sizeof(pass_raw));
 
-    // ถอดรหัส URL เผื่อชื่อ Wi-Fi มีการเว้นวรรค
     url_decode(ssid, ssid_raw);
     url_decode(password, pass_raw);
 
-    ESP_LOGI(WS_TAG, "รับคำสั่งเชื่อมต่อจากหน้าเว็บ -> SSID: %s", ssid);
+    // 🟢 ตรวจสอบว่าได้ SSID จริงๆ ไหม
+    if (strlen(ssid) == 0) {
+        httpd_resp_set_type(req, "text/plain; charset=utf-8");
+        httpd_resp_send(req, "❌ ข้อผิดพลาด: ไม่พบชื่อ Wi-Fi (SSID เป็นค่าว่าง)", HTTPD_RESP_USE_STRLEN);
+        return ESP_OK;
+    }
+
+    ESP_LOGI(WS_TAG, "กำลังเชื่อมต่อ SSID: %s", ssid);
     connect_to_sta(ssid, password);
 
-    // ตอบกลับแค่ข้อความดิบเพื่อให้ JavaScript ของ wifi.html นำไปโชว์
+    // 🟢 ส่งข้อความยืนยันกลับไปบอกหน้าเว็บ
+    char success_msg[256];
+    snprintf(success_msg, sizeof(success_msg), "✅ กำลังเชื่อมต่อ Wi-Fi: %s ... กรุณารอไฟสถานะ LED", ssid);
+    
     httpd_resp_set_type(req, "text/plain; charset=utf-8");
-    httpd_resp_send(req, "กำลังเชื่อมต่อ Wi-Fi... (กรุณาเช็คสถานะที่ตัวบอร์ด)", HTTPD_RESP_USE_STRLEN);
+    httpd_resp_send(req, success_msg, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -234,6 +244,84 @@ static esp_err_t captive_portal_404_handler(httpd_req_t *req, httpd_err_code_t e
     httpd_resp_set_status(req, "302 Found");
     httpd_resp_set_hdr(req, "Location", "http://192.168.4.1/");
     httpd_resp_send(req, NULL, 0);
+    return ESP_OK;
+}
+
+// 🟢 API: สแกน Wi-Fi และส่งรายชื่อกลับไปเป็นรูปแบบ JSON Array ["WIFI_1", "WIFI_2"]
+// 🟢 API: สแกน Wi-Fi และส่งรายชื่อกลับไปเป็นรูปแบบ JSON Array
+// 🟢 API: สแกน Wi-Fi และส่งรายชื่อกลับไปเป็นรูปแบบ JSON Array
+// 🟢 API: สแกน Wi-Fi แบบใช้ Dynamic Memory (ป้องกันบอร์ดพัง/Stack Overflow)
+static esp_err_t api_scan_get_handler(httpd_req_t *req) {
+    ESP_LOGI(WS_TAG, "เริ่มสแกนหาคลื่น Wi-Fi...");
+    
+    // ตั้งค่าการสแกน
+    wifi_scan_config_t scan_config = {
+        .ssid = 0,
+        .bssid = 0,
+        .channel = 0,
+        .show_hidden = false
+    };
+
+    // สั่งเริ่มสแกน (รอจนกว่าจะเสร็จ)
+    esp_err_t err = esp_wifi_scan_start(&scan_config, true);
+    if (err != ESP_OK) {
+        ESP_LOGE(WS_TAG, "สแกน Wi-Fi ล้มเหลว! (อาจกำลังทำงานอื่นอยู่)");
+        httpd_resp_set_type(req, "application/json; charset=utf-8");
+        httpd_resp_send(req, "[]", 2);
+        return ESP_OK;
+    }
+
+    uint16_t ap_count = 0;
+    esp_wifi_scan_get_ap_num(&ap_count);
+    
+    // จำกัดให้แสดงแค่ 15 ชื่อแรกที่สัญญาณแรงสุด
+    uint16_t max_ap = 15;
+    if (ap_count > max_ap) ap_count = max_ap;
+
+    ESP_LOGI(WS_TAG, "สแกนเสร็จสิ้น เจอ %d เครือข่าย", ap_count);
+
+    // 🌟 1. ดึงหน่วยความจำจาก Heap (แรมหลัก) เพื่อไม่ให้ Stack ของเว็บเซิร์ฟเวอร์ระเบิด
+    wifi_ap_record_t *ap_info = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * max_ap);
+    char *json_response = (char *)malloc(2048);
+
+    // ป้องกันกรณีที่แรมเต็มจริงๆ
+    if (ap_info == NULL || json_response == NULL) {
+        ESP_LOGE(WS_TAG, "หน่วยความจำ (RAM) ไม่พอ!");
+        if (ap_info) free(ap_info);
+        if (json_response) free(json_response);
+        httpd_resp_set_type(req, "application/json; charset=utf-8");
+        httpd_resp_send(req, "[]", 2);
+        return ESP_OK;
+    }
+
+    // ดึงข้อมูลรายชื่อ Wi-Fi มาใส่ในแรมที่จองไว้
+    esp_wifi_scan_get_ap_records(&max_ap, ap_info);
+
+    strcpy(json_response, "[");
+    bool first_item = true;
+
+    for (int i = 0; i < max_ap; i++) {
+        // กรองเอาเฉพาะ Wi-Fi ที่มีชื่อ (ไม่ซ่อน SSID)
+        if (strlen((char *)ap_info[i].ssid) > 0) {
+            char ssid_buffer[128];
+            if (!first_item) strcat(json_response, ",");
+            
+            // ใช้ท่า snprintf ป้องกันการเขียนทับ (Buffer Overflow)
+            snprintf(ssid_buffer, sizeof(ssid_buffer), "\"%s\"", (char *)ap_info[i].ssid);
+            strcat(json_response, ssid_buffer);
+            first_item = false;
+        }
+    }
+    strcat(json_response, "]");
+    
+    // ส่งข้อมูลกลับไปให้หน้าเว็บ
+    httpd_resp_set_type(req, "application/json; charset=utf-8");
+    httpd_resp_send(req, json_response, HTTPD_RESP_USE_STRLEN);
+    
+    // 🌟 2. ใช้เสร็จแล้ว ต้องคืนความจำให้ระบบเสมอ! (สำคัญมาก ไม่งั้นแรมจะค่อยๆ รั่วจนบอร์ดค้าง)
+    free(ap_info);
+    free(json_response);
+    
     return ESP_OK;
 }
 
@@ -268,6 +356,9 @@ httpd_handle_t start_web_server(void) {
 
         httpd_uri_t reconnect_get = { .uri = "/reconnect", .method = HTTP_GET, .handler = reconnect_get_handler, .user_ctx = NULL };
         httpd_register_uri_handler(server, &reconnect_get);
+
+        httpd_uri_t api_scan_get = { .uri = "/api/scan", .method = HTTP_GET, .handler = api_scan_get_handler, .user_ctx = NULL };
+        httpd_register_uri_handler(server, &api_scan_get);
 
         // 🟢 ลงทะเบียน 404 Error ให้ทำหน้าที่เด้งป๊อปอัป
         httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, captive_portal_404_handler);

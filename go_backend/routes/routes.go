@@ -72,6 +72,12 @@ func SetupRoutes(app *fiber.App) {
 		patientGroup.Delete("/:id", controllers.DeletePatient)
 	}
 
+	deviceGroup := app.Group("/api/devices")
+	{
+		// ให้ Python ยิงมาถามสถานะ Activation ของบอร์ดที่นี่
+		deviceGroup.Get("/check-activation", controllers.CheckDeviceActivation)
+	}
+	
 	// ==========================================
 	// 📍 หมวดหมู่ Alerts (ระบบแจ้งเตือนเหตุฉุกเฉิน)
 	// ==========================================

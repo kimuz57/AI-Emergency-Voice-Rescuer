@@ -16,3 +16,5 @@ mosquitto/log/
 mosquitto/data/*.db
 mosquitto/data/mosquitto.db
 mosquitto/data/
+mosquitto/conf/passwd
+certs/
