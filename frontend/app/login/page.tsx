@@ -132,10 +132,14 @@ export default function LoginPage() {
 
           // 🟢 เพิ่ม 3 บรรทัดนี้เข้าไปครับ! (หัวใจสำคัญเลย)
           // เช็คว่า Backend ของคุณส่ง Token มาในชื่อ data.token หรือ data.accessToken
-          if (data.token) {
-            localStorage.setItem("token", data.token);
-          } else if (data.accessToken) {
-            localStorage.setItem("token", data.accessToken);
+          const token = data.token || data.accessToken;
+          if (token) {
+            localStorage.setItem("token", token);
+            await fetch("/api/session-token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ token }),
+            });
           }
 
           setTimeout(() => {

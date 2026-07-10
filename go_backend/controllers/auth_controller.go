@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"go_backend/config"
 	"go_backend/database"
 	"go_backend/models"
 	"go_backend/utils"
 	"golang.org/x/crypto/bcrypt"
-	"go_backend/config"
 )
 
 // ==========================================
@@ -72,12 +72,13 @@ func GoogleLogin(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถสร้าง Token ได้"})
 	}
-	
+
 	isLocal := config.GetEnv("APP_ENV", "development") == "development"
 	c.Cookie(&fiber.Cookie{
 		Name:     "token",
 		Value:    tokenString,
 		Expires:  time.Now().Add(time.Hour * 72),
+		Path:     "/",
 		HTTPOnly: true,
 		SameSite: "Lax",
 		Secure:   !isLocal, // 🟢 ปรับเป็น false สำหรับ localhost (ไม่ใช่ HTTPS) แต่ถ้าเป็น Production ให้ตั้งเป็น true
@@ -86,6 +87,7 @@ func GoogleLogin(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "ล็อกอินสำเร็จ",
 		"user":    user,
+		"token":   tokenString,
 	})
 }
 
@@ -93,19 +95,19 @@ func GoogleLogin(c *fiber.Ctx) error {
 // 3. ฟังก์ชันสำหรับออกจากระบบ (Logout)
 // ==========================================
 func Logout(c *fiber.Ctx) error {
-    c.Cookie(&fiber.Cookie{
-        Name:     "token",
-        Value:    "",
-        Path:     "/",          // 🌟 [จุดสำคัญที่เติมเข้าไป] ต้องระบุ Path ให้ตรงกับตอนสร้าง
-        MaxAge:   -1,           // 🌟 ใช้ MaxAge -1 ชัวร์กว่า Expires ในการสั่งลบทันที
-        HTTPOnly: true,
-        SameSite: "Lax",        // ใช้ตามของเดิมคุณได้เลย
-        Secure:   false,        // ⚠️ โหมด Local ใช้ false (ถ้าเอาขึ้น Server จริงที่มี HTTPS ค่อยเปลี่ยนเป็น true)
-    })
+	c.Cookie(&fiber.Cookie{
+		Name:     "token",
+		Value:    "",
+		Path:     "/", // 🌟 [จุดสำคัญที่เติมเข้าไป] ต้องระบุ Path ให้ตรงกับตอนสร้าง
+		MaxAge:   -1,  // 🌟 ใช้ MaxAge -1 ชัวร์กว่า Expires ในการสั่งลบทันที
+		HTTPOnly: true,
+		SameSite: "Lax", // ใช้ตามของเดิมคุณได้เลย
+		Secure:   false, // ⚠️ โหมด Local ใช้ false (ถ้าเอาขึ้น Server จริงที่มี HTTPS ค่อยเปลี่ยนเป็น true)
+	})
 
-    return c.JSON(fiber.Map{
-        "message": "ออกจากระบบสำเร็จและล้างคุกกี้เรียบร้อย",
-    })
+	return c.JSON(fiber.Map{
+		"message": "ออกจากระบบสำเร็จและล้างคุกกี้เรียบร้อย",
+	})
 }
 
 // ==========================================
@@ -222,6 +224,7 @@ func LoginWithEmail(c *fiber.Ctx) error {
 		Name:     "token",
 		Value:    tokenString,
 		Expires:  time.Now().Add(time.Hour * 72),
+		Path:     "/",
 		HTTPOnly: true,
 		SameSite: "Lax",
 	})
@@ -233,6 +236,7 @@ func LoginWithEmail(c *fiber.Ctx) error {
 			"email": user.Email,
 			"role":  user.Role,
 		},
+		"token": tokenString,
 	})
 }
 
@@ -254,7 +258,7 @@ func VerifyEmail(c *fiber.Ctx) error {
 	// อัปเดตให้ IsVerified เป็น true และล้างค่า Token เดิมทิ้ง
 	database.DB.Model(&user).Updates(map[string]interface{}{
 		"is_verified":        true,
-		"verification_token": "", 
+		"verification_token": "",
 	})
 
 	return c.JSON(fiber.Map{"message": "ยืนยันอีเมลสำเร็จ! บัญชีของคุณพร้อมใช้งานแล้ว"})

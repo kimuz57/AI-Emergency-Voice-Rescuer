@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { signOut } from "next-auth/react";
 import Link from "next/link";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -277,7 +276,7 @@ export default function Navbar() {
                 </div>
               </div>
               <div className="py-1">
-                <a
+                <Link
                   href="/"
                   className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 >
@@ -295,7 +294,7 @@ export default function Navbar() {
                     <polyline points="9 22 9 12 15 12 15 22" />
                   </svg>
                   หน้าแรก
-                </a>
+                </Link>
                 <a
                   href="/dashboard"
                   className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
