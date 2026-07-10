@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
 import Cropper from "react-easy-crop";
+import type { Area } from "react-easy-crop";
 import { getCroppedImg } from "../../untils/cropUtils";
 
 // กำหนด Interface สำหรับข้อมูลผู้ใช้ (TypeScript)
@@ -34,18 +35,24 @@ export default function ProfilePage() {
   const [showCropper, setShowCropper] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         const token = localStorage.getItem("token");
-        const email = localStorage.getItem("userEmail");
+        let email = localStorage.getItem("userEmail");
+
+        const sessionRes = await fetch("/api/auth/session");
+        const session = await sessionRes.json();
+
+        if (!email && session?.user?.email) {
+          email = session.user.email;
+          localStorage.setItem("userEmail", email);
+        }
 
         if (!email) {
-          console.log("ไม่มีอีเมลในระบบ ไม่สามารถดึงโปรไฟล์ได้");
-          setIsLoading(false);
-          return;
+          throw new Error("ไม่มีอีเมลในระบบ ไม่สามารถดึงโปรไฟล์ได้");
         }
 
         const url = `${BASE_URL}/api/user/profile?email=${email}`;
@@ -62,6 +69,19 @@ export default function ProfilePage() {
         }
 
         const data = await response.json();
+        const sessionEmail = session?.user?.email?.toLowerCase();
+        const isSameSessionUser =
+          sessionEmail && sessionEmail === email.toLowerCase();
+
+        if (
+          isSameSessionUser &&
+          (!data.profileImage ||
+            data.profileImage === "" ||
+            data.profileImage.includes("picture/0"))
+        ) {
+          data.profileImage = session.user.image;
+        }
+
         setProfile(data);
       } catch (error) {
         console.error("Error:", error);

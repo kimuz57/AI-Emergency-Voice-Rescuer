@@ -79,10 +79,15 @@ export default function Navbar() {
 
         // 🟢 4. ทริคเด็ดเรื่องรูปภาพ: ถ้า Go หลังบ้านไม่มีรูป หรือส่งมาเป็นค่าว่าง/รูปแตก
         // แต่ใน Google Session มีรูปหล่อๆ อยู่ ให้เอารูป Google มาเสียบแทนทันที
+        const sessionEmail = session?.user?.email?.toLowerCase();
+        const isSameSessionUser =
+          sessionEmail && sessionEmail === targetEmail.toLowerCase();
+
         if (
-          !data.profileImage ||
-          data.profileImage === "" ||
-          data.profileImage.includes("picture/0")
+          isSameSessionUser &&
+          (!data.profileImage ||
+            data.profileImage === "" ||
+            data.profileImage.includes("picture/0"))
         ) {
           if (session?.user?.image) {
             data.profileImage = session.user.image;
