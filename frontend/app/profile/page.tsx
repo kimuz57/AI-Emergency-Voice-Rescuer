@@ -48,7 +48,7 @@ export default function ProfilePage() {
 
         if (!email && session?.user?.email) {
           email = session.user.email;
-          localStorage.setItem("userEmail", email);
+          localStorage.setItem("userEmail", email!);
         }
 
         if (!email) {
