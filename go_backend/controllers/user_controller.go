@@ -6,12 +6,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"go_backend/config"
 	"go_backend/database"
 	"go_backend/models"
+
 	"github.com/gofiber/fiber/v2"
-	"go_backend/config"
 )
-var BASE_URL = config.GetEnv("APP_BASE_URL", "http://localhost:8080") // 🟢 เพิ่มตัวแปร BASE_URL เพื่อใช้ในการสร้าง URL รูปภาพโปรไฟล์
+var BASE_URL = config.GetEnv("API_BASE_URL", "http://localhost:8080") // 🟢 เพิ่มตัวแปร BASE_URL เพื่อใช้ในการสร้าง URL รูปภาพโปรไฟล์
 // โครงสร้างรับข้อมูลที่หน้าเว็บจะส่งมา
 type UpdateProfileRequest struct {
 	Email string `json:"email"`
