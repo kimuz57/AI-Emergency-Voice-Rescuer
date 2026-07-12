@@ -111,8 +111,8 @@ func UploadProfileImage(c *fiber.Ctx) error {
 	}
 
 	// 4. สร้างโฟลเดอร์ ./profile (ถ้ายังไม่มีให้สร้างใหม่อัตโนมัติ)
-	uploadDir := "./profile"
-	if err := os.MkdirAll(uploadDir, os.ModePerm); err != nil {
+	uploadDir := "profile" // เอา ./ ออก เพื่อป้องกัน Path เพี้ยนเวลา Service รันเบื้องหลัง
+	if err := os.MkdirAll(uploadDir, 0755); err != nil { // ใช้ 0755 แทน os.ModePerm (0777)
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถสร้างโฟลเดอร์เก็บรูปได้"})
 	}
 
