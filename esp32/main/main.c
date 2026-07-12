@@ -29,7 +29,7 @@ static int s_retry_num = 0;
 #define WIFI_MAXIMUM_RETRY 5
 
 #define I2S_PORT I2S_NUM_0
-#define I2S_SAMPLE_RATE 16000
+#define I2S_SAMPLE_RATE 8000
 #define I2S_CHANNELS 1
 #define I2S_BITS_PER_SAMPLE I2S_BITS_PER_SAMPLE_32BIT
 
@@ -52,7 +52,7 @@ static int s_retry_num = 0;
 
 char mqtt_topic_dynamic[128] = "voice/audio/";
 char status_topic_dynamic[128] = "device/status/";
-char mqtt_broker_uri_dynamic[128] = "wss://192.168.1.109:8083";
+char mqtt_broker_uri_dynamic[128] = "wss://mqtt.wattanapong.com:443/mqtt";
   
 #define AUDIO_CHUNK_SAMPLES 1024    
 #define I2S_DMA_BUF_LEN     1024   
@@ -61,7 +61,7 @@ char mqtt_broker_uri_dynamic[128] = "wss://192.168.1.109:8083";
 // 🌟 สวิตช์สลับโหมด (เปลี่ยนแค่บรรทัดนี้บรรทัดเดียว!)
 // 1 = รันบน Local (คอมตัวเอง) | 0 = รันบน Server จริง
 // ==========================================
-#define IS_LOCAL_ENV 1 
+#define IS_LOCAL_ENV 0 
 #if IS_LOCAL_ENV
     // --- ตั้งค่าสำหรับ Local ---
     #define TARGET_GO_API "http://127.0.0.1:8080/api/checkin?ip=%s"
@@ -283,9 +283,9 @@ void restart_mqtt_client(void) {
             },
         },
         .credentials = {
-            .username = "esp32_user",
+            .username = "kws",
             .authentication = {
-                .password = "kws123",
+                .password = "31J6LEg4T$4dtwCf",
             },
         },
         .session = { 

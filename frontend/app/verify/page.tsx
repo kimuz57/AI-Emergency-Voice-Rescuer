@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -21,7 +21,7 @@ function VerifyEmailContent() {
     const verifyToken = async () => {
       try {
         // ยิง Token ไปให้ Go Fiber ตรวจสอบ
-        const res = await fetch(`http://localhost:8080/api/auth/verify-email?token=${token}`);
+        const res = await fetch(`${API_URL}/api/auth/verify-email?token=${token}`);
         const data = await res.json();
 
         if (res.ok) {
