@@ -118,7 +118,7 @@ func UploadProfileImage(c *fiber.Ctx) error {
 	// 5. ตั้งชื่อไฟล์ใหม่ ป้องกันชื่อซ้ำกัน (เช่น 1_1710000000.jpg)
 	ext := filepath.Ext(file.Filename)
 	newFileName := fmt.Sprintf("%d_%d%s", user.ID, time.Now().Unix(), ext)
-	savePath := fmt.Sprintf("%s/%s", uploadDir, newFileName)
+	savePath := filepath.Join(uploadDir, newFileName)
 
 	// 6. บันทึกไฟล์ลงในเครื่อง Backend
 	if err := c.SaveFile(file, savePath); err != nil {
