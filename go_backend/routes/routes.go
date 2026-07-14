@@ -89,6 +89,8 @@ func SetupRoutes(app *fiber.App) {
 		
 		alertGroup.Post("/", controllers.CreateAlert)
 		alertGroup.Get("/", controllers.GetActiveAlerts)
+		alertGroup.Get("/history", controllers.GetAlertHistory) // 🟢 เพิ่ม Route ดึงประวัติเหตุการณ์
+		alertGroup.Get("/stats", controllers.GetAlertStats)     // 🟢 เพิ่ม Route ดึงสถิติเหตุการณ์
 		alertGroup.Put("/:id/resolve", controllers.ResolveAlert)
 	}
 
