@@ -12,5 +12,4 @@ services:
       - ./mosquitto/log:/mosquitto/log
       - ./mosquitto/certs:/mosquitto/certs
       - ./mosquitto/config/passwd:/mosquitto/config/passwd
-      
     restart: unless-stopped
