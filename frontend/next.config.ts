@@ -9,6 +9,15 @@ const nextConfig: NextConfig = {
     "26.161.225.127",
     "kws.wattanapong.com",
   ],
+  transpilePackages: [
+    "@fullcalendar/common",
+    "@fullcalendar/core",
+    "@fullcalendar/react",
+    "@fullcalendar/daygrid",
+    "@fullcalendar/timegrid",
+    "@fullcalendar/list",
+    "@fullcalendar/interaction"
+  ],
 };
 
 export default nextConfig; 

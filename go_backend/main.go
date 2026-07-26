@@ -11,6 +11,9 @@ import (
 	"go_backend/database"
 	"go_backend/linebot"
 	"go_backend/routes"
+	// "go_backend/controllers"
+	// "go_backend/middleware"
+	// "go_backend/handlers"
 )
 
 func main() {

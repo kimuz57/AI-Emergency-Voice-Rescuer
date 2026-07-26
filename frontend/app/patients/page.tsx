@@ -40,7 +40,10 @@ export default function PatientsPage() {
       // ดึง email ของ User ปัจจุบัน (ตัวอย่างใช้ localStorage, ปรับแก้ตามระบบ Auth ของคุณ)
       const userEmail = localStorage.getItem("userEmail");
 
-      const res = await fetch(`${API_URL}/api/patients?email=${userEmail}`);
+      const res = await fetch(`${API_URL}/api/patients?email=${userEmail}`,{
+          
+        }
+      );
       if (!res.ok) throw new Error("ไม่สามารถดึงข้อมูลได้");
 
       const data = await res.json();

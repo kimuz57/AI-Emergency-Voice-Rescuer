@@ -39,6 +39,7 @@ func ConnectDB() {
 		&models.DetectionLog{},
 		&models.UserLineMapping{},
 		&models.UserTelegramMapping{},
+		&models.HistoryResponse{},
 	)
 	if err != nil {
 		log.Fatal("Failed to auto-migrate database tables:", err)

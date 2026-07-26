@@ -43,8 +43,8 @@ static int s_retry_num = 0;
 #define SOFTAP_LED_PIN 16   // 🟢 ไฟดวงใหม่สำหรับสถานะ Soft AP
 #define STATUS_BORD_PIN 14
 
-#define AP_SSID        "SmartVoice-ESP32"
-#define AP_PASSWORD    "smartvoice123"
+// #define AP_SSID        "SmartVoice-ESP32"
+// #define AP_PASSWORD    "smartvoice123"
 #define AP_CHANNEL     1
 #define AP_MAX_CONN    4
 
@@ -53,7 +53,9 @@ static int s_retry_num = 0;
 char mqtt_topic_dynamic[128] = "voice/audio/";
 char status_topic_dynamic[128] = "device/status/";
 char mqtt_broker_uri_dynamic[128] = "wss://mqtt.wattanapong.com:443/mqtt";
-  
+char ap_ssid_dynamic[32] = {0};
+char ap_password_dynamic[64] = {0};
+
 #define AUDIO_CHUNK_SAMPLES 1024    
 #define I2S_DMA_BUF_LEN     1024   
 
@@ -61,17 +63,22 @@ char mqtt_broker_uri_dynamic[128] = "wss://mqtt.wattanapong.com:443/mqtt";
 // 🌟 สวิตช์สลับโหมด (เปลี่ยนแค่บรรทัดนี้บรรทัดเดียว!)
 // 1 = รันบน Local (คอมตัวเอง) | 0 = รันบน Server จริง
 // ==========================================
-#define IS_LOCAL_ENV 0 
+#define IS_LOCAL_ENV 1 
 #if IS_LOCAL_ENV
     // --- ตั้งค่าสำหรับ Local ---
-    #define TARGET_GO_API "http://127.0.0.1:8080/api/checkin?ip=%s"
-    #define TARGET_MQTT_URI "wss://192.168.1.109:8083"
+    #define TARGET_GO_API "https://s8449mbs-8080.asse.devtunnels.ms/api/checkin?ip=%s"
+    //#define TARGET_MQTT_URI "wss://192.168.1.109:8083/mqtt"
+    #define TARGET_MQTT_URI "s8449mbs-8083.asse.devtunnels.ms/mqtt"
     #define SKIP_CERT_CHECK true  // Local มักจะใช้ Cert จำลอง เลยต้องกดข้าม
+    #define USER "kws"
+    #define PASS "kws123"
 #else
     // --- ตั้งค่าสำหรับ Server จริง ---
     #define TARGET_GO_API "https://kwsapi.wattanapong.com/api/checkin?ip=%s"
     #define TARGET_MQTT_URI "wss://mqtt.wattanapong.com:443/mqtt"
     #define SKIP_CERT_CHECK false // Server จริงต้องตรวจสอบ Cert เพื่อความปลอดภัย
+    #define USER "kws"
+    #define PASS "31J6LEg4T$4dtwCf"
 #endif
 
 static esp_mqtt_client_handle_t mqtt_client = NULL;
@@ -221,7 +228,7 @@ static const char *server_cert =
     "-----BEGIN CERTIFICATE-----\n"
     "MIIF0DCCBDigAwIBAgIRAL4NdhbxmFnAoi6O1joRN80wDQYJKoZIhvcNAQELBQAw\n"
     "gf8xHjAcBgNVBAoTFW1rY2VydCBkZXZlbG9wbWVudCBDQTFqMGgGA1UECwxhREVT\n"
-    "S1RPUC04UlNEQ1FKXEpSY29tQERFU0tUT1AtOFJTRENRSiAo4LmB4Lif4LiZ4Lic\n"
+    "S1RPUC04UlNEQ1FKXEpSY29tQERFU0tTUEUtOFJTRENRSiAo4LmB4Lif4LiZ4Lic\n"
     "4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE4Lij4LmA4LiU4Lit4Lij4LmMKTFx\n"
     "MG8GA1UEAwxobWtjZXJ0IERFU0tUT1AtOFJTRENRSlxKUmNvbUBERVNLVE9QLThS\n"
     "U0RDUUogKOC5geC4n+C4meC4nOC4oeC5gOC4m+C5h+C4meC4oeC4suC4quC5hOC4\n"
@@ -285,7 +292,7 @@ void restart_mqtt_client(void) {
         .credentials = {
             .username = "kws",
             .authentication = {
-                .password = "31J6LEg4T$4dtwCf",
+                .password = "kws123",
             },
         },
         .session = { 
@@ -434,16 +441,19 @@ void init_wifi() {
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, &wifi_event_handler, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &wifi_event_handler, NULL));
 
+    // 🌟 โครงสร้างใหม่ที่รอรับค่าจากตัวแปรไดนามิก
     wifi_config_t wifi_ap_config = {
         .ap = {
-            .ssid = AP_SSID,
-            .ssid_len = strlen(AP_SSID),
             .channel = AP_CHANNEL,
-            .password = AP_PASSWORD,
             .max_connection = AP_MAX_CONN,
             .authmode = WIFI_AUTH_WPA2_PSK,
         },
     };
+    
+    // 🌟 คัดลอกข้อความจากตัวแปรไดนามิกลงไป
+    strncpy((char*)wifi_ap_config.ap.ssid, ap_ssid_dynamic, sizeof(wifi_ap_config.ap.ssid) - 1);
+    wifi_ap_config.ap.ssid_len = strlen(ap_ssid_dynamic);
+    strncpy((char*)wifi_ap_config.ap.password, ap_password_dynamic, sizeof(wifi_ap_config.ap.password) - 1);
 
     ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_APSTA));
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_ap_config));
@@ -635,7 +645,13 @@ void app_main(void) {
     esp_read_mac(mac, ESP_MAC_WIFI_STA); 
     char mac_str[18];
     snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+   
+    snprintf(ap_ssid_dynamic, sizeof(ap_ssid_dynamic), "Smartvoice-%02X%02X%02X", mac[3], mac[4], mac[5]);
+    snprintf(ap_password_dynamic, sizeof(ap_password_dynamic), "SV_%02X%02X%02X", mac[0], mac[1], mac[2]);
     
+    ESP_LOGI(TAG, "🟢 กำหนด SoftAP SSID: %s", ap_ssid_dynamic);
+    ESP_LOGI(TAG, "🟢 กำหนด SoftAP Password: %s", ap_password_dynamic);
+
     snprintf(mqtt_topic_dynamic, sizeof(mqtt_topic_dynamic), "voice/audio/%s", mac_str);
     snprintf(status_topic_dynamic, sizeof(status_topic_dynamic), "device/status/%s", mac_str);
     

@@ -8,6 +8,18 @@
 #include <stdlib.h> 
 #include <ctype.h> // สำหรับถอดรหัส URL
 
+#define IS_LOCAL_ENV 1 
+
+#if IS_LOCAL_ENV
+    // --- ตั้งค่าสำหรับ Local ---
+    #define SERVER_URL "https://s8449mbs-3000.asse.devtunnels.ms/devices?mac=%s" 
+#else
+    // --- ตั้งค่าสำหรับ Server จริง ---
+    #define SERVER_URL "https://wattanapong.com/devices?mac=%s"
+#endif
+
+
+
 extern char mqtt_broker_uri_dynamic[128];
 extern void restart_mqtt_client(void);
 extern void connect_to_sta(const char* ssid, const char* password);
@@ -173,9 +185,9 @@ static esp_err_t scanwifi_get_handler(httpd_req_t *req) {
     return ESP_OK;
 }
 
-// 🟢 Route /connect (POST: รองรับรับค่าจากหน้าเว็บใหม่)
+// 🟢 Route /connect (POST: ส่งหน้าจอให้ผู้ใช้กดค้างเพื่อ Copy ลิงก์ แบบ Manual)
 static esp_err_t connect_post_handler(httpd_req_t *req) {
-    char buf[512]; // ขยาย Buffer รับข้อมูล
+    char buf[512]; 
     int ret, received = 0;
 
     if (req->content_len >= sizeof(buf)) { return ESP_FAIL; }
@@ -190,9 +202,8 @@ static esp_err_t connect_post_handler(httpd_req_t *req) {
     }
     buf[received] = '\0';
 
-    // ขยายขนาดตัวแปรรับค่า Raw (ที่โดน encode มา)
     char ssid_raw[256] = {0}, pass_raw[256] = {0};
-    char ssid[128] = {0}, password[128] = {0}; // ขยายที่เก็บ SSID ที่ถอดรหัสแล้ว
+    char ssid[128] = {0}, password[128] = {0};
 
     httpd_query_key_value(buf, "ssid", ssid_raw, sizeof(ssid_raw));
     httpd_query_key_value(buf, "password", pass_raw, sizeof(pass_raw));
@@ -200,22 +211,68 @@ static esp_err_t connect_post_handler(httpd_req_t *req) {
     url_decode(ssid, ssid_raw);
     url_decode(password, pass_raw);
 
-    // 🟢 ตรวจสอบว่าได้ SSID จริงๆ ไหม
     if (strlen(ssid) == 0) {
         httpd_resp_set_type(req, "text/plain; charset=utf-8");
         httpd_resp_send(req, "❌ ข้อผิดพลาด: ไม่พบชื่อ Wi-Fi (SSID เป็นค่าว่าง)", HTTPD_RESP_USE_STRLEN);
         return ESP_OK;
     }
 
-    ESP_LOGI(WS_TAG, "กำลังเชื่อมต่อ SSID: %s", ssid);
+    ESP_LOGI(WS_TAG, "รับค่า Wi-Fi เตรียมส่งหน้าจอให้ Copy ลิงก์ (Manual)");
+
+    char *response_html = (char *)malloc(4096);
+    if (response_html == NULL) {
+        return ESP_FAIL;
+    }
+
+    uint8_t mac[6];
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    char mac_str[13];
+    snprintf(mac_str, sizeof(mac_str), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    // 1. สร้างหน้า HTML แบบให้กดค้างเพื่อ Copy เอง (ใช้ CSS ช่วยคลุมดำข้อความอัตโนมัติ)
+    snprintf(response_html, 4096,
+        "<!DOCTYPE html>"
+        "<html>"
+        "<head>"
+        "    <meta charset='utf-8'>"
+        "    <meta name='viewport' content='width=device-width, initial-scale=1'>"
+        "    <title>Setup Complete</title>"
+        "</head>"
+        "<body style='text-align:center; padding:20px; font-family:sans-serif; background-color:#f4f4f9;'>"
+        "    <div style='background:white; padding:25px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); max-width:400px; margin:auto;'>"
+        "        <h2 style='color:#28a745; margin-top:0;'>✅ บันทึก Wi-Fi สำเร็จ!</h2>"
+        "        <p style='color:#dc3545; font-size:13px; font-weight:bold; margin-bottom:10px;'>(ระบบมือถือไม่อนุญาตให้กดปุ่มคัดลอกอัตโนมัติ)</p>"
+        "        <p style='color:#555; font-size:15px; margin-bottom:15px;'>👇 <b>กรุณากดค้างที่ข้อความด้านล่าง</b> เพื่อคัดลอกด้วยตัวเอง</p>"
+        "        "
+        "        <!-- กล่องอัจฉริยะ: แค่แตะหรือกดค้าง CSS จะคลุมดำให้ทั้งประโยคทันที -->"
+        "        <div style='background:#e9ecef; padding:15px; border-radius:8px; border:2px dashed #007bff; margin-bottom:25px; word-break:break-all; font-size:16px; font-weight:bold; color:#007bff; user-select:all; -webkit-user-select:all;'>"
+        "            " SERVER_URL ""
+        "        </div>"
+        "        "
+        "        <div style='background:#fff3cd; padding:15px; border-radius:8px; text-align:left; border-left:4px solid #ffc107;'>"
+        "            <p style='font-weight:bold; color:#856404; margin:0 0 8px 0; font-size:14px;'>📌 ขั้นตอนต่อไป:</p>"
+        "            <ol style='margin:0; padding-left:20px; font-size:13px; color:#856404; line-height:1.6;'>"
+        "                <li>กด <b>คัดลอก (Copy)</b> ลิงก์ในกรอบประด้านบน</li>"
+        "                <li>กดคำว่า <b>เสร็จสิ้น (Done)</b> หรือ <b>ยกเลิก</b> ที่มุมขวาบนเพื่อปิดหน้านี้</li>"
+        "                <li>เปิดแอป <b>Safari หรือ Chrome</b> แล้ววางลิงก์เพื่อใช้งาน</li>"
+        "            </ol>"
+        "        </div>"
+        "    </div>"
+        "</body>"
+        "</html>", mac_str);
+
+    // 2. ตอบหน้าเว็บกลับไปให้มือถือทันที
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    httpd_resp_send(req, response_html, HTTPD_RESP_USE_STRLEN);
+    
+    free(response_html);
+
+    // 3. ยืนรอ 2 วินาทีเพื่อให้ชัวร์ว่ามือถือโหลดหน้าเว็บเสร็จ
+    vTaskDelay(pdMS_TO_TICKS(2000));
+
+    // 4. สั่งบอร์ดสลับไปต่อเน็ตบ้าน
     connect_to_sta(ssid, password);
 
-    // 🟢 ส่งข้อความยืนยันกลับไปบอกหน้าเว็บ
-    char success_msg[256];
-    snprintf(success_msg, sizeof(success_msg), "✅ กำลังเชื่อมต่อ Wi-Fi: %s ... กรุณารอไฟสถานะ LED", ssid);
-    
-    httpd_resp_set_type(req, "text/plain; charset=utf-8");
-    httpd_resp_send(req, success_msg, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;
 }
 
@@ -233,7 +290,7 @@ static esp_err_t reconnect_get_handler(httpd_req_t *req) {
              "<script>setTimeout(function(){window.location.href='/';}, 3000);</script>"
              "%s",
              html_header, html_footer);
-             
+    
     httpd_resp_set_type(req, "text/html; charset=utf-8");
     httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
     return ESP_OK;

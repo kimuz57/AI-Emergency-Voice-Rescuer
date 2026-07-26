@@ -83,13 +83,22 @@ func SetupRoutes(app *fiber.App) {
 	// ==========================================
 	alertGroup := app.Group("/api/alerts")
 	{
-		// 🟢 แก้ Error: เปลี่ยนจาก api.Post เป็น alertGroup.Post
-		// และเปลี่ยน path เป็น "/ai" เพื่อไม่ให้ชนกับ "/" ของ CreateAlert ด่านล่าง
-		alertGroup.Post("/ai", controllers.CreateAlert) // จุดรับข้อมูลจาก ESP32 (บันทึกลง DB และกระจายงานไป LINE/Telegram)
+		// 🟢 รับข้อมูลจาก ESP32 / AI
+		alertGroup.Post("/ai", controllers.CreateAlert) 
 		
+		// 🟢 รับข้อมูลการแจ้งเตือนทั่วไป 
 		alertGroup.Post("/", controllers.CreateAlert)
+
+		// 🟢 ดึงข้อมูลการแจ้งเตือน (ที่ยังไม่ resolve)
 		alertGroup.Get("/", controllers.GetActiveAlerts)
+
+		// 🟢 ดึงประวัติและสถิติสำหรับหน้าปฏิทิน
+		alertGroup.Get("/history", controllers.GetHistoryAlerts)
+
+		// 🟢 อัปเดตสถานะรับทราบและช่วยเหลือ (ลบบรรทัดที่ซ้ำออกแล้ว)
 		alertGroup.Put("/:id/resolve", controllers.ResolveAlert)
+
+		alertGroup.Get("/stats", controllers.GetAlertStats)
 	}
 
 	// ==========================================

@@ -186,7 +186,7 @@ def _flush_buffer(device_mac: str) -> None:
 
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
-        print(f"[MQTT] Connected to {BROKER_HOST}:{BROKER_PORT} (WSS)")
+        print(f"[MQTT] Connected to {BROKER_HOST}:{BROKER_PORT}")
         client.subscribe(TOPIC_SUBSCRIBE, qos=0)
         client.subscribe(STATUS_TOPIC, qos=0)
     else:
@@ -258,20 +258,21 @@ def start_receiver(inference_callback=None):
     if MQTT_USER and MQTT_PASSWORD:
         client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
 
-    # 🌟 ตั้งค่าระบบรักษาความปลอดภัย (SSL/TLS)
     is_local = (app_env == "development")
+    
+    # ==========================================
+    # 🌟 บังคับใช้ TLS/SSL (WSS) ทุกกรณี
+    # ==========================================
     if is_local:
-        # 🔨 ใช้ Custom SSL บังคับปิดการตรวจ IP และ ใบรับรองขั้นเด็ดขาด 100%
-        context = ssl.create_default_context()
-        context.check_hostname = False      # เลิกสนว่า IP/ชื่อโดเมน จะตรงกับใบรับรองไหม
-        context.verify_mode = ssl.CERT_NONE # ไม่ต้องเช็กความน่าเชื่อถือ
-        client.tls_set_context(context)
+        # 💻 รัน Local: เปิด WSS แต่ข้ามการตรวจสอบ Certificate (กัน Error จาก Cert จำลอง)
+        client.tls_set(cert_reqs=ssl.CERT_NONE)
         client.tls_insecure_set(True)
+        print("🔒 [Security] TLS/SSL Enabled (WSS Local Mode - Skip Cert Check)")
     else:
-        # 🌐 ขึ้น Server จริง ตรวจใบรับรองตามปกติ
+        # 🌐 รัน Server จริง: เปิด WSS แบบเต็มรูปแบบ (ตรวจสอบ Cert จาก CA สากล)
         client.tls_set()
+        print("🔒 [Security] TLS/SSL Enabled (WSS Production Mode)")
 
-    # 🌟 กำหนดเส้นทาง URL (Path) ให้ตรงกับ Mosquitto
     client.ws_set_options(path="/mqtt")
 
     client.on_connect = on_connect
@@ -279,7 +280,9 @@ def start_receiver(inference_callback=None):
     client.on_disconnect = on_disconnect
 
     try:
-        print(f"⏳ [MQTT] กำลังพยายามเชื่อมต่อ WSS ไปที่ wss://{BROKER_HOST}:{BROKER_PORT}/mqtt ...")
+        # 🌟 บังคับแสดงผลเป็น wss เสมอ
+        protocol = "wss" 
+        print(f"⏳ [MQTT] กำลังพยายามเชื่อมต่อไปที่ {protocol}://{BROKER_HOST}:{BROKER_PORT}/mqtt ...")
         client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
         client.loop_start()
     except Exception as exc:

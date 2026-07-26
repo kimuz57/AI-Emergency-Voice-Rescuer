@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"go_backend/config"
+	//"go_backend/config"
 	"go_backend/database"
 	"go_backend/models"
 	"go_backend/utils"
@@ -73,7 +73,7 @@ func GoogleLogin(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถสร้าง Token ได้"})
 	}
 
-	isLocal := config.GetEnv("APP_ENV", "development") == "development"
+	//isLocal := config.GetEnv("APP_ENV", "development") == "development"
 	c.Cookie(&fiber.Cookie{
 		Name:     "token",
 		Value:    tokenString,
@@ -81,7 +81,7 @@ func GoogleLogin(c *fiber.Ctx) error {
 		Path:     "/",
 		HTTPOnly: true,
 		SameSite: "Lax",
-		Secure:   !isLocal, // 🟢 ปรับเป็น false สำหรับ localhost (ไม่ใช่ HTTPS) แต่ถ้าเป็น Production ให้ตั้งเป็น true
+		Secure:   true, // 🟢 ปรับเป็น false สำหรับ localhost (ไม่ใช่ HTTPS) แต่ถ้าเป็น Production ให้ตั้งเป็น true
 	})
 
 	return c.JSON(fiber.Map{
