@@ -1,12 +1,28 @@
 package middleware
 
 import (
-    "go_backend/config"
-    "fmt" // เพิ่ม fmt สำหรับ debug
+	"fmt" // เพิ่ม fmt สำหรับ debug
+	"strings"
 
-    "github.com/gofiber/fiber/v2"
-    "github.com/golang-jwt/jwt/v5"
+	"go_backend/config"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/golang-jwt/jwt/v5"
 )
+
+func ExtractToken(c *fiber.Ctx) string {
+    if tokenString := c.Cookies("token"); tokenString != "" {
+        return tokenString
+    }
+
+    if authHeader := c.Get("Authorization"); authHeader != "" {
+        if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+            return strings.TrimSpace(authHeader[7:])
+        }
+    }
+
+    return ""
+}
 
 // RequireAuth เป็นด่านแรกสำหรับตรวจสอบว่าผู้ใช้ล็อกอิน (มี Token) หรือยัง
 func RequireAuth(c *fiber.Ctx) error {
@@ -15,16 +31,8 @@ func RequireAuth(c *fiber.Ctx) error {
         return c.Next()
     }
 
-    // 2. ลองดึง Token จาก Cookie ที่เราแนบไปตอน Login
-    tokenString := c.Cookies("token")
-
-    // ถ้าไม่มีใน Cookie ลองหาใน Header (Authorization: Bearer <token>) เผื่อไว้
-    if tokenString == "" {
-        authHeader := c.Get("Authorization")
-        if len(authHeader) > 7 && authHeader[:7] == "Bearer " {
-            tokenString = authHeader[7:]
-        }
-    }
+    // 2. ลองดึง Token จาก Cookie หรือ Header
+    tokenString := ExtractToken(c)
 
     // ถ้าหาไม่เจอเลย แปลว่ายังไม่ได้ล็อกอิน
     if tokenString == "" {

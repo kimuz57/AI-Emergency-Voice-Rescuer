@@ -2,9 +2,10 @@ package controllers
 
 import (
 	"fmt"
-	"time"
 	"go_backend/database"
 	"go_backend/models"
+	"time"
+
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -20,7 +21,7 @@ func CreateAlert(c *fiber.Ctx) error {
 	}
 
 	// 🟢 1. เอา BoardID (MAC Address) ไปค้นหาในตารางอุปกรณ์ (devices)
-	var device models.Device
+	var device models.Device_patient
 	if err := database.DB.Where("mac_address = ?", input.BoardID).First(&device).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "ไม่พบอุปกรณ์นี้ในระบบ (ยังไม่ได้ลงทะเบียน)",

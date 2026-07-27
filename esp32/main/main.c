@@ -86,7 +86,7 @@ static bool client_connected = false;
 static bool mqtt_connected = false;
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
-static const char *server_cert; // 🔧 forward-declare: ตัวจริงถูกกำหนดค่าไว้ด้านล่างของไฟล์
+//static const char *server_cert; // 🔧 forward-declare: ตัวจริงถูกกำหนดค่าไว้ด้านล่างของไฟล์
 
 // ==========================================
 // ระบบบันทึก/โหลด NVS (MQTT & Wi-Fi)
@@ -184,7 +184,7 @@ static void kwsapi_task(void *pvParameters) {
         .method = HTTP_METHOD_GET, 
         .timeout_ms = 5000, 
 #if IS_LOCAL_ENV
-        .cert_pem = server_cert,
+        //.cert_pem = server_cert,
 #else
         .crt_bundle_attach = esp_crt_bundle_attach,
 #endif
@@ -224,41 +224,41 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-static const char *server_cert = 
-    "-----BEGIN CERTIFICATE-----\n"
-    "MIIF0DCCBDigAwIBAgIRAL4NdhbxmFnAoi6O1joRN80wDQYJKoZIhvcNAQELBQAw\n"
-    "gf8xHjAcBgNVBAoTFW1rY2VydCBkZXZlbG9wbWVudCBDQTFqMGgGA1UECwxhREVT\n"
-    "S1RPUC04UlNEQ1FKXEpSY29tQERFU0tTUEUtOFJTRENRSiAo4LmB4Lif4LiZ4Lic\n"
-    "4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE4Lij4LmA4LiU4Lit4Lij4LmMKTFx\n"
-    "MG8GA1UEAwxobWtjZXJ0IERFU0tUT1AtOFJTRENRSlxKUmNvbUBERVNLVE9QLThS\n"
-    "U0RDUUogKOC5geC4n+C4meC4nOC4oeC5gOC4m+C5h+C4meC4oeC4suC4quC5hOC4\n"
-    "o+C5gOC4lOC4reC4o+C5jCkwHhcNMjYwNjI0MDMxODAzWhcNMzYwNjI0MDMxODAz\n"
-    "WjCB/zEeMBwGA1UEChMVbWtjZXJ0IGRldmVsb3BtZW50IENBMWowaAYDVQQLDGFE\n"
-    "RVNLVE9QLThSU0RDUUpcSlJjb21AREVTS1RPUC04UlNEQ1FKICjguYHguJ/guJng\n"
-    "uJzguKHguYDguJvguYfguJnguKHguLLguKrguYTguKPguYDguJTguK3guKPguYwp\n"
-    "MXEwbwYDVQQDDGhta2NlcnQgREVTS1RPUC04UlNEQ1FKXEpSY29tQERFU0tUT1At\n"
-    "OFJTRENRSiAo4LmB4Lif4LiZ4Lic4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE\n"
-    "4Lij4LmA4LiU4Lit4Lij4LmMKTCCAaIwDQYJKoZIhvcNAQEBBQADggGPADCCAYoC\n"
-    "ggGBALGYNHmJBLqDVPMHc8UUIWhjBsyPg17q4yTsGRq0aQi0Udv0foVrAL3VpAK5\n"
-    "VZA8ULRtyTph7nYX/6uVV/u1tPGo2qO2khvVndB68M+im3vD5HmZXl1B+FJ7QxfC\n"
-    "/WLzPN7i/HuMLt86eIXBmkZP/LqOYintMjUxekZ1RsRMO7YgRIP8f2DQ6Hvv+L2X\n"
-    "Vw19msZI3P2jeJ7uwy0F1MOH5t7PsiXM1/SPCV4xTfVEXHxpb7+XS4TsdlRgUPWY\n"
-    "Y9v92g58yRYWmKldX4gdBqevOc1Nwjtj4mPyUnw+TfGAfsbumS8rWaKgK15VRat6\n"
-    "d5p7SDSAvFtKReKyi0mM2+F0fFKHoumCaKEdv48vI0nwFHcUIzcZk7gNk12pMOVQ\n"
-    "CVDqs1s73/Daxubwu+gB3AKbiELOo8K+7/RnsOo8mLZqVbmWzy5XaFHdBmaskYYK\n"
-    "cmGst84p5fz9rtu3ocYhassrxsAI7ylTjPKsYVKa4C3NCtrcYE8WMyozshCg5iFq\n"
-    "mMpjVwIDAQABo0UwQzAOBgNVHQ8BAf8EBAMCAgQwEgYDVR0TAQH/BAgwBgEB/wIB\n"
-    "ADAdBgNVHQ4EFgQUwMUGOy8ZeNOl6vSOezpnOPBr5TIwDQYJKoZIhvcNAQELBQAD\n"
-    "ggGBABP6MAAawnG7MeCWOR16jooZ4lFDS9gJTwNeSCs2Kd6lz9r/lW7dYxG5MbsE\n"
-    "pX2gtTvRSUjzqYvN35j8YrZzEUd7zM1C+d+I4cEYkEZWE6gpP5bLqrOS/mdBsoDC\n"
-    "ENnOqc4/aXL4nZLevgmijisk/hogWptedna+tr7wLKMYtCHXN7PJugNXwuELBPZX\n"
-    "dUY8OlKu6Nv1kDH7C0vMjRoZ6E7GdSDnFYBQwJ5dBAyynZ56nHXa/4CpHyrTkQ1u\n"
-    "VN75W4D4xwdgCxonUh0eZnlUfKY8XRdaedHzgvX1/O5sNk+jnVQek2sGZXbxhOYA\n"
-    "Apwc4bxtYCdUeOMsCEiwr4n/FGytZE/vO20YD5C16+cniy38YL7R+7v+tXoNP0q8\n"
-    "nbrIh1rd92lvkKWK7BuDXm8YT7VglcygqpBVr2d4AkR8mlTRg1IgHwpGwoG76sUD\n"
-    "O91u9I6hnyYtNB7cEnww4PnNwrpvlXarqYXRbSd8oVfcc2s7m4twpWKsTUHCVL+T\n"
-    "y9Wjyg==\n"
-    "-----END CERTIFICATE-----\n";
+// static const char *server_cert = 
+//     "-----BEGIN CERTIFICATE-----\n"
+//     "MIIF0DCCBDigAwIBAgIRAL4NdhbxmFnAoi6O1joRN80wDQYJKoZIhvcNAQELBQAw\n"
+//     "gf8xHjAcBgNVBAoTFW1rY2VydCBkZXZlbG9wbWVudCBDQTFqMGgGA1UECwxhREVT\n"
+//     "S1RPUC04UlNEQ1FKXEpSY29tQERFU0tTUEUtOFJTRENRSiAo4LmB4Lif4LiZ4Lic\n"
+//     "4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE4Lij4LmA4LiU4Lit4Lij4LmMKTFx\n"
+//     "MG8GA1UEAwxobWtjZXJ0IERFU0tUT1AtOFJTRENRSlxKUmNvbUBERVNLVE9QLThS\n"
+//     "U0RDUUogKOC5geC4n+C4meC4nOC4oeC5gOC4m+C5h+C4meC4oeC4suC4quC5hOC4\n"
+//     "o+C5gOC4lOC4reC4o+C5jCkwHhcNMjYwNjI0MDMxODAzWhcNMzYwNjI0MDMxODAz\n"
+//     "WjCB/zEeMBwGA1UEChMVbWtjZXJ0IGRldmVsb3BtZW50IENBMWowaAYDVQQLDGFE\n"
+//     "RVNLVE9QLThSU0RDUUpcSlJjb21AREVTS1RPUC04UlNEQ1FKICjguYHguJ/guJng\n"
+//     "uJzguKHguYDguJvguYfguJnguKHguLLguKrguYTguKPguYDguJTguK3guKPguYwp\n"
+//     "MXEwbwYDVQQDDGhta2NlcnQgREVTS1RPUC04UlNEQ1FKXEpSY29tQERFU0tUT1At\n"
+//     "OFJTRENRSiAo4LmB4Lif4LiZ4Lic4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE\n"
+//     "4Lij4LmA4LiU4Lit4Lij4LmMKTCCAaIwDQYJKoZIhvcNAQEBBQADggGPADCCAYoC\n"
+//     "ggGBALGYNHmJBLqDVPMHc8UUIWhjBsyPg17q4yTsGRq0aQi0Udv0foVrAL3VpAK5\n"
+//     "VZA8ULRtyTph7nYX/6uVV/u1tPGo2qO2khvVndB68M+im3vD5HmZXl1B+FJ7QxfC\n"
+//     "/WLzPN7i/HuMLt86eIXBmkZP/LqOYintMjUxekZ1RsRMO7YgRIP8f2DQ6Hvv+L2X\n"
+//     "Vw19msZI3P2jeJ7uwy0F1MOH5t7PsiXM1/SPCV4xTfVEXHxpb7+XS4TsdlRgUPWY\n"
+//     "Y9v92g58yRYWmKldX4gdBqevOc1Nwjtj4mPyUnw+TfGAfsbumS8rWaKgK15VRat6\n"
+//     "d5p7SDSAvFtKReKyi0mM2+F0fFKHoumCaKEdv48vI0nwFHcUIzcZk7gNk12pMOVQ\n"
+//     "CVDqs1s73/Daxubwu+gB3AKbiELOo8K+7/RnsOo8mLZqVbmWzy5XaFHdBmaskYYK\n"
+//     "cmGst84p5fz9rtu3ocYhassrxsAI7ylTjPKsYVKa4C3NCtrcYE8WMyozshCg5iFq\n"
+//     "mMpjVwIDAQABo0UwQzAOBgNVHQ8BAf8EBAMCAgQwEgYDVR0TAQH/BAgwBgEB/wIB\n"
+//     "ADAdBgNVHQ4EFgQUwMUGOy8ZeNOl6vSOezpnOPBr5TIwDQYJKoZIhvcNAQELBQAD\n"
+//     "ggGBABP6MAAawnG7MeCWOR16jooZ4lFDS9gJTwNeSCs2Kd6lz9r/lW7dYxG5MbsE\n"
+//     "pX2gtTvRSUjzqYvN35j8YrZzEUd7zM1C+d+I4cEYkEZWE6gpP5bLqrOS/mdBsoDC\n"
+//     "ENnOqc4/aXL4nZLevgmijisk/hogWptedna+tr7wLKMYtCHXN7PJugNXwuELBPZX\n"
+//     "dUY8OlKu6Nv1kDH7C0vMjRoZ6E7GdSDnFYBQwJ5dBAyynZ56nHXa/4CpHyrTkQ1u\n"
+//     "VN75W4D4xwdgCxonUh0eZnlUfKY8XRdaedHzgvX1/O5sNk+jnVQek2sGZXbxhOYA\n"
+//     "Apwc4bxtYCdUeOMsCEiwr4n/FGytZE/vO20YD5C16+cniy38YL7R+7v+tXoNP0q8\n"
+//     "nbrIh1rd92lvkKWK7BuDXm8YT7VglcygqpBVr2d4AkR8mlTRg1IgHwpGwoG76sUD\n"
+//     "O91u9I6hnyYtNB7cEnww4PnNwrpvlXarqYXRbSd8oVfcc2s7m4twpWKsTUHCVL+T\n"
+//     "y9Wjyg==\n"
+//     "-----END CERTIFICATE-----\n";
 
 void restart_mqtt_client(void) {
     // 🔧 กันเคส publish หลุดไปโดนอ้างอิง client ตัวเก่าที่กำลังจะถูกทำลายทิ้ง
@@ -283,7 +283,7 @@ void restart_mqtt_client(void) {
 #if IS_LOCAL_ENV
                 // 🔧 local ใช้ cert ที่ mosquitto เซ็นเอง (self-signed) โดยตรง
                 // เพราะ CA bundle สาธารณะของ ESP-IDF ไม่รู้จัก cert ตัวนี้แน่นอน
-                .certificate = server_cert,
+                //.certificate = server_cert,
 #else
                 .crt_bundle_attach = esp_crt_bundle_attach, 
 #endif

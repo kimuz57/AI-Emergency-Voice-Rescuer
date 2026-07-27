@@ -1,9 +1,10 @@
 package controllers
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"go_backend/database" // 🌟 1. Import ตัวแปร DB ของจริงระบบคุณเข้ามา
 	"go_backend/models"
+
+	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
@@ -21,7 +22,7 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 	}
 
 	// 2. ค้นหาอุปกรณ์ในฐานข้อมูล
-	var device models.Device
+	var device models.Device_patient
 	// 🌟 2. เรียกใช้ database.DB.Where แทน DB.Where ธรรมดา
 	//result := database.DB.Where("mac_address = ?", mac).First(&device)
 	result := database.DB.Where("UPPER(mac_address) = UPPER(?)", mac).First(&device)

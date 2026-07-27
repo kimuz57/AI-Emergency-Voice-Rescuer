@@ -80,7 +80,7 @@ func GoogleLogin(c *fiber.Ctx) error {
 		Expires:  time.Now().Add(time.Hour * 72),
 		Path:     "/",
 		HTTPOnly: true,
-		SameSite: "Lax",
+		SameSite: "None",
 		Secure:   true, // 🟢 ปรับเป็น false สำหรับ localhost (ไม่ใช่ HTTPS) แต่ถ้าเป็น Production ให้ตั้งเป็น true
 	})
 

@@ -273,7 +273,7 @@ def start_receiver(inference_callback=None):
         client.tls_set()
         print("🔒 [Security] TLS/SSL Enabled (WSS Production Mode)")
 
-    client.ws_set_options(path="/mqtt")
+    client.ws_set_options(path="/")
 
     client.on_connect = on_connect
     client.on_message = on_message

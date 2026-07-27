@@ -19,5 +19,14 @@ export async function POST(request: Request) {
     maxAge: 60 * 60 * 24 * 3,
   });
 
+  response.cookies.set({
+    name: "token_public",
+    value: token,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 3,
+  });
+
   return response;
 }

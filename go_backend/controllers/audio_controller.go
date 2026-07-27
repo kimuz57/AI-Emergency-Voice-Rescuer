@@ -2,17 +2,18 @@ package controllers
 
 import (
 	"fmt"
+	"go_backend/config"
+	"go_backend/database"
+	"go_backend/models"
 	"os"
 	"path/filepath"
 	"sort"
-	"sync" // 🟢 เพิ่ม sync เพื่อสร้างแม่กุญแจล็อคคิว
 	"strconv"
-	"time"
 	"strings"
+	"sync" // 🟢 เพิ่ม sync เพื่อสร้างแม่กุญแจล็อคคิว
+	"time"
+
 	"github.com/gofiber/fiber/v2"
-	"go_backend/database"
-	"go_backend/models"
-	"go_backend/config"
 )
 
 // 🟢 สร้างแม่กุญแจสำหรับล็อคคิวจัดการไฟล์ (กันแย่งกันลบ)
@@ -146,7 +147,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	}
 
 	// 🔍 ลอจิกค้นหาในตาราง Devices ด้วย MACAddress ที่แปลงเป็นพิมพ์ใหญ่แล้ว
-	var device models.Device
+	var device models.Device_patient
 	var patientID *uint = nil
 
 	// 🟢 แก้ไข: ใช้ UPPER() ทั้งสองฝั่ง เพื่อให้หาเจอแน่นอน ไม่ว่าในฐานข้อมูลหรือ Python จะส่งมาเป็นพิมพ์เล็กหรือใหญ่

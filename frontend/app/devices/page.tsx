@@ -2,9 +2,21 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import CustomAudioPlayer from "@/components/CustomAudioPlayer"; 
+import CustomAudioPlayer from "@/components/CustomAudioPlayer";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+function formatMacAddress(value: string) {
+  const cleaned = value.replace(/[^a-fA-F0-9]/g, "").slice(0, 12);
+  if (!cleaned) return "";
+
+  const parts: string[] = [];
+  for (let i = 0; i < cleaned.length; i += 2) {
+    parts.push(cleaned.slice(i, i + 2));
+  }
+
+  return parts.join(":").toUpperCase();
+}
 
 function RegistrationFormContent() {
   const searchParams = useSearchParams();
@@ -21,23 +33,42 @@ function RegistrationFormContent() {
   useEffect(() => {
     const mac = searchParams.get("mac");
     if (mac) {
-      setFormData((prev) => ({ ...prev, boardId: mac }));
+      setFormData((prev) => ({ ...prev, boardId: formatMacAddress(mac) }));
     }
   }, [searchParams]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "boardId") {
+      setFormData((prev) => ({ ...prev, boardId: formatMacAddress(value) }));
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
+      const getAuthToken = () => {
+        if (typeof window === "undefined") return "";
+        const fromStorage = localStorage.getItem("token");
+        if (fromStorage) return fromStorage;
+        const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : "";
+      };
+
+      const token = getAuthToken();
+
       const res = await fetch(`${API_BASE_URL}/api/patients/register`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: "include", // 🌟 ส่ง Cookie/Session ไปด้วยเพื่อให้ Backend รู้ว่า Account ไหนเป็นคนทำรายการ
         body: JSON.stringify({
           patientName: formData.patientName,
@@ -46,7 +77,7 @@ function RegistrationFormContent() {
           roomNumber: formData.roomNumber,
           medicalCondition: formData.medicalCondition,
           // 💡 ไม่ต้องส่ง caregiverEmail จากฟอร์มแล้ว ให้ Backend ดึงจาก Session ของผู้ใช้ที่ล็อกอินอยู่
-          board_id: formData.boardId, 
+          board_id: formData.boardId,
           deviceName: formData.deviceName,
         }),
       });
@@ -105,8 +136,20 @@ function RegistrationFormContent() {
                 <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
                 <path d="M12 11h4" />
                 <path d="M12 16h4" />
-                <circle cx="8" cy="11" r="1" fill="currentColor" stroke="none" />
-                <circle cx="8" cy="16" r="1" fill="currentColor" stroke="none" />
+                <circle
+                  cx="8"
+                  cy="11"
+                  r="1"
+                  fill="currentColor"
+                  stroke="none"
+                />
+                <circle
+                  cx="8"
+                  cy="16"
+                  r="1"
+                  fill="currentColor"
+                  stroke="none"
+                />
               </svg>
             </span>
           </div>
@@ -279,8 +322,18 @@ function RegistrationFormContent() {
               type="submit"
               className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all hover:-translate-y-1 active:translate-y-0"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
+                ></path>
               </svg>
               บันทึกข้อมูลเข้าระบบ
             </button>

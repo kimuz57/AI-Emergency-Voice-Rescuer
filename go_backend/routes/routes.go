@@ -1,9 +1,10 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"go_backend/controllers"
 	"go_backend/middleware"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 func SetupRoutes(app *fiber.App) {
@@ -64,7 +65,7 @@ func SetupRoutes(app *fiber.App) {
 	// ==========================================
 	// 📍 หมวดหมู่ Patients (จัดการข้อมูลผู้ป่วย/คนชรา)
 	// ==========================================
-	patientGroup := app.Group("/api/patients")
+	patientGroup := app.Group("/api/patients", middleware.RequireAuth)
 	{
 		patientGroup.Get("/", controllers.GetPatientsByCaretaker) // ย้ายจากข้างบนมารวมกลุ่ม
 		patientGroup.Post("/", controllers.CreatePatient)

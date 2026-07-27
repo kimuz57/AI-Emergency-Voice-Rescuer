@@ -60,25 +60,31 @@ export default function Dashboard() {
 
   const fetchPatients = async () => {
     try {
-      // ❌ ไม่ต้องพยายามดึง Token จาก localStorage แล้วครับ ลบทิ้งไปได้เลย
-      const targetEmail = localStorage.getItem("userEmail"); // (สมมติว่าอีเมลยังเก็บไว้ในนี้)
+      const targetEmail = localStorage.getItem("userEmail");
 
       if (!targetEmail || targetEmail === "null") {
         console.log("❌ ไม่มีอีเมล");
         return;
       }
 
-      // 🟢 ยิง API โดยสั่งให้เบราว์เซอร์ "แนบคุกกี้ (Token) ไปด้วยอัตโนมัติ"
-      const res = await fetch(
-        `${API_BASE_URL}/api/patients?email=${targetEmail}`,
-        {
-          method: "GET",
-          credentials: "include", // 🔑 พระเอกของเราอยู่ตรงนี้ครับ!
-          headers: {
-            "Content-Type": "application/json",
-          },
+      const getAuthToken = () => {
+        if (typeof window === "undefined") return "";
+        const fromStorage = localStorage.getItem("token");
+        if (fromStorage) return fromStorage;
+        const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : "";
+      };
+
+      const token = getAuthToken();
+
+      const res = await fetch(`${API_BASE_URL}/api/patients`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-      );
+        credentials: "include", // 🌟 ต้องมีบรรทัดนี้ เพื่อส่ง Cookie ให้ Backend
+      });
 
       if (res.ok) {
         const data = await res.json();

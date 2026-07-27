@@ -7,6 +7,7 @@ import (
 	"go_backend/config"
 	"go_backend/models"
 	"go_backend/utils"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -35,7 +36,7 @@ func ConnectDB() {
 		&models.User{},
 		&models.Patient{},
 		&models.CaregiverPatient{},
-		&models.Device{},
+		&models.Device_patient{},
 		&models.DetectionLog{},
 		&models.UserLineMapping{},
 		&models.UserTelegramMapping{},

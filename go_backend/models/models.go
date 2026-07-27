@@ -20,14 +20,14 @@ type Patient struct {
 	// ความสัมพันธ์แบบ Many-to-Many กลับไปหา User
 	Caregivers []User `gorm:"many2many:caregiver_patients;"`
 	// 1 ผู้ป่วย สามารถมีหลายอุปกรณ์ (เช่น ไมค์ห้องน้ำ, ไมค์หัวเตียง)
-	Devices []Device
+	Devices []Device_patient
 	// 1 ผู้ป่วย มีประวัติเสียงร้องขอความช่วยเหลือหลายครั้ง
 	DetectionLogs []DetectionLog
 	
 }
 
 // 3. ตารางอุปกรณ์ IoT / ESP32 (Devices)
-type Device struct {
+type Device_patient struct {
 	gorm.Model
 	// 🟢 เติม json:"board_id" ไว้ข้างหลัง เพื่อบอก Go ว่า "ถ้าส่ง board_id มา ให้เอามาใส่คอลัมน์นี้ใน DB นะ"
 	MACAddress string `gorm:"unique;not null" json:"board_id"`

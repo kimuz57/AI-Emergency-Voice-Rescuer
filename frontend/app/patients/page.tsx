@@ -40,10 +40,24 @@ export default function PatientsPage() {
       // ดึง email ของ User ปัจจุบัน (ตัวอย่างใช้ localStorage, ปรับแก้ตามระบบ Auth ของคุณ)
       const userEmail = localStorage.getItem("userEmail");
 
-      const res = await fetch(`${API_URL}/api/patients?email=${userEmail}`,{
-          
-        }
-      );
+      const getAuthToken = () => {
+        if (typeof window === "undefined") return "";
+        const fromStorage = localStorage.getItem("token");
+        if (fromStorage) return fromStorage;
+        const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
+        return match ? decodeURIComponent(match[1]) : "";
+      };
+
+      const token = getAuthToken();
+
+      const res = await fetch(`${API_URL}/api/patients`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include", // 🌟 ต้องมีบรรทัดนี้ เพื่อส่ง Cookie ให้ Backend
+      });
       if (!res.ok) throw new Error("ไม่สามารถดึงข้อมูลได้");
 
       const data = await res.json();

@@ -23,7 +23,8 @@ const handler = NextAuth({
       // เปลี่ยนจาก Hard code เป็นการเรียกไปที่ Go Backend
       async authorize(credentials) {
         try {
-          const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+          const backendUrl =
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
           const res = await fetch(`${backendUrl}/api/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -48,16 +49,17 @@ const handler = NextAuth({
   pages: {
     signIn: "/",
   },
-  
-  secret: process.env.NEXTAUTH_SECRET, 
+
+  secret: process.env.NEXTAUTH_SECRET,
 
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
         try {
           const imageUrl = user.image || (profile as any)?.picture || "";
-          const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-          
+          const backendUrl =
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
           const res = await fetch(`${backendUrl}/api/auth/google`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -75,12 +77,20 @@ const handler = NextAuth({
               if (tokenMatch && tokenMatch[1]) {
                 const tokenValue = tokenMatch[1];
                 const cookieStore = await cookies();
-                
+
                 cookieStore.set({
                   name: "token",
                   value: tokenValue,
                   httpOnly: true,
-                  secure: process.env.NODE_ENV === "production", 
+                  secure: process.env.NODE_ENV === "production",
+                  path: "/",
+                  maxAge: 60 * 60 * 24,
+                });
+
+                cookieStore.set({
+                  name: "token_public",
+                  value: tokenValue,
+                  secure: process.env.NODE_ENV === "production",
                   path: "/",
                   maxAge: 60 * 60 * 24,
                 });
