@@ -129,7 +129,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="dark:bg-slate-800 relative min-h-screen bg-slate-50 flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden dark:bg-slate-800">
+    <div className="relative min-h-screen flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden">
       <PhoneReminder hasPhone={!!userData?.phone} />
       {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
       <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-red-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-20 animate-pulse pointer-events-none"></div>

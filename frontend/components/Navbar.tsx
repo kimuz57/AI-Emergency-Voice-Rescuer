@@ -197,7 +197,7 @@ export default function Navbar() {
     `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=0D8ABC&color=fff&rounded=true`;
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-300">
+    <nav className="fixed top-0 left-0 w-full z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-300">
       <div className="flex items-center gap-2">
         <div className="flex items-end gap-1 h-6">
           <div
@@ -216,7 +216,7 @@ export default function Navbar() {
         <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
           <a
             href="/dashboard"
-            className="hover:text-blue-600 transition-colors"
+            className="hover:text-blue-600 transition-colors cursor-pointer"
           >
             Emergency Voice Rescuer
           </a>

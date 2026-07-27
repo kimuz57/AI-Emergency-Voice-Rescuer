@@ -185,11 +185,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 md:p-8 overflow-hidden font-sans transition-colors duration-300">
+    <div className="relative min-h-screen bg-transparent flex items-center justify-center p-4 md:p-8  font-sans transition-colors duration-300">
       {/* 🌟 Background Glowing Orbs (เพิ่ม pointer-events-none เพื่อไม่ให้บังการกดปุ่ม) */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"></div>
       <div
-        className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"
         style={{ animationDelay: "2s" }}
       ></div>
 
@@ -457,7 +455,7 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleStandardAuth} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4">
             <div>
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
                 อีเมล
@@ -468,6 +466,7 @@ export default function LoginPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
                 className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
               />
               {errors.email && (
@@ -488,6 +487,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
                   className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
                 />
                 <button
@@ -540,12 +540,13 @@ export default function LoginPage() {
             </div>
 
             <button
-              type="submit"
+              type="button"
+              onClick={handleStandardAuth}
               className="w-full py-3 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition-all hover:-translate-y-0.5"
             >
               เข้าสู่ระบบ
             </button>
-          </form>
+          </div>
 
           <div className="flex items-center my-5">
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />

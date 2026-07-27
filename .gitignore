@@ -27,3 +27,6 @@ certs/
 *.dylib
 go_backend/main
 tmp/
+
+go_backend/tmp/
+frontend/tsconfig.tsbuildinfo
