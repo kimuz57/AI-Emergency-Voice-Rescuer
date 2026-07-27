@@ -144,8 +144,9 @@ export default function LoginPage() {
           }
 
           setTimeout(() => {
-            window.location.href = "/dashboard";
-            //router.push("/dashboard");
+            const urlParams = new URLSearchParams(window.location.search);
+            const callbackUrl = urlParams.get("callbackUrl") || "/dashboard";
+            window.location.href = callbackUrl;
           }, 500);
         } else {
           // 🟢 ดักจับ Error 403: กรณีที่ยังไม่ได้ยืนยันอีเมล
