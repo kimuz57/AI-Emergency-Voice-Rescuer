@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -10,6 +11,7 @@ import (
 	"go_backend/models"
 	"go_backend/utils"
 	"golang.org/x/crypto/bcrypt"
+	"github.com/google/uuid"
 )
 
 // ==========================================
@@ -285,4 +287,75 @@ func VerifyEmail(c *fiber.Ctx) error {
 	})
 
 	return c.JSON(fiber.Map{"message": "ยืนยันอีเมลสำเร็จ! บัญชีของคุณพร้อมใช้งานแล้ว"})
+}
+
+// ==========================================
+// 6. ระบบลืมรหัสผ่าน (Forgot Password)
+// ==========================================
+func ForgotPassword(c *fiber.Ctx) error {
+	var input struct {
+		Email string `json:"email"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	var user models.User
+	if err := database.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		// ป้องกันการบอกว่าอีเมลนี้มีในระบบหรือไม่ เพื่อความปลอดภัย
+		return c.JSON(fiber.Map{"message": "ถ้าอีเมลนี้มีอยู่ในระบบ ลิงก์สำหรับรีเซ็ตรหัสผ่านจะถูกส่งไป"})
+	}
+
+	token := uuid.New().String()
+	expiry := time.Now().Add(1 * time.Hour)
+
+	user.ResetToken = &token
+	user.ResetTokenExpiry = &expiry
+	database.DB.Save(&user)
+
+	frontendURL := os.Getenv("FRONTEND_URL")
+	if frontendURL == "" {
+		frontendURL = "http://localhost:3000"
+	}
+	resetLink := fmt.Sprintf("%s/reset-password?token=%s", frontendURL, token)
+
+	go utils.SendPasswordResetEmail(user.Email, resetLink)
+
+	return c.JSON(fiber.Map{"message": "ถ้าอีเมลนี้มีอยู่ในระบบ ลิงก์สำหรับรีเซ็ตรหัสผ่านจะถูกส่งไป"})
+}
+
+// ==========================================
+// 7. ระบบรีเซ็ตรหัสผ่าน (Reset Password)
+// ==========================================
+func ResetPassword(c *fiber.Ctx) error {
+	var input struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	var user models.User
+	if err := database.DB.Where("reset_token = ?", input.Token).First(&user).Error; err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid or expired token"})
+	}
+
+	if user.ResetTokenExpiry == nil || user.ResetTokenExpiry.Before(time.Now()) {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid or expired token"})
+	}
+
+	hashedPassword, err := HashPassword(input.NewPassword)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to process password"})
+	}
+
+	user.Password = hashedPassword
+	user.ResetToken = nil
+	user.ResetTokenExpiry = nil
+	database.DB.Save(&user)
+
+	return c.JSON(fiber.Map{"message": "รีเซ็ตรหัสผ่านสำเร็จ คุณสามารถเข้าสู่ระบบด้วยรหัสผ่านใหม่ได้ทันที"})
 }

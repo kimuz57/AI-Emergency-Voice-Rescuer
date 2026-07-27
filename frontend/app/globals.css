@@ -424,10 +424,17 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   }
 }
 /* Space Background for Dark Mode */
+@keyframes space-pan {
+  0% { background-position: 0% 0%; }
+  50% { background-position: 100% 100%; }
+  100% { background-position: 0% 0%; }
+}
+
 .dark body {
   background-image: linear-gradient(to bottom, rgba(15, 23, 42, 0.6), rgba(2, 6, 23, 0.9)), url('/space-bg.jpg') !important;
-  background-size: cover !important;
-  background-position: center !important;
+  background-size: 150% 150% !important;
+  background-position: 0% 0% !important;
   background-attachment: fixed !important;
   background-repeat: no-repeat !important;
+  animation: space-pan 60s ease-in-out infinite !important;
 }

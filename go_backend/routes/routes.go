@@ -29,6 +29,8 @@ func SetupRoutes(app *fiber.App) {
 		authGroup.Post("/register", controllers.Register)
 		authGroup.Post("/logout", controllers.Logout)
 		authGroup.Get("/verify-email", controllers.VerifyEmail)
+		authGroup.Post("/forgot-password", controllers.ForgotPassword)
+		authGroup.Post("/reset-password", controllers.ResetPassword)
 	}
 
 	adminGroup := app.Group("/api/admin", middleware.RequireAuth, middleware.RequireAdmin)

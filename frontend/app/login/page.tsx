@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -537,6 +538,11 @@ export default function LoginPage() {
                   {errors.password}
                 </span>
               )}
+              <div className="flex justify-end mt-2">
+                <Link href="/forgot-password" className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
+                  ลืมรหัสผ่านใช่ไหม?
+                </Link>
+              </div>
             </div>
 
             <button
