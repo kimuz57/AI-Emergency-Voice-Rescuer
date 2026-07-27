@@ -30,21 +30,13 @@
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-attachment: fixed;
+  margin: 0;
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
 }
 
-html:not(.dark) body {
-  background-image:
-    radial-gradient(circle at 0% 0%, rgba(224, 234, 252, 0.5) 0%, rgba(207, 222, 243, 0.5) 100%),
-    radial-gradient(at 0% 0%, rgba(43, 108, 238, 0.05) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(43, 108, 238, 0.03) 0px, transparent 50%);
-}
 
-html.dark body {
-  background-image:
-    radial-gradient(at 0% 0%, rgba(43, 108, 238, 0.05) 0px, transparent 50%),
-    radial-gradient(at 100% 100%, rgba(43, 108, 238, 0.03) 0px, transparent 50%);
-}
 
 /* ============================================
    Lucid Glass System
@@ -423,18 +415,28 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
     @apply bg-blue-600;
   }
 }
-/* Space Background for Dark Mode */
-@keyframes space-pan {
-  0% { background-position: 0% 0%; }
-  50% { background-position: 100% 100%; }
-  100% { background-position: 0% 0%; }
+/* ============================================
+   Epic Background Animation (Elderly Theme)
+   ============================================ */
+body::before {
+  content: "";
+  position: fixed;
+  top: -10%; left: -10%;
+  width: 120%; height: 120%;
+  z-index: -1;
+  background-image: linear-gradient(to bottom, rgba(224, 234, 252, 0.3), rgba(207, 222, 243, 0.6)), url('/bg-elderly-light.jpg');
+  background-size: cover;
+  background-position: center;
+  animation: epic-bg-anim 40s ease-in-out infinite alternate;
+  pointer-events: none;
 }
 
-.dark body {
-  background-image: linear-gradient(to bottom, rgba(15, 23, 42, 0.6), rgba(2, 6, 23, 0.9)), url('/space-bg.jpg') !important;
-  background-size: 150% 150% !important;
-  background-position: 0% 0% !important;
-  background-attachment: fixed !important;
-  background-repeat: no-repeat !important;
-  animation: space-pan 60s ease-in-out infinite !important;
+html.dark body::before {
+  background-image: linear-gradient(to bottom, rgba(15, 23, 42, 0.5), rgba(2, 6, 23, 0.8)), url('/bg-elderly-dark.jpg');
+}
+
+@keyframes epic-bg-anim {
+  0% { transform: scale(1) translate(0, 0); }
+  50% { transform: scale(1.05) translate(-1%, -1%); }
+  100% { transform: scale(1.1) translate(1%, 1%); }
 }

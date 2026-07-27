@@ -30,3 +30,8 @@ tmp/
 
 go_backend/tmp/
 frontend/tsconfig.tsbuildinfo
+
+# AI Test Scripts
+backend_ai/test.py
+backend_ai/test_model.py
+backend_ai/confusion.py
