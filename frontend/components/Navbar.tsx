@@ -197,7 +197,7 @@ export default function Navbar() {
     `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=0D8ABC&color=fff&rounded=true`;
 
   return (
-    <nav className="sticky top-0 z-50 w-full bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-300">
+    <nav className="fixed top-0 left-0 w-full z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-300">
       <div className="flex items-center gap-2">
         <div className="flex items-end gap-1 h-6">
           <div
@@ -216,7 +216,7 @@ export default function Navbar() {
         <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
           <a
             href="/dashboard"
-            className="hover:text-blue-600 transition-colors"
+            className="hover:text-blue-600 transition-colors cursor-pointer"
           >
             Emergency Voice Rescuer
           </a>
@@ -252,7 +252,7 @@ export default function Navbar() {
           {/* หน้าต่างเมนูรายละเอียด */}
           {/* 🟢 1. เอาคำว่า && user ออก ให้เหลือแค่นี้ เพื่อให้หน้าต่างกางได้เสมอ */}
           {isProfileOpen && (
-            <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 overflow-hidden z-50">
+            <div className="absolute right-0 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 overflow-hidden z-50">
               <div className="px-4 py-4 border-b border-gray-50 dark:border-slate-700 bg-blue-50/40 dark:bg-slate-700/40">
                 <div className="flex items-center gap-3">
                   <img
@@ -399,7 +399,7 @@ export default function Navbar() {
                   ข้อมูลผู้ป่วย
                 </a>
 
-                {/* 🟢 เพิ่มเมนู History (ประวัติและสถิติ) ตรงนี้ 🟢 */}
+                {/* 🟢 เพิ่มเมนู History (ประวัติและสถิติ) */}
                 <Link
                   href="/history"
                   className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
@@ -418,6 +418,28 @@ export default function Navbar() {
                     <polyline points="12 6 12 12 16 14" />
                   </svg>
                   ประวัติและสถิติ
+                </Link>
+
+                {/* 🟢 เพิ่มเมนู จัดการอุปกรณ์รับเสียง ตรงนี้ */}
+                <Link
+                  href="/device"
+                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" x2="12" y1="19" y2="22" />
+                  </svg>
+                  จัดการอุปกรณ์รับเสียง
                 </Link>
               </div>
               {/* ======================================= */}

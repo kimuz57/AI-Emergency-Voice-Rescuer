@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"go_backend/database" // 🌟 1. Import ตัวแปร DB ของจริงระบบคุณเข้ามา
+	"go_backend/database"
 	"go_backend/models"
 	"strings"
 
@@ -18,17 +18,15 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 	}
 
 	var device models.Device
-
-	// 1. ลองค้นหาอุปกรณ์ดูก่อน
 	result := database.DB.Where("UPPER(mac_address) = UPPER(?)", mac).First(&device)
 
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			// 🌟 [จุดที่แก้] ถ้าหาไม่เจอ ให้สร้าง Device ใหม่พร้อมกำหนด verified = true
 			newDevice := models.Device{
 				MacAddress: strings.ToUpper(mac),
 				IpAddress:  ip,
-				IsActive:   false, // สร้างไว้ก่อน แต่ยังไม่เปิดใช้งาน (รอคุณมากดทีหลัง)
+				Status:     "online", // เพิ่ม Status online
+				IsActive:   false,
 				IsVerified: true,
 			}
 			database.DB.Create(&newDevice)
@@ -43,10 +41,11 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "เกิดข้อผิดพลาดกับฐานข้อมูล"})
 	}
 
-	// 2. ถ้ามีอุปกรณ์นี้อยู่แล้วในตาราง ก็อัปเดต IP และตั้งค่า verified
+	// ถ้ามีอุปกรณ์อยู่แล้ว อัปเดตข้อมูลพร้อมตั้งให้เป็น online
 	database.DB.Model(&device).Updates(map[string]interface{}{
 		"ip_address":  ip,
 		"is_verified": true,
+		"status":      "online", // อัปเดตเมื่อ Check-in
 	})
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -58,7 +57,6 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 }
 
 func CheckDeviceActivation(c *fiber.Ctx) error {
-	// 1. รับค่า MAC Address จาก Query Parameter (?mac=...)
 	mac := c.Query("mac")
 
 	if mac == "" {
@@ -68,29 +66,22 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 		})
 	}
 
-	// 2. ค้นหาอุปกรณ์ในฐานข้อมูล
 	var device models.Device
-	// 🌟 2. เรียกใช้ database.DB.Where แทน DB.Where ธรรมดา
-	//result := database.DB.Where("mac_address = ?", mac).First(&device)
 	result := database.DB.Where("UPPER(mac_address) = UPPER(?)", mac).First(&device)
-	// 3. จัดการกรณีไม่พบอุปกรณ์ หรือยังไม่เคยลงทะเบียน
+
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
-			// ตอบกลับแบบ 200 OK ให้ Python รู้ว่าค้นหาเสร็จแล้ว แต่แค่ยังไม่อนุมัติ
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{
 				"is_active": false,
 				"message":   "Device not found or not activated",
 			})
 		}
-
-		// กรณี DB ล่ม
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":     "Database error",
 			"is_active": false,
 		})
 	}
 
-	// 4. ถ้ายังไม่ verified ให้ตอบกลับว่าไม่อนุญาตให้ประมวลผล
 	if !device.IsVerified {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"is_active":   false,
@@ -99,7 +90,6 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 		})
 	}
 
-	// ถ้า verified แล้ว ส่งสถานะการอนุมัติจาก IsActive พร้อมสถานะแจ้งว่า verified
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"is_active":   device.IsActive,
 		"is_verified": device.IsVerified,

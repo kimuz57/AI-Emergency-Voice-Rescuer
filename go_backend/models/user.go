@@ -22,6 +22,8 @@ type User struct {
 	IsLinkedLine bool `json:"is_linked_line" gorm:"default:false"`
 	IsTelegramConnected bool                `json:"is_telegram_connected" gorm:"default:false"`
 	TelegramMapping UserTelegramMapping `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
+	ResetToken         *string    `json:"-"`
+	ResetTokenExpiry   *time.Time `json:"-"`
 	CreatedAt time.Time      `json:"created_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }

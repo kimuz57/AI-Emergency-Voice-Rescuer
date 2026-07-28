@@ -153,7 +153,30 @@ func Register(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"error": "เข้ารหัสผ่านไม่สำเร็จ"})
 	}
 
-	// 🟢 1. สร้าง Token สำหรับยืนยันอีเมล (ต้องสร้างฟังก์ชันนี้ใน utils/email.go)
+	var existingUser models.User
+	result := database.DB.Where("email = ?", input.Email).First(&existingUser)
+
+	if result.Error == nil {
+		// เจออีเมลในระบบแล้ว
+		if existingUser.Password != "" {
+			return c.Status(400).JSON(fiber.Map{"error": "อีเมลนี้มีในระบบแล้ว กรุณาเข้าสู่ระบบ"})
+		}
+
+		// ถ้า Password ว่างเปล่า แปลว่าเคยเข้าสู่ระบบด้วย Google
+		// ให้อัปเดตรหัสผ่านใหม่ลงไปได้เลย
+		existingUser.Password = hashedPassword
+		if existingUser.Name == "" {
+			existingUser.Name = input.Name
+		}
+		database.DB.Save(&existingUser)
+
+		return c.Status(200).JSON(fiber.Map{
+			"message": "เพิ่มรหัสผ่านให้บัญชี Google สำเร็จ! สามารถเข้าสู่ระบบด้วยรหัสผ่านได้แล้ว",
+			"email":   existingUser.Email,
+		})
+	}
+
+	// 🟢 ถ้ายังไม่เคยมีอีเมลในระบบ ก็สร้าง User ใหม่ และส่งอีเมลยืนยันตามปกติ
 	verifyToken := utils.GenerateVerificationToken()
 
 	user := models.User{
@@ -164,12 +187,12 @@ func Register(c *fiber.Ctx) error {
 		VerificationToken: verifyToken, // 🟢 บันทึก Token ลง DB
 	}
 
-	result := database.DB.Create(&user)
-	if result.Error != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "อีเมลนี้มีในระบบแล้ว หรือบันทึกไม่สำเร็จ"})
+	createResult := database.DB.Create(&user)
+	if createResult.Error != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "บันทึกข้อมูลไม่สำเร็จ"})
 	}
 
-	// 🟢 2. สั่งให้ส่งอีเมลทำงานเบื้องหลัง
+	// 🟢 สั่งให้ส่งอีเมลทำงานเบื้องหลัง
 	go utils.SendVerificationEmail(user.Email, user.Name, verifyToken)
 
 	return c.Status(201).JSON(fiber.Map{
@@ -227,7 +250,7 @@ func ForgotPassword(c *fiber.Ctx) error {
 // ==========================================
 func ResetPassword(c *fiber.Ctx) error {
 	var input struct {
-		Token      string `json:"token"`
+		Token       string `json:"token"`
 		NewPassword string `json:"new_password"`
 	}
 
@@ -255,9 +278,9 @@ func ResetPassword(c *fiber.Ctx) error {
 	}
 
 	if err := database.DB.Model(&user).Updates(map[string]interface{}{
-		"password":               hashed,
-		"password_reset_token":   "",
-		"password_reset_expiry":  time.Time{},
+		"password":              hashed,
+		"password_reset_token":  "",
+		"password_reset_expiry": time.Time{},
 	}).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "ไม่สามารถบันทึกรหัสผ่านใหม่ได้"})
 	}

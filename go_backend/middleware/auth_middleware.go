@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"go_backend/config"
-
+    "go_backend/utils"
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -56,4 +56,41 @@ func RequireAuth(c *fiber.Ctx) error {
 
     // อนุญาตให้ผ่านไปทำงานฟังก์ชันต่อไปได้
     return c.Next()
+}
+
+func AuthMiddleware(c *fiber.Ctx) error {
+	// 1. ดึง Token จาก Header Authorization
+	authHeader := c.Get("Authorization")
+	if authHeader == "" {
+		// ลองหาจาก Cookie เผื่อคุณส่งทาง Cookie (ถ้าไม่ใช้ ลบออกได้ครับ)
+		authHeader = c.Cookies("jwt")
+	}
+
+	if authHeader == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized: กรุณาเข้าสู่ระบบ"})
+	}
+
+	// 2. ตัดคำว่า "Bearer " ออก
+	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
+
+	// 3. แปลง Token (ใช้ฟังก์ชัน ParseToken ใน utils ของคุณ)
+	claims, err := utils.ParseToken(tokenString)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized: Token ไม่ถูกต้องหรือหมดอายุ"})
+	}
+
+	// 4. สร้าง jwt.Token รูปแบบมาตรฐาน เพื่อฝากไว้ใน Locals
+	// ทำให้โค้ดใน RequireAdmin และ Controllers ของคุณใช้งาน c.Locals("user").(*jwt.Token) ได้ตามปกติ
+	token := &jwt.Token{
+		Claims: jwt.MapClaims{
+			"user_id": float64(claims.UserID), // แปลงกลับเป็น float64 ให้ตรงมาตรฐาน jwt
+			"email":   claims.Email,
+		},
+	}
+
+	// 5. ฝากข้อมูลไว้ใน Locals
+	c.Locals("user", token)
+
+	// 6. ส่งต่อให้ฟังก์ชันถัดไปทำงาน
+	return c.Next()
 }

@@ -3,7 +3,7 @@ import React from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 export default function LandingPage() {
   return (
-    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden font-sans transition-colors duration-300">
+    <div className="relative min-h-screen overflow-hidden font-sans transition-colors duration-300">
       {/* ========================================== */}
       {/* 🪄 แทรก CSS Custom Animation สำหรับลูกแก้วลอย */}
       {/* ========================================== */}
@@ -43,9 +43,9 @@ export default function LandingPage() {
       {/* ========================================== */}
       {/* 🚀 2. Navbar */}
       {/* ========================================== */}
-      <nav className="relative z-10 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-b border-white/50 dark:border-slate-700/50 px-4 md:px-12 py-3 flex justify-between items-center shadow-sm transition-colors duration-300">
+      <nav className="fixed top-0 left-0 w-full z-50 bg-white/60 dark:bg-slate-900/60 backdrop-blur-xl border-b border-white/50 dark:border-slate-700/50 px-4 md:px-12 py-3 flex justify-between items-center shadow-sm transition-colors duration-300">
         {/* ฝั่งซ้าย: Logo */}
-        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        <a href="/dashboard" className="flex items-center gap-2 md:gap-3 min-w-0 hover:opacity-80 transition-opacity">
           <div className="flex items-end gap-0.5 md:gap-1 h-4 md:h-6 shrink-0">
             <div
               className="w-1 md:w-1.5 h-2 md:h-3 bg-blue-600 rounded-full animate-bounce"
@@ -63,7 +63,7 @@ export default function LandingPage() {
           <span className="text-[13px] sm:text-lg md:text-xl font-extrabold bg-gradient-to-r from-blue-700 via-indigo-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap truncate">
             Emergency Voice Rescuer
           </span>
-        </div>
+        </a>
 
         {/* ฝั่งขวา: เมนูและปุ่มต่างๆ */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">

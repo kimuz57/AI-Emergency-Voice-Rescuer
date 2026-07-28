@@ -18,3 +18,20 @@ mosquitto/data/mosquitto.db
 mosquitto/data/
 mosquitto/config/passwd
 certs/
+
+# Go and compiled binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+go_backend/main
+tmp/
+
+go_backend/tmp/
+frontend/tsconfig.tsbuildinfo
+
+# AI Test Scripts
+backend_ai/test.py
+backend_ai/test_model.py
+backend_ai/confusion.py

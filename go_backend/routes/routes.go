@@ -5,13 +5,16 @@ import (
 	"go_backend/middleware"
 
 	"github.com/gofiber/fiber/v2"
+
 )
 
 func SetupRoutes(app *fiber.App) {
 	// 🟢 1. ตั้งค่า Static Files (ย้ายมาไว้บนสุดให้เห็นชัดเจน)
+	api := app.Group("/api")
 	app.Static("/profile", "./profile")
 	app.Post("/api/webhook", controllers.TelegramWebhook)
-	
+	api.Get("/devices", middleware.AuthMiddleware, controllers.GetDashboardDevices)
+	api.Post("/devices", middleware.AuthMiddleware, controllers.RegisterDevice)
 	app.Post("/api/line/webhook", controllers.LineWebhook)
 	app.Delete("/api/user/telegram/disconnect", controllers.DisconnectTelegram)
 
@@ -37,13 +40,13 @@ func SetupRoutes(app *fiber.App) {
 	adminGroup := app.Group("/api/admin", middleware.RequireAuth, middleware.RequireAdmin)
 	{
 		adminGroup.Get("/users", controllers.AdminGetAllUsers)
-    	adminGroup.Delete("/users/:id", controllers.AdminDeleteUser)
-    	adminGroup.Put("/users/:id", controllers.AdminUpdateUser)
+		adminGroup.Delete("/users/:id", controllers.AdminDeleteUser)
+		adminGroup.Put("/users/:id", controllers.AdminUpdateUser)
 
 		adminGroup.Get("/patients", controllers.AdminGetAllPatients)
-        adminGroup.Delete("/patients/:id", controllers.AdminDeletePatient)
-        adminGroup.Put("/patients/:id", controllers.AdminUpdatePatient)
-		
+		adminGroup.Delete("/patients/:id", controllers.AdminDeletePatient)
+		adminGroup.Put("/patients/:id", controllers.AdminUpdatePatient)
+
 	}
 	adminGroup.Get("/test", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
@@ -58,7 +61,7 @@ func SetupRoutes(app *fiber.App) {
 		userGroup.Get("/profile", controllers.GetUserProfile)
 		userGroup.Put("/profile", controllers.UpdateUserProfile)
 		userGroup.Post("/upload-profile", controllers.UploadProfileImage)
-		
+
 		userGroup.Post("/link-line", controllers.LinkLineAccount)
 		userGroup.Delete("/unlink-line", controllers.UnlinkLineAccount)
 		userGroup.Post("/telegram/connect", controllers.ConnectTelegram)
@@ -81,13 +84,13 @@ func SetupRoutes(app *fiber.App) {
 		deviceGroup.Get("/checkin", controllers.CheckinDeviceIP)
 		deviceGroup.Get("/check-activation", controllers.CheckDeviceActivation)
 	}
-	
+
 	alertGroup := app.Group("/api/alerts")
 	{
 		// 🟢 รับข้อมูลจาก ESP32 / AI
-		alertGroup.Post("/ai", controllers.CreateAlert) 
-		
-		// 🟢 รับข้อมูลการแจ้งเตือนทั่วไป 
+		alertGroup.Post("/ai", controllers.CreateAlert)
+
+		// 🟢 รับข้อมูลการแจ้งเตือนทั่วไป
 		alertGroup.Post("/", controllers.CreateAlert)
 
 		// 🟢 ดึงข้อมูลการแจ้งเตือน (ที่ยังไม่ resolve)
@@ -115,5 +118,5 @@ func SetupRoutes(app *fiber.App) {
 		audioGroup.Get("/:filename", controllers.GetAudioFile)
 		audioGroup.Delete("/:filename", controllers.DeleteAudioFile)
 	}
-	
+
 }
