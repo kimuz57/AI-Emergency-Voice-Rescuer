@@ -28,6 +28,8 @@ func SetupRoutes(app *fiber.App) {
 		authGroup.Post("/google", controllers.GoogleLogin)
 		authGroup.Post("/login", controllers.LoginWithEmail) // รวบมาไว้ที่นี่หมดแล้ว
 		authGroup.Post("/register", controllers.Register)
+		authGroup.Post("/forgot-password", controllers.ForgotPassword)
+		authGroup.Post("/reset-password", controllers.ResetPassword)
 		authGroup.Post("/logout", controllers.Logout)
 		authGroup.Get("/verify-email", controllers.VerifyEmail)
 	}
@@ -73,15 +75,13 @@ func SetupRoutes(app *fiber.App) {
 		patientGroup.Delete("/:id", controllers.DeletePatient)
 	}
 
-	deviceGroup := app.Group("/api/devices")
+	deviceGroup := app.Group("/api/device")
 	{
 		// ให้ Python ยิงมาถามสถานะ Activation ของบอร์ดที่นี่
+		deviceGroup.Get("/checkin", controllers.CheckinDeviceIP)
 		deviceGroup.Get("/check-activation", controllers.CheckDeviceActivation)
 	}
 	
-	// ==========================================
-	// 📍 หมวดหมู่ Alerts (ระบบแจ้งเตือนเหตุฉุกเฉิน)
-	// ==========================================
 	alertGroup := app.Group("/api/alerts")
 	{
 		// 🟢 รับข้อมูลจาก ESP32 / AI

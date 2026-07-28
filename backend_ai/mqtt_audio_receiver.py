@@ -11,7 +11,8 @@ import queue
 import paho.mqtt.client as mqtt
 import requests
 from dotenv import load_dotenv
-
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
 app_env = os.getenv("APP_ENV", "development")
 
@@ -52,48 +53,53 @@ def is_device_activated(device_mac: str) -> bool:
         if cache_entry["is_active"]:
             return True  # ผ่านตลอดกาล
         elif (now - cache_entry["check_time"]) < 10:
-            return False # โดนบล็อกอยู่ (รอจนกว่าจะครบ 10 วิ ถึงจะยอมถามเซิร์ฟใหม่)
+            return False # โดนบล็อกอยู่ (รอจนกว่าจะครบ 10 วิ)
             
-    # 2. ถ้ายังไม่เคยถาม หรือ Cache การบล็อกหมดอายุ ให้ยิงถาม Go Backend
-    check_url = f"{GO_SERVER_URL}/api/devices/check-activation"
+    # 🌟 [จุดแก้สำคัญที่ 1] บันทึกเวลาลง Cache ดักไว้ก่อนเลย! 
+    # เพื่อป้องกันไม่ให้ข้อความ MQTT ที่ไหลมาวินาทีละ 8 รอบ สแปมยิง API พร้อมๆ กัน
+    _device_activation_cache[device_mac] = {
+        "is_active": False,
+        "check_time": time.time()
+    }
+            
+    check_url = f"{GO_SERVER_URL}/api/device/check-activation"
     is_local = (app_env == "development")
     
     try:
-        # 🔨 ปิดการตรวจ SSL (เหมือนที่ทำกับ WSS)
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
+        # 🌟 [จุดแก้สำคัญที่ 2] ใส่ Header ทะลวง Dev Tunnels ให้ Python
+        headers = {"X-Tunnel-Skip-AntiPhishing-Page": "true"}
         
         # ยิงถาม Go Backend
         response = requests.get(
             check_url, 
             params={"mac": device_mac}, 
+            headers=headers, # แนบ Header เข้าไปตรงนี้
             timeout=5, 
-            verify=not is_local # ข้ามตรวจ Cert ถ้าเป็น Local
+            verify=not is_local
         )
         
         if response.status_code == 200:
-            is_active = response.json().get("is_active", False)
+            # ใช้ .get() แบบปลอดภัย เผื่อ JSON พัง
+            data = response.json()
+            is_active = data.get("is_active", False)
         else:
-            is_active = False # ถ้าเซิร์ฟ Error ให้ตีว่าไม่ผ่านไปก่อน
+            is_active = False 
             
-        # 3. บันทึกผลลัพธ์ลง RAM
-        _device_activation_cache[device_mac] = {
-            "is_active": is_active,
-            "check_time": now
-        }
+        # 🌟 อัปเดตผลลัพธ์ที่ถูกต้องลง Cache อีกรอบ
+        _device_activation_cache[device_mac]["is_active"] = is_active
+        _device_activation_cache[device_mac]["check_time"] = time.time()
         
         if is_active:
             print(f"🔓 [AUTH] อนุมัติ! บอร์ด [{device_mac}] ยืนยันตัวตนผ่านแล้ว")
         else:
-            print(f"🔒 [AUTH] ปฏิเสธ! บอร์ด [{device_mac}] ยังไม่ถูก Activate")
+            print(f"🔒 [AUTH] ปฏิเสธ! บอร์ด [{device_mac}] ยังไม่ถูก Activate (รอเช็คใหม่ใน 10 วิ)")
             
         return is_active
         
     except Exception as e:
-        print(f"⚠️ [AUTH] ติดต่อ Go Backend ไม่ได้: {e}")
+        print(f"⚠️ [AUTH] ติดต่อ Go Backend ไม่ได้ (หรือข้อมูลผิดพลาด): {e}")
+        # ถึงจะ Error ก็มีการบันทึกเวลาดักไว้แล้วด้านบน ระบบจะได้พัก 10 วิ ไม่รวน
         return False
-
 
 def amplify_audio(pcm_data: bytes, volume_gain: float) -> bytes:
     if volume_gain == 1.0: 
@@ -249,11 +255,13 @@ def start_receiver(inference_callback=None):
         print("✅ [MQTT] Linked AI Inference Core Successfully.")
 
     print("=" * 60)
-    print("  SmartVoice MQTT Background Thread (WSS Ready)")
+    print("  SmartVoice MQTT Background Thread (Auto WS/WSS/TCP)")
     print("=" * 60)
     
-    # 🌟 เปลี่ยน transport เป็น "websockets"
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="smartvoice_ai_forwarder", transport="websockets")
+    # 🌟 1. ตรวจสอบ Transport อัตโนมัติ (ถ้าพอร์ต 1883 หรือ 8883 ให้ใช้ tcp นอกนั้นถือว่าเป็น websockets)
+    transport_protocol = "tcp" if BROKER_PORT in [1883, 8883] else "websockets"
+    
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="smartvoice_ai_forwarder", transport=transport_protocol)
     
     if MQTT_USER and MQTT_PASSWORD:
         client.username_pw_set(MQTT_USER, MQTT_PASSWORD)
@@ -261,32 +269,44 @@ def start_receiver(inference_callback=None):
     is_local = (app_env == "development")
     
     # ==========================================
-    # 🌟 บังคับใช้ TLS/SSL (WSS) ทุกกรณี
+    # 🌟 2. ระบบเปิด/ปิด TLS อัตโนมัติ ตามพอร์ตที่ใช้งาน
     # ==========================================
-    if is_local:
-        # 💻 รัน Local: เปิด WSS แต่ข้ามการตรวจสอบ Certificate (กัน Error จาก Cert จำลอง)
-        client.tls_set(cert_reqs=ssl.CERT_NONE)
-        client.tls_insecure_set(True)
-        print("🔒 [Security] TLS/SSL Enabled (WSS Local Mode - Skip Cert Check)")
+    # ถ้าพอร์ตเป็นกลุ่มที่ต้องเข้ารหัส (WSS / MQTTS)
+    if BROKER_PORT in [443, 8083, 8883]:
+        if is_local:
+            # รัน Local: เปิด WSS แต่ข้ามการตรวจสอบ Certificate (Bypass SSL)
+            client.tls_set(cert_reqs=ssl.CERT_NONE)
+            client.tls_insecure_set(True)
+            print(f"🔒 [Security] TLS/SSL Enabled (Local Mode - Skip Cert Check) on Port {BROKER_PORT}")
+        else:
+            # รัน Server จริง: เปิด WSS แบบเต็มรูปแบบ (ตรวจสอบ Cert จาก CA สากล)
+            client.tls_set()
+            print(f"🔒 [Security] TLS/SSL Enabled (Production Mode) on Port {BROKER_PORT}")
+            
+        protocol_str = "wss" if transport_protocol == "websockets" else "mqtts"
+    
+    # ถ้าพอร์ตเป็น 9001 (WS) หรือ 1883 (TCP) จะเชื่อมต่อแบบไม่เข้ารหัส (ประหยัดพลังงานใน Local)
     else:
-        # 🌐 รัน Server จริง: เปิด WSS แบบเต็มรูปแบบ (ตรวจสอบ Cert จาก CA สากล)
-        client.tls_set()
-        print("🔒 [Security] TLS/SSL Enabled (WSS Production Mode)")
+        print(f"🔓 [Security] Plain connection (No TLS) on Port {BROKER_PORT}")
+        protocol_str = "ws" if transport_protocol == "websockets" else "mqtt"
 
-    client.ws_set_options(path="/")
+    if transport_protocol == "websockets":
+        # 🌟 บังคับ Path เป็น "/mqtt" ให้ตรงกับที่ ESP32 ยิงมา
+        client.ws_set_options(path="/mqtt")
 
     client.on_connect = on_connect
     client.on_message = on_message
     client.on_disconnect = on_disconnect
 
     try:
-        # 🌟 บังคับแสดงผลเป็น wss เสมอ
-        protocol = "wss" 
-        print(f"⏳ [MQTT] กำลังพยายามเชื่อมต่อไปที่ {protocol}://{BROKER_HOST}:{BROKER_PORT}/mqtt ...")
+        url_suffix = "/mqtt" if transport_protocol == "websockets" else ""
+        print(f"⏳ [MQTT] กำลังพยายามเชื่อมต่อไปที่ {protocol_str}://{BROKER_HOST}:{BROKER_PORT}{url_suffix} ...")
+        
         client.connect(BROKER_HOST, BROKER_PORT, keepalive=60)
         client.loop_start()
     except Exception as exc:
         print(f"[ERROR] MQTT Connection Failed: {exc}")
+
 
 def shutdown_receiver():
     print("\n[STOP] Shutting down MQTT Forwarder... Flushing buffers.")

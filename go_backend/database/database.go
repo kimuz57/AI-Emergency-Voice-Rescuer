@@ -36,6 +36,7 @@ func ConnectDB() {
 		&models.User{},
 		&models.Patient{},
 		&models.CaregiverPatient{},
+		&models.Device{},
 		&models.Device_patient{},
 		&models.DetectionLog{},
 		&models.UserLineMapping{},
@@ -46,12 +47,41 @@ func ConnectDB() {
 		log.Fatal("Failed to auto-migrate database tables:", err)
 	}
 
+	if err := backfillDevicePatientDeviceID(db); err != nil {
+		log.Fatal("Failed to backfill device_id in device_patients:", err)
+	}
+
 	if err := cleanupLegacyPatientDeviceMACConstraint(db); err != nil {
 		log.Fatal("Failed to cleanup legacy patient device MAC constraint:", err)
 	}
 
 	DB = db
 	fmt.Println("✅ Database connected & Tables migrated successfully!")
+}
+
+func backfillDevicePatientDeviceID(db *gorm.DB) error {
+	if err := db.Exec(`
+		UPDATE device_patients dp
+		SET device_id = d.id
+		FROM devices d
+		WHERE dp.device_id IS NULL
+		  AND UPPER(dp.mac_address) = UPPER(d.mac_address)
+	`).Error; err != nil {
+		return err
+	}
+
+	var unmatched int64
+	if err := db.Raw(`
+		SELECT COUNT(*)
+		FROM device_patients
+		WHERE device_id IS NULL
+	`).Scan(&unmatched).Error; err != nil {
+		return err
+	}
+	if unmatched > 0 {
+		fmt.Printf("⚠️ Found %d device_patients rows with missing device_id after backfill\n", unmatched)
+	}
+	return nil
 }
 
 func cleanupLegacyPatientDeviceMACConstraint(db *gorm.DB) error {
@@ -76,7 +106,7 @@ func SeedAdmin() {
 	// ถ้ายังไม่มี Admin ในระบบเลยสักคนเดียว
 	if count == 0 {
 		hashedPassword, _ := utils.HashPassword("kws_admin123") // รหัสผ่านเริ่มต้น
-		
+
 		admin := models.User{
 			Name:       "Super Admin",
 			Email:      "admin@evr.com",
@@ -84,7 +114,7 @@ func SeedAdmin() {
 			Role:       "admin",
 			IsVerified: true, // ตั้งให้เป็น true เลยจะได้ไม่ต้องกดยืนยันอีเมล
 		}
-		
+
 		DB.Create(&admin)
 		fmt.Println("บัญชี Admin เริ่มต้นถูกสร้างแล้ว! (Email: admin@evr.com | Pass: kws_admin123)")
 	}

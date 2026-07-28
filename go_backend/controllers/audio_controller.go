@@ -147,14 +147,17 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	}
 
 	// 🔍 ลอจิกค้นหาในตาราง Devices ด้วย MACAddress ที่แปลงเป็นพิมพ์ใหญ่แล้ว
-	var device models.Device_patient
+	var sourceDevice models.Device
 	var patientID *uint = nil
 
 	// 🟢 แก้ไข: ใช้ UPPER() ทั้งสองฝั่ง เพื่อให้หาเจอแน่นอน ไม่ว่าในฐานข้อมูลหรือ Python จะส่งมาเป็นพิมพ์เล็กหรือใหญ่
-	if err := database.DB.Where("UPPER(mac_address) = UPPER(?)", rawMac).First(&device).Error; err == nil {
-		if device.PatientID != 0 {
-			patientID = &device.PatientID // ถ้าเจอ ผูก ID ผู้ป่วยทันที
-			fmt.Printf("✅ เจออุปกรณ์แล้ว! ผูกกับ PatientID: %d\n", *patientID)
+	if err := database.DB.Where("UPPER(mac_address) = UPPER(?)", rawMac).First(&sourceDevice).Error; err == nil {
+		var deviceRelation models.Device_patient
+		if err := database.DB.Where("device_id = ?", sourceDevice.ID).First(&deviceRelation).Error; err == nil {
+			if deviceRelation.PatientID != 0 {
+				patientID = &deviceRelation.PatientID // ถ้าเจอผูก ID ผู้ป่วยทันที
+				fmt.Printf("✅ เจออุปกรณ์แล้ว! ผูกกับ PatientID: %d\n", *patientID)
+			}
 		}
 	} else {
 		// 🔴 เพิ่ม Log ให้ชัดเจนว่าหาไม่เจอเพราะอะไร และค่าที่รับมาคืออะไร
@@ -186,12 +189,12 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	// ==========================================
 	if patientID != nil {
 		var patientData models.Patient
-		// 🟢 1. ดึงข้อมูลผู้ป่วย พร้อมโหลดข้อมูลผู้ดูแล (Caregivers) 
+		// 🟢 1. ดึงข้อมูลผู้ป่วย พร้อมโหลดข้อมูลผู้ดูแล (Caregivers)
 		if err := database.DB.Preload("Caregivers").First(&patientData, *patientID).Error; err == nil {
-			
+
 			// 🟢 2. วนลูปรายชื่อผู้ดูแลทุกคน
 			for _, caregiver := range patientData.Caregivers {
-				
+
 				// --- แผนก LINE OA ---
 				var lineMapping models.UserLineMapping
 				// เปลี่ยนมาใช้ caregiver.ID แทน patientData.UserID
@@ -212,7 +215,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 					fmt.Printf("⚠️ [TELEGRAM] ผู้ดูแล ID %d ไม่ได้ผูก Telegram หรือปิดแจ้งเตือนไว้\n", caregiver.ID)
 				}
 			}
-			
+
 		} else {
 			fmt.Println("❌ ดึงข้อมูลผู้ป่วยไม่สำเร็จ ไม่สามารถส่งแจ้งเตือนได้")
 		}
@@ -230,7 +233,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 
 func GetMyDetectionLogs(c *fiber.Ctx) error {
 	// ดึงค่า UserID จาก JWT Token ที่ผ่าน Middleware มา
-	userID := c.Locals("user_id") 
+	userID := c.Locals("user_id")
 	if userID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "สิทธิ์การเข้าถึงไม่ถูกต้อง"})
 	}
@@ -263,7 +266,7 @@ func SaveNegativeAudio(c *fiber.Ctx) error {
 	if err := c.SaveFile(file, filename); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "เซฟไฟล์เสียงปกติลงดิสก์ไม่สำเร็จ"})
 	}
-	
+
 	env := config.GetEnv("APP_ENV", "development")
 	if env == "development" {
 		fmt.Printf("[GO] ได้รับไฟล์ Negative ใหม่ -> ")

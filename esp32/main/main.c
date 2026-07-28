@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "esp_crt_bundle.h"
 #include <stdlib.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
@@ -52,6 +53,7 @@ static int s_retry_num = 0;
 
 char mqtt_topic_dynamic[128] = "voice/audio/";
 char status_topic_dynamic[128] = "device/status/";
+char device_mac_str[18] = {0};
 char mqtt_broker_uri_dynamic[128] = "wss://mqtt.wattanapong.com:443/mqtt";
 char ap_ssid_dynamic[32] = {0};
 char ap_password_dynamic[64] = {0};
@@ -66,15 +68,17 @@ char ap_password_dynamic[64] = {0};
 #define IS_LOCAL_ENV 1 
 #if IS_LOCAL_ENV
     // --- ตั้งค่าสำหรับ Local ---
-    #define TARGET_GO_API "https://s8449mbs-8080.asse.devtunnels.ms/api/checkin?ip=%s"
-    //#define TARGET_MQTT_URI "wss://192.168.1.109:8083/mqtt"
-    #define TARGET_MQTT_URI "s8449mbs-8083.asse.devtunnels.ms/mqtt"
-    #define SKIP_CERT_CHECK true  // Local มักจะใช้ Cert จำลอง เลยต้องกดข้าม
+// สำหรับ API ต้องเป็น https://
+    #define TARGET_GO_API "http://192.168.1.109:8080/api/device/checkin?mac=%s&ip=%s"
+// สำหรับ MQTT ต้องเป็น wss:// (WebSocket Secure) และระบุพอร์ตที่ถูกต้อง
+    #define TARGET_MQTT_URI "ws://192.168.1.109:9001/mqtt"
+// (หรือถ้าใช้พอร์ต 8083 ก็แก้เป็น wss://s8449mbs-8083.asse.devtunnels.ms/mqtt)
+    #define SKIP_CERT_CHECK true  // Local ใช้ plain WS/ MQTT เพื่อเลี่ยง TLS ก่อน
     #define USER "kws"
     #define PASS "kws123"
 #else
     // --- ตั้งค่าสำหรับ Server จริง ---
-    #define TARGET_GO_API "https://kwsapi.wattanapong.com/api/checkin?ip=%s"
+    #define TARGET_GO_API "https://kwsapi.wattanapong.com/api/device/checkin?mac=%s&ip=%s"
     #define TARGET_MQTT_URI "wss://mqtt.wattanapong.com:443/mqtt"
     #define SKIP_CERT_CHECK false // Server จริงต้องตรวจสอบ Cert เพื่อความปลอดภัย
     #define USER "kws"
@@ -86,7 +90,7 @@ static bool client_connected = false;
 static bool mqtt_connected = false;
 static esp_netif_t *sta_netif = NULL;
 static esp_netif_t *ap_netif = NULL;
-//static const char *server_cert; // 🔧 forward-declare: ตัวจริงถูกกำหนดค่าไว้ด้านล่างของไฟล์
+static const char *server_cert; // 🔧 forward-declare: ตัวจริงถูกกำหนดค่าไว้ด้านล่างของไฟล์
 
 // ==========================================
 // ระบบบันทึก/โหลด NVS (MQTT & Wi-Fi)
@@ -177,14 +181,14 @@ static void kwsapi_task(void *pvParameters) {
     char *ip_str = (char *)pvParameters;
     char url[128];
     
-    snprintf(url, sizeof(url), TARGET_GO_API, ip_str);
+    snprintf(url, sizeof(url), TARGET_GO_API, device_mac_str, ip_str);
     
     esp_http_client_config_t config = {
         .url = url, 
         .method = HTTP_METHOD_GET, 
         .timeout_ms = 5000, 
 #if IS_LOCAL_ENV
-        //.cert_pem = server_cert,
+        //.crt_bundle_attach = esp_crt_bundle_attach,
 #else
         .crt_bundle_attach = esp_crt_bundle_attach,
 #endif
@@ -192,8 +196,15 @@ static void kwsapi_task(void *pvParameters) {
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);
+    
+    // 👇 [สำคัญมาก!] เพิ่ม Header นี้ เพื่อข้ามหน้าจอแจ้งเตือนของ MS Dev Tunnels 👇
+    esp_http_client_set_header(client, "X-Tunnel-Skip-AntiPhishing-Page", "true");
+    
+    // หลังจากเซ็ต Header แล้วค่อยสั่ง perform
     if (esp_http_client_perform(client) == ESP_OK) {
-        ESP_LOGI(TAG, "✓ เรียก API สำเร็จ (ส่ง IP: %s)", ip_str);
+        // แนะนำให้ลอง log HTTP Status Code ออกมาดูด้วยครับ จะได้ชัวร์ว่าได้ 200 OK หรือไม่
+        int status_code = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "✓ เรียก API สำเร็จ (ส่ง IP: %s) Status: %d", ip_str, status_code);
     } else {
         ESP_LOGE(TAG, "❌ เรียก API ไม่สำเร็จ");
     }
@@ -203,6 +214,7 @@ static void kwsapi_task(void *pvParameters) {
     free(ip_str); 
     vTaskDelete(NULL); 
 }
+
 
 static void trigger_kwsapi_website(const char* ip_str) {
     char *ip_copy = strdup(ip_str);
@@ -224,41 +236,59 @@ static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_
     }
 }
 
-// static const char *server_cert = 
-//     "-----BEGIN CERTIFICATE-----\n"
-//     "MIIF0DCCBDigAwIBAgIRAL4NdhbxmFnAoi6O1joRN80wDQYJKoZIhvcNAQELBQAw\n"
-//     "gf8xHjAcBgNVBAoTFW1rY2VydCBkZXZlbG9wbWVudCBDQTFqMGgGA1UECwxhREVT\n"
-//     "S1RPUC04UlNEQ1FKXEpSY29tQERFU0tTUEUtOFJTRENRSiAo4LmB4Lif4LiZ4Lic\n"
-//     "4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE4Lij4LmA4LiU4Lit4Lij4LmMKTFx\n"
-//     "MG8GA1UEAwxobWtjZXJ0IERFU0tUT1AtOFJTRENRSlxKUmNvbUBERVNLVE9QLThS\n"
-//     "U0RDUUogKOC5geC4n+C4meC4nOC4oeC5gOC4m+C5h+C4meC4oeC4suC4quC5hOC4\n"
-//     "o+C5gOC4lOC4reC4o+C5jCkwHhcNMjYwNjI0MDMxODAzWhcNMzYwNjI0MDMxODAz\n"
-//     "WjCB/zEeMBwGA1UEChMVbWtjZXJ0IGRldmVsb3BtZW50IENBMWowaAYDVQQLDGFE\n"
-//     "RVNLVE9QLThSU0RDUUpcSlJjb21AREVTS1RPUC04UlNEQ1FKICjguYHguJ/guJng\n"
-//     "uJzguKHguYDguJvguYfguJnguKHguLLguKrguYTguKPguYDguJTguK3guKPguYwp\n"
-//     "MXEwbwYDVQQDDGhta2NlcnQgREVTS1RPUC04UlNEQ1FKXEpSY29tQERFU0tUT1At\n"
-//     "OFJTRENRSiAo4LmB4Lif4LiZ4Lic4Lih4LmA4Lib4LmH4LiZ4Lih4Liy4Liq4LmE\n"
-//     "4Lij4LmA4LiU4Lit4Lij4LmMKTCCAaIwDQYJKoZIhvcNAQEBBQADggGPADCCAYoC\n"
-//     "ggGBALGYNHmJBLqDVPMHc8UUIWhjBsyPg17q4yTsGRq0aQi0Udv0foVrAL3VpAK5\n"
-//     "VZA8ULRtyTph7nYX/6uVV/u1tPGo2qO2khvVndB68M+im3vD5HmZXl1B+FJ7QxfC\n"
-//     "/WLzPN7i/HuMLt86eIXBmkZP/LqOYintMjUxekZ1RsRMO7YgRIP8f2DQ6Hvv+L2X\n"
-//     "Vw19msZI3P2jeJ7uwy0F1MOH5t7PsiXM1/SPCV4xTfVEXHxpb7+XS4TsdlRgUPWY\n"
-//     "Y9v92g58yRYWmKldX4gdBqevOc1Nwjtj4mPyUnw+TfGAfsbumS8rWaKgK15VRat6\n"
-//     "d5p7SDSAvFtKReKyi0mM2+F0fFKHoumCaKEdv48vI0nwFHcUIzcZk7gNk12pMOVQ\n"
-//     "CVDqs1s73/Daxubwu+gB3AKbiELOo8K+7/RnsOo8mLZqVbmWzy5XaFHdBmaskYYK\n"
-//     "cmGst84p5fz9rtu3ocYhassrxsAI7ylTjPKsYVKa4C3NCtrcYE8WMyozshCg5iFq\n"
-//     "mMpjVwIDAQABo0UwQzAOBgNVHQ8BAf8EBAMCAgQwEgYDVR0TAQH/BAgwBgEB/wIB\n"
-//     "ADAdBgNVHQ4EFgQUwMUGOy8ZeNOl6vSOezpnOPBr5TIwDQYJKoZIhvcNAQELBQAD\n"
-//     "ggGBABP6MAAawnG7MeCWOR16jooZ4lFDS9gJTwNeSCs2Kd6lz9r/lW7dYxG5MbsE\n"
-//     "pX2gtTvRSUjzqYvN35j8YrZzEUd7zM1C+d+I4cEYkEZWE6gpP5bLqrOS/mdBsoDC\n"
-//     "ENnOqc4/aXL4nZLevgmijisk/hogWptedna+tr7wLKMYtCHXN7PJugNXwuELBPZX\n"
-//     "dUY8OlKu6Nv1kDH7C0vMjRoZ6E7GdSDnFYBQwJ5dBAyynZ56nHXa/4CpHyrTkQ1u\n"
-//     "VN75W4D4xwdgCxonUh0eZnlUfKY8XRdaedHzgvX1/O5sNk+jnVQek2sGZXbxhOYA\n"
-//     "Apwc4bxtYCdUeOMsCEiwr4n/FGytZE/vO20YD5C16+cniy38YL7R+7v+tXoNP0q8\n"
-//     "nbrIh1rd92lvkKWK7BuDXm8YT7VglcygqpBVr2d4AkR8mlTRg1IgHwpGwoG76sUD\n"
-//     "O91u9I6hnyYtNB7cEnww4PnNwrpvlXarqYXRbSd8oVfcc2s7m4twpWKsTUHCVL+T\n"
-//     "y9Wjyg==\n"
-//     "-----END CERTIFICATE-----\n";
+static const char *server_cert = 
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIJSzCCBzOgAwIBAgITQQA83BCykQO9SiEnSgAAADzcEDANBgkqhkiG9w0BAQwF\n"
+    "ADBXMQswCQYDVQQGEwJVUzEeMBwGA1UEChMVTWljcm9zb2Z0IENvcnBvcmF0aW9u\n"
+    "MSgwJgYDVQQDEx9NaWNyb3NvZnQgVExTIEcyIFJTQSBDQSBPQ1NQIDAyMB4XDTI2\n"
+    "MDUyOTA2NDc1OVoXDTI2MTEyNTA2NDc1OVowZDELMAkGA1UEBhMCVVMxCzAJBgNV\n"
+    "BAgTAldBMRAwDgYDVQQHEwdSZWRtb25kMR4wHAYDVQQKExVNaWNyb3NvZnQgQ29y\n"
+    "cG9yYXRpb24xFjAUBgNVBAMTDWRldnR1bm5lbHMubXMwggEiMA0GCSqGSIb3DQEB\n"
+    "AQUAA4IBDwAwggEKAoIBAQCV5LKobcqI/ph7W3md54NPhFhDfv4RkeAgY8AdxBBG\n"
+    "apfKilGwsLrxJSOz6DoYsQ5yY95kuUIOf8xieH5EYrI7F5jubMHVDO7Mp12e+7xW\n"
+    "x1ssqsl9gDWPa7MihPzUXFXkR7RzeNxEbJ+xe3wWxtPNqM7bS9IBtOS0fdwoI9fp\n"
+    "ZktEtiMTNpvExfLYLkehCgC4JLZF7m7C2sxLrFLg6lVzthBLrAzQp6srhAAJq7z3\n"
+    "Oy5Bs55TnNoKO+Kg6RLzJGW8HqvPycOoWVX18YDmHnLbqbf/ii+ppheEJcY6wVfP\n"
+    "h5kug8K601iB+4HT6YcuRBEZ1S7Q42sD5ROFHSjjiuvxAgMBAAGjggUBMIIE/TCC\n"
+    "AX8GCisGAQQB1nkCBAIEggFvBIIBawFpAHcA2AlVO5RPev/IFhlvlE+Fq7D4/F6H\n"
+    "VSYPFdEucrtFSxQAAAGecoacVgAABAMASDBGAiEA79rZ1o6LggqzhsQfVL6EDgs/\n"
+    "7cvga+qOU+ZSKVkT6JACIQCp/cbdhzIvTZLYecKjjZO+IUVYVJ1m8SEGii8ojISN\n"
+    "8wB2AMIxfldFGaNF7n843rKQQevHwiFaIr9/1bWtdprZDlLNAAABnnKGm/cAAAQD\n"
+    "AEcwRQIgcCEgxWAu5f+VnTo5LK8NasoBA8R8CMhKMbDCp3+0x6sCIQDR6QR2rtV0\n"
+    "yqSyjGnQ8Y71jkU7854qTsYiCjO3eCVmYAB2AMijxH/Hs625NWsBP2p6Em3jOk5D\n"
+    "pcZG+ZetOXWZHc+aAAABnnKGnB4AAAQDAEcwRQIgZ+ubTSdW1xWZKWfWuNxx3D/u\n"
+    "rS3UwembG+GhOlnNLY0CIQCCX5F2WCapf12hIHhiHDv/WmwIHfjMMKwuwiBRGU3V\n"
+    "RTAbBgkrBgEEAYI3FQoEDjAMMAoGCCsGAQUFBwMBMDwGCSsGAQQBgjcVBwQvMC0G\n"
+    "JSsGAQQBgjcVCIe91xuB5+tGgoGdLo7QDIfw2h1dg+nDZ4K0o0wCAWQCASAwggEL\n"
+    "BggrBgEFBQcBAQSB/jCB+zBhBggrBgEFBQcwAoZVaHR0cDovL3d3dy5taWNyb3Nv\n"
+    "ZnQuY29tL3BraW9wcy9jZXJ0cy9NaWNyb3NvZnQlMjBUTFMlMjBHMiUyMFJTQSUy\n"
+    "MENBJTIwT0NTUCUyMDAyLmNydDBnBggrBgEFBQcwAoZbaHR0cDovL2NhaXNzdWVy\n"
+    "cy5taWNyb3NvZnQuY29tL3BraW9wcy9jZXJ0cy9NaWNyb3NvZnQlMjBUTFMlMjBH\n"
+    "MiUyMFJTQSUyMENBJTIwT0NTUCUyMDAyLmNydDAtBggrBgEFBQcwAYYhaHR0cDov\n"
+    "L29uZW9jc3AubWljcm9zb2Z0LmNvbS9vY3NwMB0GA1UdDgQWBBQ2DWymJOpD1FVE\n"
+    "kY1mhJ/zT5pqWDAOBgNVHQ8BAf8EBAMCBaAwPwYDVR0RBDgwNoINZGV2dHVubmVs\n"
+    "cy5tc4IPKi5kZXZ0dW5uZWxzLm1zghQqLmFzc2UuZGV2dHVubmVscy5tczAMBgNV\n"
+    "HRMBAf8EAjAAMIHxBgNVHR8EgekwgeYwgeOggeCggd2GbGh0dHA6Ly93d3cubWlj\n"
+    "cm9zb2Z0LmNvbS9wa2lvcHMvY3JsL3BhcnRpdGlvbi9NaWNyb3NvZnQlMjBUTFMl\n"
+    "MjBHMiUyMFJTQSUyMENBJTIwT0NTUCUyMDAyX1BhcnRpdGlvbjAwMDUxLmNybIZt\n"
+    "aHR0cDovL2NybDIubWljcm9zb2Z0LmNvbS9wa2lvcHMvY3JsL3BhcnRpdGlvbi9N\n"
+    "aWNyb3NvZnQlMjBUTFMlMjBHMiUyMFJTQSUyMENBJTIwT0NTUCUyMDAyX1BhcnRp\n"
+    "dGlvbjAwMDUxLmNybDBmBgNVHSAEXzBdMAgGBmeBDAECAjBRBgwrBgEEAYI3TIN9\n"
+    "AQEwQTA/BggrBgEFBQcCARYzaHR0cDovL3d3dy5taWNyb3NvZnQuY29tL3BraW9w\n"
+    "cy9Eb2NzL1JlcG9zaXRvcnkuaHRtMB8GA1UdIwQYMBaAFLgvM6Z8UU9/Hy3VyBVC\n"
+    "OKSyDo8vMBMGA1UdJQQMMAoGCCsGAQUFBwMBMA0GCSqGSIb3DQEBDAUAA4ICAQB7\n"
+    "0s+mSfC9jg/OtVgQyTjyTRGl6FnOrKocqS01r0TJ6iWRdCsGim/xhUEZ2nyOHnaj\n"
+    "CJJ8fyk3QT/FTGAvg7ONX+JMNJHLiwd/E+oUYPScnKuLeziT/66rnAhfjA3eoPZ+\n"
+    "xWiW9fxI4Mjv4+BQnpaGElj50Bu60n6r+ffHjIdDnI9AT8Aq6hVvzjKr/Uba96qs\n"
+    "mvha5vxXdx6IHQybWzkWgbzLk3o4M+0VEPo9Z7ngZ6EYfQFjONiBCi8XwXdkBhgl\n"
+    "KWPrzx72ZBBDHlyDZ5niGbWa3W2605ieVGtTCVx2iO+Rjw8jqJm2B/EIQwMSuZtu\n"
+    "gNRsuY8N77ioyvFDS6HNrHXWjc3GUNe7mhZvL1h7RsJvZg7/o1hnDP7YBsV7J+X+\n"
+    "87d/bPGFbr2YhEm/NyjQ2VJbIkQgVseq2ZN5QxwiiDpEBqgQ7F3KoBjuFRHZIGBK\n"
+    "aeAPnqBi3uqNsaZdzxsfS7q6FZv4FsMM/lQNqumiKAnhGgBrj5q1u8aOQrGdQNbB\n"
+    "gEkRYZyN5Y5w4gIaOYs1Rvbz+1yuZkrEXnignu1wad0dVI+rU+dSoUhDLWhVZfM5\n"
+    "RV8TJ7OL9uaOiMqU6s+NkrOMHgth9ZIaXbLK7xXWy9c39yL5on0eNHYBPMslao6D\n"
+    "XCVusW93YObOEHEdp3RDEWEnqvqUsO0i8+FWSNZfFQ==\n"
+    "-----END CERTIFICATE-----\n";
 
 void restart_mqtt_client(void) {
     // 🔧 กันเคส publish หลุดไปโดนอ้างอิง client ตัวเก่าที่กำลังจะถูกทำลายทิ้ง
@@ -278,21 +308,21 @@ void restart_mqtt_client(void) {
                 .uri = TARGET_MQTT_URI,
             },
             .verification = {
-                .skip_cert_common_name_check = SKIP_CERT_CHECK,       
-                .use_global_ca_store = false,             
 #if IS_LOCAL_ENV
-                // 🔧 local ใช้ cert ที่ mosquitto เซ็นเอง (self-signed) โดยตรง
-                // เพราะ CA bundle สาธารณะของ ESP-IDF ไม่รู้จัก cert ตัวนี้แน่นอน
-                //.certificate = server_cert,
+                // .certificate = server_cert,
+                .crt_bundle_attach = esp_crt_bundle_attach,
+                .skip_cert_common_name_check = SKIP_CERT_CHECK,
 #else
-                .crt_bundle_attach = esp_crt_bundle_attach, 
+                .skip_cert_common_name_check = SKIP_CERT_CHECK,
+                .use_global_ca_store = false,
+                .crt_bundle_attach = esp_crt_bundle_attach,
 #endif
             },
         },
         .credentials = {
-            .username = "kws",
+            .username = USER,
             .authentication = {
-                .password = "kws123",
+                .password = PASS,
             },
         },
         .session = { 
@@ -356,14 +386,19 @@ void trigger_wifi_reconnect(void) {
 static void sync_time_via_sntp(void) {
     ESP_LOGI(TAG, "กำลังขอเวลาจาก NTP server...");
     esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
-    esp_sntp_setservername(0, "pool.ntp.org");
+    
+    // 🟢 เพิ่ม Server ของไทย และ Google เข้าไปให้จับสัญญาณง่ายขึ้น
+    esp_sntp_setservername(0, "th.pool.ntp.org");
     esp_sntp_setservername(1, "time.google.com");
+    esp_sntp_setservername(2, "pool.ntp.org");
     esp_sntp_init();
 
     time_t now = 0;
     int retry = 0;
-    const int max_retry = 20; // รอสูงสุดประมาณ 10 วินาที
-    // 1700000000 ~ พ.ย. 2023 ใช้เป็นเกณฑ์คร่าวๆ ว่าเวลาเริ่มสมเหตุสมผลแล้ว (ไม่ใช่ปี 1970)
+    
+    // 🟢 เพิ่มเวลารอเป็น 60 รอบ (30 วินาที)
+    const int max_retry = 60; 
+    
     while (retry < max_retry) {
         time(&now);
         if (now > 1700000000) {
@@ -373,7 +408,7 @@ static void sync_time_via_sntp(void) {
         retry++;
         vTaskDelay(500 / portTICK_PERIOD_MS);
     }
-    ESP_LOGW(TAG, "⚠️ Sync เวลาไม่สำเร็จภายในเวลาที่กำหนด (การเชื่อมต่อ TLS อาจ verify cert ไม่ผ่าน)");
+    ESP_LOGW(TAG, "⚠️ Sync เวลาไม่สำเร็จ! บังคับยิง API ต่อ แต่อาจจะติดเรื่อง Cert");
 }
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
@@ -643,6 +678,9 @@ void app_main(void) {
 
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA); 
+    // 🟢 เก็บลงตัวแปร Global แทน (ลบ char mac_str[18] อันเก่าทิ้งได้เลย)
+    snprintf(device_mac_str, sizeof(device_mac_str), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
     char mac_str[18];
     snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
    

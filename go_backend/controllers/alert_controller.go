@@ -10,7 +10,7 @@ import (
 )
 
 type AlertInput struct {
-	BoardID  string `json:"board_id"`  // 🟢 ESP32 จะส่งรหัส MAC Address มาทางช่องนี้
+	BoardID  string `json:"board_id"` // 🟢 ESP32 จะส่งรหัส MAC Address มาทางช่องนี้
 	AudioURL string `json:"audio_url"`
 }
 
@@ -20,18 +20,26 @@ func CreateAlert(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "รูปแบบข้อมูลไม่ถูกต้อง"})
 	}
 
-	// 🟢 1. เอา BoardID (MAC Address) ไปค้นหาในตารางอุปกรณ์ (devices)
-	var device models.Device_patient
-	if err := database.DB.Where("mac_address = ?", input.BoardID).First(&device).Error; err != nil {
+	// 🟢 1. เอา BoardID (MAC Address) ไปค้นหาในตารางอุปกรณ์ต้นทาง
+	var sourceDevice models.Device
+	if err := database.DB.Where("mac_address = ?", input.BoardID).First(&sourceDevice).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "ไม่พบอุปกรณ์นี้ในระบบ (ยังไม่ได้ลงทะเบียน)",
 		})
 	}
 
-	// 🟢 2. ดึงข้อมูลผู้ป่วย พร้อมโหลดรายชื่อผู้ดูแล (Caregivers)
+	// 🟢 2. หา Device_patient ที่ผูกกับอุปกรณ์นี้
+	var deviceRelation models.Device_patient
+	if err := database.DB.Where("device_id = ?", sourceDevice.ID).First(&deviceRelation).Error; err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "อุปกรณ์นี้ยังไม่ได้ผูกกับผู้ป่วย",
+		})
+	}
+
+	// 🟢 3. ดึงข้อมูลผู้ป่วย พร้อมโหลดรายชื่อผู้ดูแล (Caregivers)
 	var patient models.Patient
 	// ใช้ Preload เพื่อให้ GORM ไปดึงตาราง Caregivers ที่ผูกแบบ Many-to-Many มาให้ด้วย
-	if err := database.DB.Preload("Caregivers").First(&patient, device.PatientID).Error; err != nil {
+	if err := database.DB.Preload("Caregivers").First(&patient, deviceRelation.PatientID).Error; err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
 			"error": "ไม่พบข้อมูลผู้ป่วยที่ผูกกับอุปกรณ์นี้",
 		})
@@ -39,10 +47,10 @@ func CreateAlert(c *fiber.Ctx) error {
 
 	// 🟢 3. สร้างประวัติแจ้งเตือน
 	alert := models.DetectionLog{
-		PatientID:    &patient.ID,
-		DeviceMAC:    device.MACAddress,
-		AudioURL:     input.AudioURL,
-		Status:       "needs_help",
+		PatientID: &patient.ID,
+		DeviceMAC: deviceRelation.MACAddress,
+		AudioURL:  input.AudioURL,
+		Status:    "needs_help",
 	}
 
 	if err := database.DB.Create(&alert).Error; err != nil {
@@ -50,7 +58,7 @@ func CreateAlert(c *fiber.Ctx) error {
 	}
 
 	// ==========================================
-	// 🟢 4. กระจายงานให้แผนก LINE และ Telegram 
+	// 🟢 4. กระจายงานให้แผนก LINE และ Telegram
 	// ==========================================
 	// วนลูปส่งแจ้งเตือนไปให้ผู้ดูแลทุกคนที่มีรายชื่ออยู่ใน Caregivers ของผู้ป่วยคนนี้
 	for _, caregiver := range patient.Caregivers {

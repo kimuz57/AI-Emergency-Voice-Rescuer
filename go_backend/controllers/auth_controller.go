@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -9,6 +10,7 @@ import (
 	"go_backend/database"
 	"go_backend/models"
 	"go_backend/utils"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -174,6 +176,93 @@ func Register(c *fiber.Ctx) error {
 		"message": "สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบอีเมลเพื่อยืนยันบัญชี",
 		"email":   user.Email,
 	})
+}
+
+// ==========================================
+// Forgot Password - สร้าง token แล้วส่งอีเมล
+// ==========================================
+func ForgotPassword(c *fiber.Ctx) error {
+	var input struct {
+		Email string `json:"email"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "ข้อมูลไม่ถูกต้อง"})
+	}
+
+	// Basic validation: non-empty + simple email format
+	if input.Email == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "กรุณาระบุอีเมล"})
+	}
+	// rudimentary email check
+	if len(input.Email) < 5 || !strings.Contains(input.Email, "@") {
+		return c.Status(400).JSON(fiber.Map{"error": "อีเมลไม่ถูกต้อง"})
+	}
+
+	var user models.User
+	if err := database.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		// ไม่เปิดเผยว่ามีอีเมลในระบบไหม ส่งข้อความสำเร็จเสมอ
+		return c.JSON(fiber.Map{"message": "ถ้าอีเมลอยู่ในระบบ เราได้ส่งลิงก์รีเซ็ตรหัสผ่านให้แล้ว"})
+	}
+
+	// สร้าง token และบันทึกลง DB พร้อม expiry (1 hour)
+	token := utils.GenerateVerificationToken()
+	expiry := time.Now().Add(time.Hour * 1)
+
+	if err := database.DB.Model(&user).Updates(map[string]interface{}{
+		"password_reset_token":  token,
+		"password_reset_expiry": expiry,
+	}).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "ไม่สามารถสร้างลิงก์รีเซ็ตได้"})
+	}
+
+	// ส่งอีเมลแบบ background
+	go utils.SendResetPasswordEmail(user.Email, user.Name, token)
+
+	return c.JSON(fiber.Map{"message": "ถ้าอีเมลอยู่ในระบบ เราได้ส่งลิงก์รีเซ็ตรหัสผ่านให้แล้ว"})
+}
+
+// ==========================================
+// Reset Password - ตรวจ token แล้วเซ็ตพาสใหม่
+// ==========================================
+func ResetPassword(c *fiber.Ctx) error {
+	var input struct {
+		Token      string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "ข้อมูลไม่ถูกต้อง"})
+	}
+
+	if input.NewPassword == "" || len(input.NewPassword) < 6 {
+		return c.Status(400).JSON(fiber.Map{"error": "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร"})
+	}
+
+	var user models.User
+	if err := database.DB.Where("password_reset_token = ?", input.Token).First(&user).Error; err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "ลิงก์ไม่ถูกต้องหรือหมดอายุ"})
+	}
+
+	// เช็ค expiry
+	if !user.PasswordResetExpiry.IsZero() && time.Now().After(user.PasswordResetExpiry) {
+		return c.Status(400).JSON(fiber.Map{"error": "ลิงก์รีเซ็ตหมดอายุ"})
+	}
+
+	hashed, err := HashPassword(input.NewPassword)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "ไม่สามารถเข้ารหัสรหัสผ่านใหม่ได้"})
+	}
+
+	if err := database.DB.Model(&user).Updates(map[string]interface{}{
+		"password":               hashed,
+		"password_reset_token":   "",
+		"password_reset_expiry":  time.Time{},
+	}).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "ไม่สามารถบันทึกรหัสผ่านใหม่ได้"})
+	}
+
+	return c.JSON(fiber.Map{"message": "รีเซ็ตรหัสผ่านสำเร็จ"})
 }
 
 // ==========================================

@@ -6,6 +6,7 @@ const protectedPaths = [
   "/settings",
   "/patients",
   "/devices",
+  "registor-patient",
   "/device", // เพิ่มพ่วงหน้าอุปกรณ์ตรงนี้เพื่อให้ระบบป้องกันทำงานร่วมกับ QR Code ได้
   "/profile",
   "/history",
@@ -46,6 +47,7 @@ export const config = {
     "/settings/:path*",
     "/patients/:path*",
     "/devices/:path*",
+    "/registor-patient/:path*",
     "/device/:path*",
     "/device",
     "/profile/:path*",

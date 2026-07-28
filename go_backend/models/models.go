@@ -20,22 +20,21 @@ type Patient struct {
 	// ความสัมพันธ์แบบ Many-to-Many กลับไปหา User
 	Caregivers []User `gorm:"many2many:caregiver_patients;"`
 	// 1 ผู้ป่วย สามารถมีหลายอุปกรณ์ (เช่น ไมค์ห้องน้ำ, ไมค์หัวเตียง)
-	Devices []Device_patient
+	Devices []Device_patient `gorm:"foreignKey:PatientID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 	// 1 ผู้ป่วย มีประวัติเสียงร้องขอความช่วยเหลือหลายครั้ง
 	DetectionLogs []DetectionLog
-	
 }
 
-// 3. ตารางอุปกรณ์ IoT / ESP32 (Devices)
+//  3. ตารางเชื่อม Device กับ Patient
+//     ให้ Device_patient เป็นตารางกลางสำหรับอุปกรณ์ที่ผูกกับคนไข้
 type Device_patient struct {
 	gorm.Model
-	// 🟢 เติม json:"board_id" ไว้ข้างหลัง เพื่อบอก Go ว่า "ถ้าส่ง board_id มา ให้เอามาใส่คอลัมน์นี้ใน DB นะ"
-	MACAddress string `gorm:"unique;not null" json:"board_id"`
-	Name       string `json:"deviceName"` // เช่น "ไมค์ห้องนั่งเล่น", "เซนเซอร์ห้องน้ำ"
+	DeviceID   uint   `gorm:"index" json:"device_id"`
+	Device     Device `gorm:"foreignKey:DeviceID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	PatientID  uint   `gorm:"not null;index" json:"patient_id"`
+	MACAddress string `gorm:"not null" json:"board_id"`
+	Name       string `json:"deviceName"`
 	Status     string `gorm:"default:'offline'" json:"status"`
-	// Foreign Key เชื่อมกับผู้ป่วย (อุปกรณ์นี้เป็นของใคร/อยู่ห้องใคร)
-	PatientID uint `json:"patientId"`
-	IsActive   bool   `gorm:"default:false" json:"is_active"`
 }
 
 // 4. ตารางเก็บประวัติการตรวจจับเสียง (Detection Logs)
@@ -53,6 +52,7 @@ type DetectionLog struct {
 	AudioURL string `json:"audio_url"`
 	Status   string `gorm:"default:'needs_help'" json:"status"`
 }
+
 // 5. ตารางเชื่อม Many-to-Many ระหว่าง Caregiver (User) และ Patient
 type CaregiverPatient struct {
 	PatientID uint           `gorm:"primaryKey"`

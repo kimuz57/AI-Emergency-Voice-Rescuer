@@ -1,6 +1,8 @@
 package models
+
 import (
 	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -11,6 +13,8 @@ type User struct {
 	Password   	string    `json:"-" gorm:"not null"` // 🟢 เติมฟิลด์นี้กลับเข้ามา โดยใส่ json:"-" เพื่อไม่ให้ส่งรหัสผ่านหลุดออกไปทางหน้าเว็บ
 	IsVerified 	bool      `json:"is_verified" gorm:"default:false"`
 	VerificationToken   string `json:"-"`
+	PasswordResetToken  string    `json:"-"`
+	PasswordResetExpiry time.Time `json:"-"`
 	Phone    	string 		`json:"phone"`
 	Profile    	string    `json:"profile"` // 🟢 คอลัมน์รูปภาพโปรไฟล์ที่คุณเพิ่งเพิ่ม
 	Role       	string    `json:"role" gorm:"default:'caregiver'"`

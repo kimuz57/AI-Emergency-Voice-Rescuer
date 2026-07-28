@@ -7,8 +7,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
-  
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+
+  const [status, setStatus] = useState<"loading" | "success" | "error">(
+    "loading",
+  );
   const [message, setMessage] = useState("กำลังตรวจสอบข้อมูลของคุณ...");
 
   useEffect(() => {
@@ -21,12 +23,23 @@ function VerifyEmailContent() {
     const verifyToken = async () => {
       try {
         // ยิง Token ไปให้ Go Fiber ตรวจสอบ
-        const res = await fetch(`${API_URL}/api/auth/verify-email?token=${token}`);
-        const data = await res.json();
+        const res = await fetch(
+          `${API_URL}/api/auth/verify-email?token=${token}`,
+        );
+
+        // ปลอดภัย: ถ้า response ไม่ใช่ JSON ให้จับเป็นข้อความสำเร็จ/ผิดพลาดทั่วไป
+        let data: any = {};
+        try {
+          data = await res.json();
+        } catch (e) {
+          data = {};
+        }
 
         if (res.ok) {
           setStatus("success");
-          setMessage("ยืนยันอีเมลสำเร็จ! บัญชีของคุณพร้อมใช้งานแล้ว");
+          setMessage(
+            data.message || "ยืนยันอีเมลสำเร็จ! บัญชีของคุณพร้อมใช้งานแล้ว",
+          );
         } else {
           setStatus("error");
           setMessage(data.error || "ลิงก์ไม่ถูกต้อง หรือถูกใช้งานไปแล้ว");
@@ -60,16 +73,18 @@ function VerifyEmailContent() {
       </div>
 
       <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
-        {status === "loading" ? "กำลังตรวจสอบ..." : status === "success" ? "สำเร็จ!" : "เกิดข้อผิดพลาด"}
+        {status === "loading"
+          ? "กำลังตรวจสอบ..."
+          : status === "success"
+            ? "สำเร็จ!"
+            : "เกิดข้อผิดพลาด"}
       </h2>
-      <p className="text-slate-500 dark:text-slate-400 mb-8">
-        {message}
-      </p>
+      <p className="text-slate-500 dark:text-slate-400 mb-8">{message}</p>
 
       {/* ปุ่มกลับไปหน้าล็อกอิน */}
       {status !== "loading" && (
-        <Link 
-          href="/login" 
+        <Link
+          href="/login"
           className="inline-flex justify-center w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm"
         >
           กลับไปหน้าเข้าสู่ระบบ
@@ -83,16 +98,20 @@ export default function VerifyPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
       <div className="max-w-md w-full bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700">
-        
         <div className="text-center mb-8">
-          <h1 className="text-xl font-black text-indigo-600 uppercase tracking-wider">Emergency Voice Rescuer</h1>
+          <h1 className="text-xl font-black text-indigo-600 uppercase tracking-wider">
+            Emergency Voice Rescuer
+          </h1>
         </div>
 
         {/* 🟢 Next.js App Router บังคับให้ใช้ Suspense ครอบเวลาดึงค่าจาก URL */}
-        <Suspense fallback={<div className="text-center text-slate-500">กำลังโหลด...</div>}>
+        <Suspense
+          fallback={
+            <div className="text-center text-slate-500">กำลังโหลด...</div>
+          }
+        >
           <VerifyEmailContent />
         </Suspense>
-        
       </div>
     </div>
   );

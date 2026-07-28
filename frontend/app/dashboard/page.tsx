@@ -213,7 +213,7 @@ export default function Dashboard() {
             </p>
 
             <Link
-              href="/devices"
+              href="/registor-patient"
               className="relative z-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl transition-all shadow-lg hover:shadow-indigo-500/30 flex items-center gap-3 hover:-translate-y-1"
             >
               <svg
