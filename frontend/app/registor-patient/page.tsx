@@ -151,7 +151,7 @@ function RegistrationFormContent() {
             </svg>
           </div>
           <h1 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-purple-600 bg-clip-text text-transparent">
-            จัดการอุปกรณ์
+            ลงทะเบียนผู้ป่วย
           </h1>
           <p className="text-slate-500 dark:text-slate-300 mt-2">
             สร้าง QR Code สำหรับบอร์ด หรือลงทะเบียนผู้ป่วยพร้อมผูกอุปกรณ์
