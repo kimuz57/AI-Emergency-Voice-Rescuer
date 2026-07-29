@@ -442,56 +442,6 @@ export default function Navbar() {
                   จัดการอุปกรณ์รับเสียง
                 </Link>
               </div>
-              {/* ======================================= */}
-              {/* เมนูที่ 2: จัดการระบบ (Admin เท่านั้นที่เห็น) */}
-              {/* ======================================= */}
-              {user?.role?.toLowerCase() === "admin" && (
-                <>
-                  {/* 1. เมนูจัดการผู้ป่วย (ที่คุณมีอยู่แล้ว) */}
-                  <Link
-                    href="/admin/patients"
-                    className="flex items-center gap-2 block px-4 py-2.5 text-sm text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-700 hover:text-purple-800 dark:hover:text-purple-300 transition-colors font-medium border-l-2 border-transparent hover:border-purple-500"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-5 h-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                    จัดการข้อมูลผู้ป่วย
-                  </Link>
-
-                  {/* 🟢 2. เมนูจัดการผู้ใช้งาน (เพิ่มใหม่ล่าสุด) */}
-                  <Link
-                    href="/admin/users" // 👈 ชี้ไปที่หน้า Admin Users ที่เพิ่งสร้าง
-                    className="flex items-center gap-2 block px-4 py-2.5 text-sm text-purple-700 dark:text-purple-400 hover:bg-purple-50 dark:hover:bg-slate-700 hover:text-purple-800 dark:hover:text-purple-300 transition-colors font-medium border-l-2 border-transparent hover:border-purple-500"
-                  >
-                    {/* ไอคอนรูปกลุ่มผู้ใช้ (Users) */}
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-5 h-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                      <circle cx="9" cy="7" r="4"></circle>
-                      <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                    </svg>
-                    จัดการผู้ใช้งาน
-                  </Link>
-                </>
-              )}
               <div className="border-t border-gray-100 dark:border-slate-700 py-1 bg-gray-50 dark:bg-slate-700/50">
                 <button
                   onClick={handleLogout}

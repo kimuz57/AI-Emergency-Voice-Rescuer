@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
+import Link from "next/link"; // 🟢 เพิ่ม import Link สำหรับการนำทาง
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import { getCroppedImg } from "../../untils/cropUtils";
@@ -289,6 +290,10 @@ export default function ProfilePage() {
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 ">
         <div className="md:col-span-1 space-y-6 ">
+          
+          {/* ========================================== */}
+          {/* 👤 ส่วนโปรไฟล์รูปภาพ (คอลัมน์ซ้าย) */}
+          {/* ========================================== */}
           <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center text-center dark:bg-slate-800">
             <div className="relative group select-none ">
               <div
@@ -344,6 +349,59 @@ export default function ProfilePage() {
               {profile?.role}
             </span>
           </div>
+
+          {/* ========================================== */}
+          {/* 👑 🟢 กล่องเมนูสำหรับ Admin (ซ่อนอยู่ใต้รูปโปรไฟล์) */}
+          {/* ========================================== */}
+          {profile?.role?.toLowerCase() === "admin" && (
+            <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <h3 className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <span className="p-1.5 bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 rounded-lg">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </span>
+                ส่วนจัดการผู้ดูแลระบบ
+              </h3>
+
+              <div className="flex flex-col gap-1.5">
+                {/* 1. จัดการข้อมูลผู้ป่วย */}
+                <Link 
+                  href="/admin/patients" 
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-sm text-slate-600 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-400 transition-all font-medium group"
+                >
+                  <svg className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  จัดการข้อมูลผู้ป่วย
+                </Link>
+
+                {/* 2. จัดการผู้ใช้งาน */}
+                <Link 
+                  href="/admin/users" 
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-sm text-slate-600 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-400 transition-all font-medium group"
+                >
+                  <svg className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                  จัดการผู้ใช้งาน
+                </Link>
+
+                {/* 3. ลงทะเบียนเพิ่มบอร์ด */}
+                <Link 
+                  href="/admin/registor-device" 
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-sm text-slate-600 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-400 transition-all font-medium group"
+                >
+                  <svg className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                  </svg>
+                  ลงทะเบียนเพิ่มบอร์ด
+                </Link>
+              </div>
+            </div>
+          )}
+
         </div>
 
         <div className="md:col-span-2 space-y-6">

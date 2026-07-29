@@ -31,7 +31,35 @@ tmp/
 go_backend/tmp/
 frontend/tsconfig.tsbuildinfo
 
+# Python / AI artifacts
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+backend_ai/models/*.pth
+backend_ai/models/*.pt
+backend_ai/models/*.onnx
+backend_ai/models/*.bin
+
+# Frontend build artifacts
+frontend/.next/
+frontend/out/
+frontend/coverage/
+frontend/.turbo/
+
+# Secrets / keys
+*.pem
+*.key
+*.p12
+*.crt
+*.pfx
+
 # AI Test Scripts
 backend_ai/test.py
 backend_ai/test_model.py
 backend_ai/confusion.py
+
+QRCode
+command.md
+remove_comment.py
