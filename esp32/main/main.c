@@ -68,10 +68,10 @@ char ap_password_dynamic[64] = {0};
 #define IS_LOCAL_ENV 1 
 #if IS_LOCAL_ENV
     // --- ตั้งค่าสำหรับ Local ---
-// สำหรับ API ต้องเป็น https://
-    #define TARGET_GO_API "http://192.168.1.109:8080/api/device/checkin?mac=%s&ip=%s"
+// สำหรับ API ต้องเป็น https:
+    #define TARGET_GO_API "http://10.151.202.101:8080/api/device/checkin?mac=%s&ip=%s"
 // สำหรับ MQTT ต้องเป็น wss:// (WebSocket Secure) และระบุพอร์ตที่ถูกต้อง
-    #define TARGET_MQTT_URI "ws://192.168.1.109:9001/mqtt"
+    #define TARGET_MQTT_URI "ws://10.151.202.101:9001/mqtt"
 // (หรือถ้าใช้พอร์ต 8083 ก็แก้เป็น wss://s8449mbs-8083.asse.devtunnels.ms/mqtt)
     #define SKIP_CERT_CHECK true  // Local ใช้ plain WS/ MQTT เพื่อเลี่ยง TLS ก่อน
     #define USER "kws"

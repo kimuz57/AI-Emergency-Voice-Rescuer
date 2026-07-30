@@ -47,9 +47,9 @@ func ConnectDB() {
 		log.Fatal("Failed to auto-migrate database tables:", err)
 	}
 
-	if err := backfillDevicePatientDeviceID(db); err != nil {
-		log.Fatal("Failed to backfill device_id in device_patients:", err)
-	}
+	// if err := backfillDevicePatientDeviceID(db); err != nil {
+	// 	log.Fatal("Failed to backfill device_id in device_patients:", err)
+	// }
 
 	if err := cleanupLegacyPatientDeviceMACConstraint(db); err != nil {
 		log.Fatal("Failed to cleanup legacy patient device MAC constraint:", err)

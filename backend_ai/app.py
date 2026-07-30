@@ -11,8 +11,8 @@ from torchaudio import transforms as T
 from nnAudio.features.mel import MelSpectrogram
 
 # Import โมเดลของคุณ
-from models import BCResNet
-
+# from models import BCResNet
+from bcresnet import BCResNet1, BCResNet_M, BCResNet_Tiny  # Assuming bcresnet.py is in the same directory
 # 🌟 1. Import ไฟล์ MQTT
 import mqtt_audio_receiver
 
@@ -82,19 +82,20 @@ torch.backends.nnpack.enabled = False
 # -------------------------------------------------------------------------
 # 1. Model Configuration & Loading
 # -------------------------------------------------------------------------
-SAMPLE_RATE = 16000  # BCResNet typically uses 16kHz
+SAMPLE_RATE = 8000  # BCResNet typically uses 16kHz
 DURATION_SEC = 2
 TARGET_SAMPLES = SAMPLE_RATE * DURATION_SEC
 device = torch.device("cpu")
 
 mel_transform = MelSpectrogram(
-    sr=SAMPLE_RATE, n_fft=512, win_length=400, hop_length=160, n_mels=128
+    # sr=SAMPLE_RATE, n_fft=512, win_length=400, hop_length=160, n_mels=128
+    sr=8000, n_fft=256, win_length=200, hop_length=80, n_mels=128
 ).to(device)
 
 # Load model and weights safely on CPU
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
-MODEL_PATH = os.path.join(BASE_DIR, "models", "best_sens_model.pth")
-model = BCResNet(2)
+MODEL_PATH = os.path.join(BASE_DIR, "models", "best_m.pth")
+model = BCResNet_M(2)
 
 try:
     state_dict = torch.load(MODEL_PATH, map_location=device, weights_only=True)
