@@ -249,6 +249,7 @@ static esp_err_t connect_post_handler(httpd_req_t *req) {
         "            " SERVER_URL ""
         "        </div>"
         "        "
+        "        "
         "        <div style='background:#fff3cd; padding:15px; border-radius:8px; text-align:left; border-left:4px solid #ffc107;'>"
         "            <p style='font-weight:bold; color:#856404; margin:0 0 8px 0; font-size:14px;'>📌 ขั้นตอนต่อไป:</p>"
         "            <ol style='margin:0; padding-left:20px; font-size:13px; color:#856404; line-height:1.6;'>"

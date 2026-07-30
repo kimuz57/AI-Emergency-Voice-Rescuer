@@ -73,7 +73,7 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 			}
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถตรวจสอบข้อมูลอุปกรณ์ได้"})
 		}
-
+		
 		// 2.2 ตรวจสอบว่าอุปกรณ์ถูกผูกใช้งานอยู่แล้วหรือไม่ (เฉพาะตัวที่ไม่ได้ถูก Soft Delete)
 		var activeRelation models.Device_patient
 		err = database.DB.Where("device_id = ?", sourceDevice.ID).First(&activeRelation).Error
@@ -139,6 +139,13 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 				if err := tx.Create(&newRelation).Error; err != nil {
 					return err
 				}
+			}
+
+			// ========================================================
+			// 🟢 3.4 อัปเดตสถานะบอร์ดเป็น Active (เพิ่มเข้ามาใหม่ตรงนี้)
+			// ========================================================
+			if err := tx.Model(&models.Device{}).Where("id = ?", sourceDevice.ID).Update("is_active", true).Error; err != nil {
+				return err // ถ้าอัปเดตบอร์ดไม่สำเร็จ ให้ยกเลิกกระบวนการทั้งหมด (Rollback)
 			}
 		}
 

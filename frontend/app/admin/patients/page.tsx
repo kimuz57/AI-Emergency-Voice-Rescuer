@@ -26,37 +26,68 @@ export default function AdminPatients() {
   });
 
   useEffect(() => {
-    const role = localStorage.getItem("userRole");
-    if (!role || role.toLowerCase() !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
+    const checkAdminAndFetchData = async () => {
+      try {
+        const email = localStorage.getItem("userEmail");
+        const token = localStorage.getItem("token");
 
-    const fetchPatients = fetch(`${API_URL}/api/admin/patients`, {
-      method: "GET",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    }).then(res => res.ok ? res.json() : []);
+        if (!email) {
+          router.push("/dashboard");
+          return;
+        }
 
-    const fetchUsers = fetch(`${API_URL}/api/admin/users`, {
-      method: "GET",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-    }).then(res => res.ok ? res.json() : []);
+        // 🚨 1. ยิง API เช็คสิทธิ์จาก Database ตรงๆ เพื่อความปลอดภัยสูงสุด
+        const profileRes = await fetch(`${API_URL}/api/user/profile?email=${email}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token || ""}`,
+          },
+          credentials: "include",
+        });
 
-    Promise.all([fetchPatients, fetchUsers])
-      .then(([patientsData, usersData]) => {
+        if (!profileRes.ok) {
+          router.push("/dashboard");
+          return;
+        }
+
+        const profileData = await profileRes.json();
+        if (profileData.role?.toLowerCase() !== "admin") {
+          router.push("/dashboard");
+          return;
+        }
+
+        // 🟢 3. ถ้าเป็น Admin ตัวจริง ค่อยดึงข้อมูลผู้ป่วยและผู้ดูแล
+        const fetchPatients = fetch(`${API_URL}/api/admin/patients`, {
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` },
+        }).then(res => res.ok ? res.json() : []);
+
+        const fetchUsers = fetch(`${API_URL}/api/admin/users`, {
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token || ""}` },
+        }).then(res => res.ok ? res.json() : []);
+
+        const [patientsData, usersData] = await Promise.all([fetchPatients, fetchUsers]);
+        
         setPatients(Array.isArray(patientsData) ? patientsData : []);
+        
         if (Array.isArray(usersData)) {
           const caregiversOnly = usersData.filter((u: any) => u.role === "caregiver" || u.role === "admin");
           setAvailableCaregivers(caregiversOnly);
         }
-        setIsLoading(false);
-      })
-      .catch((err) => {
+
+      } catch (err) {
         console.error("❌ ดึงข้อมูลล้มเหลว:", err);
+        router.push("/dashboard");
+      } finally {
         setIsLoading(false);
-      });
+      }
+    };
+
+    checkAdminAndFetchData();
   }, [router]);
 
   const openEditPopup = (patient: any) => {
@@ -139,7 +170,9 @@ export default function AdminPatients() {
     (cg.name && cg.name.toLowerCase().includes(caregiverSearch.toLowerCase())) ||
     (cg.email && cg.email.toLowerCase().includes(caregiverSearch.toLowerCase()))
   );
-
+  if (isLoading) {
+    return <div className="min-h-screen bg-slate-50 dark:bg-slate-900"></div>; 
+  }
   return (
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
@@ -151,7 +184,6 @@ export default function AdminPatients() {
 
       <div className="overflow-x-auto shadow-md rounded-lg">
         <table className="w-full text-sm text-left">
-          {/* ... ส่วนหัวตารางและเนื้อหาตารางเหมือนเดิมเป๊ะ ไม่มีการเปลี่ยนแปลง ... */}
           <thead className="dark:bg-slate-800 dark:text-white bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">ผู้ป่วย</th>
