@@ -47,7 +47,7 @@ export const config = {
     "/settings/:path*",
     "/patients/:path*",
     "/devices/:path*",
-    "/registor-patient/:path*",
+    "/register-patient/:path*",
     "/device/:path*",
     "/device",
     "/profile/:path*",
