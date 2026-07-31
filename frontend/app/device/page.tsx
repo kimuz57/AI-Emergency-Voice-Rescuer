@@ -158,7 +158,7 @@ export default function DevicesPage() {
         setUser(userData);
       }
 
-      const deviceRes = await fetch(`${API_BASE_URL}/api/devices`, {
+      const deviceRes = await fetch(`${API_BASE_URL}/device`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -186,6 +186,92 @@ export default function DevicesPage() {
   }, []);
 
   const isAdmin = user?.role?.toLowerCase() === "admin";
+
+  const renderDeviceCard = (device: DeviceData, index: number) => (
+    <div
+      key={device.id || index}
+      className="group bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-500/50 transition-all duration-300 relative overflow-hidden"
+    >
+      {/* 🟢 Status Badges */}
+      <div className="absolute top-5 right-5 flex items-center gap-2">
+        {device.is_active ? (
+          <span className="px-2 py-1 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 text-[10px] font-bold rounded-md uppercase tracking-wide">
+            Activated
+          </span>
+        ) : (
+          <span className="px-2 py-1 bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400 text-[10px] font-bold rounded-md uppercase tracking-wide">
+            Not Active
+          </span>
+        )}
+        <div className="flex items-center gap-1.5 ml-1">
+          {device.status?.toLowerCase() === "online" ? (
+            <>
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </span>
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Online</span>
+            </>
+          ) : (
+            <>
+              <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600"></span>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Offline</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mb-4">
+        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+            <rect x="9" y="9" width="6" height="6"></rect>
+            <line x1="9" y1="1" x2="9" y2="4"></line>
+            <line x1="15" y1="1" x2="15" y2="4"></line>
+            <line x1="9" y1="20" x2="9" y2="23"></line>
+            <line x1="15" y1="20" x2="15" y2="23"></line>
+            <line x1="20" y1="9" x2="23" y2="9"></line>
+            <line x1="20" y1="14" x2="23" y2="14"></line>
+            <line x1="1" y1="9" x2="4" y2="9"></line>
+            <line x1="1" y1="14" x2="4" y2="14"></line>
+          </svg>
+        </div>
+        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MAC ADDRESS</h4>
+        <p className="font-mono font-bold text-lg text-slate-800 dark:text-slate-100">{device.mac_address}</p>
+        
+        {/* ปุ่มเจน QR */}
+        <button
+          onClick={() => handleOpenWifiQr(device)}
+          className="flex items-center gap-1.5 px-2 py-1 mt-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 rounded-md transition-colors w-fit"
+          title="สร้าง QR สแกนต่อ WiFi บอร์ด"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5V16M4.5 4.5h3v3h-3v-3zm9 0h3v3h-3v-3zm-9 9h3v3h-3v-3z" />
+          </svg>
+          <span className="text-[10px] font-bold tracking-wide">WIFI QR</span>
+        </button>
+      </div>
+
+      <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
+        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">ผู้ป่วยที่ผูกกับบอร์ดนี้</h4>
+        {device.patient_name ? (
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-xs">
+              {device.patient_name.charAt(0)}
+            </div>
+            <p className="font-medium text-slate-700 dark:text-slate-300 text-sm truncate">{device.patient_name}</p>
+          </div>
+        ) : (
+          <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 border-dashed rounded-lg flex items-center gap-2">
+            <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">ยังไม่ถูกผูกกับผู้ป่วย (รอการลงทะเบียน)</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="relative min-h-screen p-6 md:p-10 font-sans">
@@ -254,92 +340,40 @@ export default function DevicesPage() {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {devices.map((device, index) => (
-              <div
-                key={device.id || index}
-                className="group bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-500/50 transition-all duration-300 relative overflow-hidden"
-              >
-                {/* 🟢 Status Badges */}
-                <div className="absolute top-5 right-5 flex items-center gap-2">
-                  {device.is_active ? (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 text-[10px] font-bold rounded-md uppercase tracking-wide">
-                      Activated
-                    </span>
-                  ) : (
-                    <span className="px-2 py-1 bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400 text-[10px] font-bold rounded-md uppercase tracking-wide">
-                      Not Active
-                    </span>
-                  )}
-                  <div className="flex items-center gap-1.5 ml-1">
-                    {device.status?.toLowerCase() === "online" ? (
-                      <>
-                        <span className="relative flex h-3 w-3">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                        </span>
-                        <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Online</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Offline</span>
-                      </>
-                    )}
-                  </div>
+          <div className="flex flex-col gap-10">
+            {/* Activated Devices */}
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
+                อุปกรณ์ที่เปิดใช้งาน (Activated)
+              </h2>
+              {devices.filter(d => d.is_active).length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {devices.filter(d => d.is_active).map(renderDeviceCard)}
                 </div>
+              ) : (
+                <div className="bg-white/40 dark:bg-slate-800/40 rounded-xl p-6 text-center border border-dashed border-slate-200 dark:border-slate-700">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">ไม่มีอุปกรณ์ที่เปิดใช้งานในขณะนี้</p>
+                </div>
+              )}
+            </div>
 
-                <div className="mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
-                      <rect x="9" y="9" width="6" height="6"></rect>
-                      <line x1="9" y1="1" x2="9" y2="4"></line>
-                      <line x1="15" y1="1" x2="15" y2="4"></line>
-                      <line x1="9" y1="20" x2="9" y2="23"></line>
-                      <line x1="15" y1="20" x2="15" y2="23"></line>
-                      <line x1="20" y1="9" x2="23" y2="9"></line>
-                      <line x1="20" y1="14" x2="23" y2="14"></line>
-                      <line x1="1" y1="9" x2="4" y2="9"></line>
-                      <line x1="1" y1="14" x2="4" y2="14"></line>
-                    </svg>
-                  </div>
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MAC ADDRESS</h4>
-                  <p className="font-mono font-bold text-lg text-slate-800 dark:text-slate-100">{device.mac_address}</p>
-                  
-                  {/* ปุ่มเจน QR */}
-                  <button
-                    onClick={() => handleOpenWifiQr(device)}
-                    className="flex items-center gap-1.5 px-2 py-1 mt-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 rounded-md transition-colors w-fit"
-                    title="สร้าง QR สแกนต่อ WiFi บอร์ด"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5V16M4.5 4.5h3v3h-3v-3zm9 0h3v3h-3v-3zm-9 9h3v3h-3v-3z" />
-                    </svg>
-                    <span className="text-[10px] font-bold tracking-wide">WIFI QR</span>
-                  </button>
+            {/* Not Activated Devices */}
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full bg-amber-400 shadow-sm"></span>
+                อุปกรณ์ที่ยังไม่เปิดใช้งาน (Not Activated)
+              </h2>
+              {devices.filter(d => !d.is_active).length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {devices.filter(d => !d.is_active).map(renderDeviceCard)}
                 </div>
-
-                <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">ผู้ป่วยที่ผูกกับบอร์ดนี้</h4>
-                  {device.patient_name ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-xs">
-                        {device.patient_name.charAt(0)}
-                      </div>
-                      <p className="font-medium text-slate-700 dark:text-slate-300 text-sm truncate">{device.patient_name}</p>
-                    </div>
-                  ) : (
-                    <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 border-dashed rounded-lg flex items-center gap-2">
-                      <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">ยังไม่ถูกผูกกับผู้ป่วย (รอการลงทะเบียน)</span>
-                    </div>
-                  )}
+              ) : (
+                <div className="bg-white/40 dark:bg-slate-800/40 rounded-xl p-6 text-center border border-dashed border-slate-200 dark:border-slate-700">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">ไม่มีอุปกรณ์ที่ยังไม่เปิดใช้งาน</p>
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         )}
       </div>
