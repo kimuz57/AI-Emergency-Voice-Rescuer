@@ -112,6 +112,7 @@ export default function Navbar() {
       // 1. รอจนกว่า API จะทำงานเสร็จ 100%
       const res = await fetch("/api/logout", {
         method: "POST",
+        credentials: "include",
       });
 
       if (res.ok) {

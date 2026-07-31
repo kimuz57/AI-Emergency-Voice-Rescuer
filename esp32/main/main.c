@@ -65,7 +65,7 @@ char ap_password_dynamic[64] = {0};
 // 🌟 สวิตช์สลับโหมด (เปลี่ยนแค่บรรทัดนี้บรรทัดเดียว!)
 // 1 = รันบน Local (คอมตัวเอง) | 0 = รันบน Server จริง
 // ==========================================
-#define IS_LOCAL_ENV 1 
+#define IS_LOCAL_ENV 0 
 #if IS_LOCAL_ENV
     // --- ตั้งค่าสำหรับ Local ---
 // สำหรับ API ต้องเป็น https:

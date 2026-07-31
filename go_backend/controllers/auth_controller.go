@@ -104,7 +104,7 @@ func Logout(c *fiber.Ctx) error {
 		MaxAge:   -1,  // 🌟 ใช้ MaxAge -1 ชัวร์กว่า Expires ในการสั่งลบทันที
 		HTTPOnly: true,
 		SameSite: "Lax", // ใช้ตามของเดิมคุณได้เลย
-		Secure:   false, // ⚠️ โหมด Local ใช้ false (ถ้าเอาขึ้น Server จริงที่มี HTTPS ค่อยเปลี่ยนเป็น true)
+		Secure:   true, // ⚠️ โหมด Local ใช้ false (ถ้าเอาขึ้น Server จริงที่มี HTTPS ค่อยเปลี่ยนเป็น true)
 	})
 
 	return c.JSON(fiber.Map{

@@ -8,14 +8,14 @@
 #include <stdlib.h> 
 #include <ctype.h> // สำหรับถอดรหัส URL
 
-#define IS_LOCAL_ENV 1 
+#define IS_LOCAL_ENV 0 
 
 #if IS_LOCAL_ENV
     // --- ตั้งค่าสำหรับ Local ---
     #define SERVER_URL "https://s8449mbs-3000.asse.devtunnels.ms/registor-patient?mac=%s" 
 #else
     // --- ตั้งค่าสำหรับ Server จริง ---
-    #define SERVER_URL "https://wattanapong.com/registor-patient?mac=%s"
+    #define SERVER_URL "https://kws.wattanapong.com/registor-patient?mac=%s"
 #endif
 
 
