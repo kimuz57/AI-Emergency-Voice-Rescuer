@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 // กำหนดโครงสร้างข้อมูล User
@@ -109,10 +110,14 @@ export default function Navbar() {
     try {
       console.log("⏳ 1. กำลังสั่งลบคุกกี้...");
 
-      // 1. รอจนกว่า API จะทำงานเสร็จ 100%
-      const res = await fetch("/api/logout", {
+      // 1. ยิงไปลบคุกกี้ที่ Go Backend
+      const res = await fetch(`${API_BASE_URL}/api/auth/logout`, {
         method: "POST",
         credentials: "include",
+      });
+      
+      await fetch("/api/logout", {
+        method: "POST",
       });
 
       if (res.ok) {
@@ -123,13 +128,8 @@ export default function Navbar() {
       localStorage.removeItem("token");
       localStorage.removeItem("userEmail");
 
-      // 🛑 3. [สำคัญมาก] คอมเมนต์ signOut ของ NextAuth ทิ้งไปก่อนเลย! 🛑
-      // await signOut({ callbackUrl: "/" });
-
-      // 🌟 4. ใช้คำสั่งเปลี่ยนหน้าเว็บแบบคลาสสิกแทน (หลังจากเผื่อเวลาให้เบราว์เซอร์ 100ms)
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 100);
+      // 3. 🌟 เรียก signOut ของ NextAuth ตัวเดียวจบ (มันจะล้าง Session และพาไปหน้า "/" ให้ทันที)
+      await signOut({ callbackUrl: "/" });
     } catch (error) {
       console.error("❌ ล้มเหลว:", error);
     }

@@ -6,10 +6,21 @@ export async function POST() {
 
   // 2. 🌟 สั่ง Set/Delete คุกกี้ผ่านตัวแปร response แทน
   response.cookies.set({
+    name: "token_public",
+    value: "",
+    maxAge: 0,
+    path: "/",
+    // httpOnly: true, // 🌟 [ต้องเพิ่ม] เพราะคุกกี้เดิมเป็น HttpOnly
+    secure: true,
+  });
+
+  response.cookies.set({
     name: "token",
     value: "",
     maxAge: 0,
     path: "/",
+    // httpOnly: true, // 🌟 [ต้องเพิ่ม] เพราะคุกกี้เดิมเป็น HttpOnly
+    secure: true,
   });
   
   // (หรือจะใช้คำสั่ง response.cookies.delete("token") ตรงๆ เลยก็ได้เหมือนกันครับบน NextResponse)

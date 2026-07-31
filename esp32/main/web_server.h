@@ -15,7 +15,7 @@
     #define SERVER_URL "https://s8449mbs-3000.asse.devtunnels.ms/registor-patient?mac=%s" 
 #else
     // --- ตั้งค่าสำหรับ Server จริง ---
-    #define SERVER_URL "https://kws.wattanapong.com/registor-patient?mac=%s"
+    #define SERVER_URL "https://kws.wattanapong.com/register-patient?mac=%s"
 #endif
 
 
