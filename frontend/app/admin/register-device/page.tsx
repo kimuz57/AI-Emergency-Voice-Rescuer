@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-const APP_URL = process.env.NEXT_PUBLIC_FRONTEND_URL || "http://localhost:3000";
+const APP_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 // ============================================================
 // 🔲 TAB 1: QR Code Generator Component
 // ============================================================

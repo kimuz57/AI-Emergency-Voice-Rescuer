@@ -33,4 +33,9 @@ type CaregiverPatient struct {
 	UserID    uint           `gorm:"primaryKey"`
 	CreatedAt time.Time      `json:"created_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+
+	// เพิ่ม Association เพื่อให้ GORM สร้าง Foreign Key Constraint ให้โดยอัตโนมัติ
+	// พร้อมใส่ OnDelete:CASCADE เพื่อให้ข้อมูลในตารางนี้หายไปเองถ้า User หรือ Patient ถูกลบ (Hard Delete)
+	Patient   Patient        `gorm:"foreignKey:PatientID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
+	User      User           `gorm:"foreignKey:UserID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE;" json:"-"`
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go_backend/database"
 	"go_backend/models"
+
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -73,8 +74,12 @@ func AdminUpdateUser(c *fiber.Ctx) error {
 func AdminGetAllPatients(c *fiber.Ctx) error {
     var patients []models.Patient
     
-    // 🟢 ใส่ .Preload("Caregivers") เพื่อดึงข้อมูล User ที่เกี่ยวข้องมาด้วย
-    if err := database.DB.Preload("Caregivers").Preload("Devices").Find(&patients).Error; err != nil {
+	// 🟢 ดึงความสัมพันธ์ที่มีอยู่จริงบน Patient
+	if err := database.DB.
+		Preload("Caregivers").
+		Preload("DeviceAssignments").
+		Preload("DeviceAssignments.Device").
+		Find(&patients).Error; err != nil {
         return c.Status(500).JSON(fiber.Map{"error": "ดึงข้อมูลล้มเหลว"})
     }
     

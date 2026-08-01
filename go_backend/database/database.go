@@ -31,6 +31,19 @@ func ConnectDB() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
+	// 🟢 บังคับเลือก schema ก่อน AutoMigrate กัน error: no schema has been selected to create in
+	if err := db.Exec("SET search_path TO public").Error; err != nil {
+		log.Fatal("Failed to set PostgreSQL search_path:", err)
+	}
+
+	// 🟢 บอก GORM ให้รู้ว่าตาราง caregiver_patients คือ join table จริงของความสัมพันธ์ User <-> Patient
+	if err := db.SetupJoinTable(&models.User{}, "Patients", &models.CaregiverPatient{}); err != nil {
+		log.Fatal("Failed to setup join table for User.Patients:", err)
+	}
+	if err := db.SetupJoinTable(&models.Patient{}, "Caregivers", &models.CaregiverPatient{}); err != nil {
+		log.Fatal("Failed to setup join table for Patient.Caregivers:", err)
+	}
+
 	// 🟢 3. เพิ่ม Models เข้าไปให้ GORM รู้จักและสร้างตารางให้ครบ!
 	err = db.AutoMigrate(
 		&models.User{},
