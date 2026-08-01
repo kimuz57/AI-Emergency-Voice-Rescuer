@@ -37,51 +37,66 @@ export default function Dashboard() {
   // ==========================================
   // เชื่อมต่อ SSE จาก Go Backend ผ่าน useEffect
   // ==========================================
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  // ==========================================
+  // 🔄 จังหวะที่ 1: ค้นหาอีเมลทันทีที่หน้าเว็บขยับ
+  // ==========================================
   useEffect(() => {
-    //console.log("🚀 2. useEffect ใน Dashboard เริ่มทำงาน!");
-    if (typeof window === "undefined") return;
+    const initEmail = async () => {
+      let email = localStorage.getItem("userEmail");
+      
+      // ถ้าไม่มีใน localStorage ให้ลองถามจาก Session ดู (เหมือนที่เราทำใน Navbar)
+      if (!email || email === "null") {
+        try {
+          const sessionRes = await fetch("/api/auth/session", { cache: "no-store" });
+          const session = await sessionRes.json();
+          if (session?.user?.email) {
+            email = session.user.email;
+            localStorage.setItem("userEmail", email as string);
+          }
+        } catch (error) {
+          console.error("ดึง session ไม่สำเร็จ", error);
+        }
+      }
+      
+      // เอาอีเมลที่ได้ไปใส่ State เพื่อกระตุ้นให้ระบบทำงานต่อ
+      if (email) {
+        setUserEmail(email);
+      }
+    };
 
-    const targetEmail = localStorage.getItem("userEmail");
-    //console.log("📧 3. Email ที่ Dashboard อ่านได้:", targetEmail);
-    if (!targetEmail || targetEmail === "null") {
-      //console.log("❌ ไม่มีอีเมลที่ถูกต้อง หยุดการทำงาน SSE");
-      return;
-    }
+    initEmail();
+  }, []); // ทำงานครั้งเดียวตอน Mount
+
+  // ==========================================
+  // 🚀 จังหวะที่ 2: เริ่มต่อท่อ SSE "เมื่อได้อีเมลแล้วเท่านั้น"
+  // ==========================================
+  useEffect(() => {
+    // 🛑 ถ้ายังไม่ได้อีเมล ให้หยุดรอก่อน อย่าเพิ่งทำงาน
+    if (!userEmail) return;
 
     const token = getAuthToken();
-    //console.log("🔗 4. API_BASE_URL คือ:", API_BASE_URL);
+    
     // 1. เชื่อมต่อ SSE สำหรับ Alerts
-    // (ส่ง email/token ไปกับ Query Parameter และใส่ withCredentials: true เพื่อแนบคุกกี้)
-    const alertsUrl = `${API_BASE_URL}/api/alerts/stream?email=${encodeURIComponent(targetEmail)}&token=${encodeURIComponent(token)}`;
+    const alertsUrl = `${API_BASE_URL}/api/alerts/stream?email=${encodeURIComponent(userEmail)}&token=${encodeURIComponent(token)}`;
     const alertsSource = new EventSource(alertsUrl, {
-      withCredentials: true, // 🔑 สั่งให้แนบ Cookie httpOnly ไปด้วย
+      withCredentials: true,
     });
 
     alertsSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         const newData = Array.isArray(data) ? data : [];
-        //console.log("✅ รับข้อมูล Alerts:", newData);
-
-        // 🟢 เปลี่ยนมาใช้ prev ดักเช็กข้อมูลซ้ำ
-        setAlerts((prev) => {
-          // ถ้าข้อมูลเหมือนเดิมเป๊ะ (เช่น [] กับ []) ไม่ต้องทำอะไร
-          if (JSON.stringify(prev) === JSON.stringify(newData)) return prev;
-          return newData; // ถ้ามีแจ้งเตือนใหม่ ค่อยอัปเดตหน้าจอ
-        });
+        setAlerts((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
       } catch (error) {
         console.error("Error parsing alerts:", error);
       }
     };
 
-    alertsSource.onerror = (error) => {
-      console.error("Alerts SSE connection error:", error);
-
-      // Browser จะทำ Auto-Reconnect ให้อัตโนมัติเมื่อหลุด
-    };
+    alertsSource.onerror = () => alertsSource.close();
 
     // 2. เชื่อมต่อ SSE สำหรับ Patients
-    const patientsUrl = `${API_BASE_URL}/api/patients/stream?email=${encodeURIComponent(targetEmail)}&token=${encodeURIComponent(token)}`;
+    const patientsUrl = `${API_BASE_URL}/api/patients/stream?email=${encodeURIComponent(userEmail)}&token=${encodeURIComponent(token)}`;
     const patientsSource = new EventSource(patientsUrl, {
       withCredentials: true,
     });
@@ -90,28 +105,22 @@ export default function Dashboard() {
       try {
         const data = JSON.parse(event.data);
         const newData = Array.isArray(data) ? data : [];
-
-        // 🟢 ดักข้อมูลซ้ำของฝั่ง Patients ด้วย
-        setPatients((prev) => {
-          if (JSON.stringify(prev) === JSON.stringify(newData)) return prev;
-          return newData;
-        });
+        setPatients((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
       } catch (error) {
         console.error("Error parsing patients:", error);
       }
     };
 
-    patientsSource.onerror = (error) => {
-      console.error("Patients SSE connection error:", error);
-    };
+    patientsSource.onerror = () => patientsSource.close();
 
-    // 3. Clean up ปิด Connection เมื่อ Unmount Component (ป้องกัน Connection รั่ว)
+    // 3. Clean up
     return () => {
-      //console.log("🛑 React สั่งตัดสาย SSE เส้นเก่าทิ้งแล้ว!");
       alertsSource.close();
       patientsSource.close();
     };
-  }, []);
+    
+  // 🌟 จุดสำคัญที่สุด: บังคับให้ React รู้ว่า "ถ้า userEmail เปลี่ยน ให้รีสตาร์ทฟังก์ชันนี้นะ!"
+  }, [userEmail]);
 
   // ==========================================
   // ฟังก์ชันเมื่อพยาบาลกดปุ่ม "รับทราบ" (อัปเดต DB)

@@ -29,7 +29,9 @@ export default function Navbar() {
       console.log("👉 [1] ค่าที่อ่านได้จาก localStorage คือ:", targetEmail);
 
       // 🟢 2. เรียกดึงข้อมูล Session มารอไว้เลย เผื่อต้องใช้ทั้งเรื่องอีเมลและดึงรูปภาพมาสลับสวมรอย
-      const sessionRes = await fetch("/api/auth/session");
+      const sessionRes = await fetch("/api/auth/session", {
+        cache: "no-store" 
+      });
       const session = await sessionRes.json();
 
       // เช็คว่าใน localStorage ไม่มีอีเมลจริงไหม
@@ -70,9 +72,14 @@ export default function Navbar() {
         "✅ [6] ได้อีเมลแล้ว กำลังยิงไปถาม Go Backend ด้วยอีเมล:",
         targetEmail,
       );
-      const res = await fetch(
-        `${API_BASE_URL}/api/user/profile?email=${targetEmail}`,
-      );
+      const res = await fetch(`${API_BASE_URL}/api/user/profile?email=${targetEmail}`, {
+        method: "GET",
+        cache: "no-store",       // 🚫 สั่งเด็ดขาดว่า "ห้ามจำข้อมูลเก่านะ!"
+        credentials: "include",  // 🔑 เผื่ออนาคต Go Backend ของคุณต้องอ่าน Cookie/Session
+        headers: {
+          "Content-Type": "application/json"
+        }
+      });
 
       if (res.ok) {
         const data = await res.json();

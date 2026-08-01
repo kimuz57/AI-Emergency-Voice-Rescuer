@@ -77,7 +77,7 @@ char ap_password_dynamic[64] = {0};
 
 #elif IS_LOCAL_ENV == ENV_SERVER
 
-    #define TARGET_GO_API "https://kwsapi.wattanapong.com/api/device/checkin?mac=%s&ip=%s"
+    #define TARGET_GO_API "https://kwsb.wattanapong.com/api/device/checkin?mac=%s&ip=%s"
     #define TARGET_MQTT_URI "wss://mqtt.wattanapong.com:443/mqtt"
     #define SKIP_CERT_CHECK false
     #define USER "kws"
@@ -197,12 +197,12 @@ static void kwsapi_task(void *pvParameters) {
         .url = url, 
         .method = HTTP_METHOD_GET, 
         .timeout_ms = 5000, 
-#if IS_LOCAL_ENV
+#if IS_LOCAL_ENV == ENV_LOCAL
         //.crt_bundle_attach = esp_crt_bundle_attach,
-#else
+#elif IS_LOCAL_ENV == ENV_SERVER
         .crt_bundle_attach = esp_crt_bundle_attach,
 #endif
-        .skip_cert_common_name_check = SKIP_CERT_CHECK,
+        //.skip_cert_common_name_check = SKIP_CERT_CHECK,
     };
     
     esp_http_client_handle_t client = esp_http_client_init(&config);

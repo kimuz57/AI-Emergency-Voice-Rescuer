@@ -148,6 +148,7 @@ function LoginFormContent() {
           // 🟢 เมื่อล็อกอินสำเร็จ จะพาเด้งกลับไปที่ callbackUrl (ซึ่งอาจพก ?mac=... มาด้วย)
           setTimeout(() => {
             window.location.href = callbackUrl;
+            router.refresh();
           }, 500);
         } else {
           if (response.status === 403) {
