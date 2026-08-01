@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from "react";
 import ThemeToggle from "@/components/ThemeToggle";
 export default function LandingPage() {

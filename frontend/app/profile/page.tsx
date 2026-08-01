@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element */
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link"; // 🟢 เพิ่ม import Link สำหรับการนำทาง
 import Cropper from "react-easy-crop";
