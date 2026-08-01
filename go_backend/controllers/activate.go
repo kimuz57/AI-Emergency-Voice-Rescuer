@@ -12,14 +12,13 @@ import (
 func CheckinDeviceIP(c *fiber.Ctx) error {
 	mac := c.Query("mac")
 	ip := c.Query("ip")
-
+	mac = strings.ToUpper(strings.TrimSpace(mac))
 	if mac == "" || ip == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ส่งพารามิเตอร์ mac และ ip ไม่ครบ"})
 	}
 
 	var device models.Device
-	result := database.DB.Where("UPPER(mac_address) = UPPER(?)", mac).First(&device)
-
+	result := database.DB.Where("UPPER(mac_address) = ?", mac).First(&device)
 	if result.Error != nil {
 		if result.Error == gorm.ErrRecordNotFound {
 			newDevice := models.Device{
@@ -30,6 +29,9 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 				IsVerified: true,
 			}
 			database.DB.Create(&newDevice)
+
+			// 🌟 [จุดที่ 1] แจ้งเตือนหน้าเว็บ (SSE) ว่ามี "อุปกรณ์ใหม่" เช็คอินเข้ามา
+			// ส่งข้อมูลไปครบๆ ฝั่ง React จะได้เอาไปต่อท้าย Array ทันท
 
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{
 				"message":     "สร้างอุปกรณ์ใหม่และบันทึก IP สำเร็จ!",
@@ -47,6 +49,7 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 		"is_verified": true,
 		"status":      "online", // อัปเดตเมื่อ Check-in
 	})
+
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message":     "อัปเดต IP Address สำเร็จ!",

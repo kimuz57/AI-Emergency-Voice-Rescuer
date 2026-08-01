@@ -85,7 +85,9 @@ func SetupRoutes(app *fiber.App) {
 		// ให้ Python ยิงมาถามสถานะ Activation ของบอร์ดที่นี่
 		deviceGroup.Get("/checkin", controllers.CheckinDeviceIP)
 		deviceGroup.Get("/check-activation", controllers.CheckDeviceActivation)
-		deviceGroup.Post("/status", controllers.UpdateDeviceStatus)
+		deviceGroup.Post("/status", controllers.UpdateDevices)
+
+		deviceGroup.Get("/stream", controllers.StreamDevices)
 	}
 
 	alertGroup := app.Group("/api/alerts")

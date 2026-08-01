@@ -19,6 +19,45 @@ type DashboardDeviceResponse struct {
 	IsVerified  bool    `json:"is_verified"` // 🟢 เพิ่มสถานะการยืนยัน
 }
 
+func fetchDashboardDevices(email string) ([]DashboardDeviceResponse, error) {
+	query := database.DB.Model(&models.Device{}).
+		Select(`devices.id,
+			devices.mac_address,
+			devices.status,
+			devices.is_active,
+			devices.is_verified,
+			patients.name as patient_name,
+			device_patients.device_name`).
+		Joins("LEFT JOIN device_patients ON devices.id = device_patients.device_id AND device_patients.deleted_at IS NULL").
+		Joins("LEFT JOIN patients ON patients.id = device_patients.patient_id AND patients.deleted_at IS NULL")
+
+	if email != "" {
+		var user models.User
+		userRole := ""
+		if err := database.DB.Where("email = ?", email).First(&user).Error; err == nil {
+			userRole = user.Role
+		}
+
+		if userRole != "admin" {
+			query = query.
+				Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id").
+				Joins("JOIN users ON users.id = caregiver_patients.user_id").
+				Where("users.email = ?", email)
+		}
+	}
+
+	var results []DashboardDeviceResponse
+	if err := query.Scan(&results).Error; err != nil {
+		return nil, err
+	}
+
+	if results == nil {
+		results = []DashboardDeviceResponse{}
+	}
+
+	return results, nil
+}
+
 // 📡 API: ดึงรายการอุปกรณ์
 // 📡 API: ดึงรายการอุปกรณ์ทั้งหมดเพื่อแสดงบนหน้าแดชบอร์ด
 func GetDashboardDevices(c *fiber.Ctx) error {
@@ -35,49 +74,12 @@ func GetDashboardDevices(c *fiber.Ctx) error {
 	
 	// ดึง Email และ UserID มาจาก JWT
 	loggedInEmail := claims["email"].(string)
-	userIDClaim, _ := claims["user_id"].(float64)
-	userID := uint(userIDClaim)
 
-	// ==========================================
-	// 🟢 2. ดึง Role ของ User จาก Database โดยตรง
-	// ==========================================
-	var user models.User
-	userRole := ""
-	if err := database.DB.First(&user, userID).Error; err == nil {
-		userRole = user.Role
-	}
-
-	var results []DashboardDeviceResponse
-
-	// ==========================================
-	// 🌟 3. สร้าง Query โดยยึดตาราง devices เป็นหลัก (LEFT JOIN)
-	// ==========================================
-	query := database.DB.Model(&models.Device{}).
-		Select("devices.id, devices.mac_address, devices.status, devices.is_active, devices.is_verified, patients.name as patient_name, device_patients.device_name").
-		Joins("LEFT JOIN device_patients ON devices.id = device_patients.device_id").
-		Joins("LEFT JOIN patients ON patients.id = device_patients.patient_id")
-
-	// ==========================================
-	// 👑 4. เช็คสิทธิ์: ถ้าไม่ใช่ Admin ให้เห็นแค่คนไข้ตัวเอง
-	// ==========================================
-	if userRole != "admin" {
-		query = query.
-			Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id").
-			Joins("JOIN users ON users.id = caregiver_patients.user_id").
-			Where("users.email = ?", loggedInEmail)
-	}
-
-	// ==========================================
-	// 5. สั่งรัน Query และส่งข้อมูลกลับ
-	// ==========================================
-	if err := query.Scan(&results).Error; err != nil {
+	results, err := fetchDashboardDevices(loggedInEmail)
+	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "ไม่สามารถดึงข้อมูลอุปกรณ์ได้",
 		})
-	}
-
-	if results == nil {
-		results = []DashboardDeviceResponse{}
 	}
 
 	return c.JSON(fiber.Map{

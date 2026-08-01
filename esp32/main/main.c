@@ -65,7 +65,7 @@ char ap_password_dynamic[64] = {0};
 #define ENV_SERVER  2
 #define ENV_LAB     3
 
-#define IS_LOCAL_ENV 1
+#define IS_LOCAL_ENV 2
 
 #if IS_LOCAL_ENV == ENV_LOCAL
 

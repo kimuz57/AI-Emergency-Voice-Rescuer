@@ -6,7 +6,7 @@ import QRCode from "qrcode";
 interface DeviceData {
   id: number;
   mac_address: string;
-  patient_name: string | null; // รองรับค่า null
+  patient_name: string | null;
   device_name: string | null;
   status: string;
   is_active: boolean;
@@ -15,13 +15,19 @@ interface DeviceData {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-// ==========================================
-// 📌 กำหนด Type ของข้อมูล
-// ==========================================
 type UserProfile = {
   name: string;
   email: string;
   role: string;
+};
+
+// 🟢 แยกฟังก์ชันดึง Token ออกมาด้านนอก เพื่อให้ใช้ร่วมกันได้ทั้ง Fetch และ SSE
+const getAuthToken = () => {
+  if (typeof window === "undefined") return "";
+  const fromStorage = localStorage.getItem("token");
+  if (fromStorage) return fromStorage;
+  const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
 };
 
 export default function DevicesPage() {
@@ -30,28 +36,27 @@ export default function DevicesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [wifiModalDevice, setWifiModalDevice] = useState<DeviceData | null>(null);
+  // สถานะเพื่อแสดงว่า SSE เชื่อมต่ออยู่หรือไม่ (เผื่อนำไปทำ UI ไฟกระพริบมุมจอ)
+  const [isLive, setIsLive] = useState(false);
+
+  const [wifiModalDevice, setWifiModalDevice] = useState<DeviceData | null>(
+    null,
+  );
   const [wifiQrUrl, setWifiQrUrl] = useState<string>("");
   const [wifiInfo, setWifiInfo] = useState({ ssid: "", pass: "" });
 
-  // 🟢 ฟังก์ชันคำนวณรหัสและเจน QR Code
   const handleOpenWifiQr = async (device: DeviceData) => {
-    // ลบเครื่องหมาย : ออกให้เหลือแค่ตัวอักษร 12 ตัวติดกัน
     const cleanMac = device.mac_address.replace(/:/g, "").toUpperCase();
     if (cleanMac.length !== 12) {
       alert("MAC Address ไม่ถูกต้อง");
       return;
     }
 
-    // ดึง 6 ตัวหน้า และ 6 ตัวท้าย
     const first6 = cleanMac.substring(0, 6);
     const last6 = cleanMac.substring(6, 12);
 
-    // สร้าง SSID และ Password ตามแพทเทิร์น
     const ssid = `Smartvoice-${last6}`;
     const pass = `SV-${first6}`;
-
-    // สร้าง String รูปแบบมาตรฐานสำหรับต่อ WiFi
     const wifiString = `WIFI:T:WPA;S:${ssid};P:${pass};;`;
 
     setWifiInfo({ ssid, pass });
@@ -70,7 +75,6 @@ export default function DevicesPage() {
     }
   };
 
-  // 📥 ฟังก์ชันดาวน์โหลด WiFi QR Code
   const handleDownloadWifiQr = () => {
     if (!wifiQrUrl || !wifiModalDevice) return;
     const link = document.createElement("a");
@@ -80,7 +84,6 @@ export default function DevicesPage() {
     link.click();
   };
 
-  // 🖨️ ฟังก์ชันพิมพ์ WiFi QR Code
   const handlePrintWifiQr = () => {
     if (!wifiQrUrl || !wifiModalDevice) return;
     const printWindow = window.open("", "_blank");
@@ -113,9 +116,7 @@ export default function DevicesPage() {
     printWindow.document.close();
   };
 
-  // ==========================================
-  // 🔄 ฟังก์ชันดึงข้อมูล User และ Devices
-  // ==========================================
+  // ดึงข้อมูลครั้งแรก (Initial Fetch)
   const fetchData = async () => {
     setIsLoading(true);
     setError("");
@@ -136,14 +137,6 @@ export default function DevicesPage() {
         throw new Error("ไม่พบข้อมูลผู้ใช้งาน กรุณาเข้าสู่ระบบใหม่");
       }
 
-      const getAuthToken = () => {
-        if (typeof window === "undefined") return "";
-        const fromStorage = localStorage.getItem("token");
-        if (fromStorage) return fromStorage;
-        const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
-        return match ? decodeURIComponent(match[1]) : "";
-      };
-
       const token = getAuthToken();
 
       const userRes = await fetch(
@@ -151,14 +144,14 @@ export default function DevicesPage() {
         {
           method: "GET",
           credentials: "include",
-        }
+        },
       );
       if (userRes.ok) {
         const userData = await userRes.json();
         setUser(userData);
       }
 
-      const deviceRes = await fetch(`${API_BASE_URL}/device`, {
+      const deviceRes = await fetch(`${API_BASE_URL}/api/devices`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -181,8 +174,60 @@ export default function DevicesPage() {
     }
   };
 
+  // ==========================================
+  // 🔄 ระบบ Initialize ข้อมูล & SSE Connection
+  // ==========================================
   useEffect(() => {
-    fetchData();
+    fetchData(); // ดึงข้อมูลก้อนแรกก่อน
+
+    const targetEmail = localStorage.getItem("userEmail");
+    if (!targetEmail || targetEmail === "null") return;
+
+    const token = getAuthToken();
+
+    // 🌟 เลียนแบบ Dashboard เป๊ะๆ: ส่งทั้ง email และ token ไปใน URL
+    const sseUrl = `${API_BASE_URL}/api/device/stream?email=${encodeURIComponent(targetEmail)}&token=${encodeURIComponent(token)}`;
+    const eventSource = new EventSource(sseUrl, {
+      withCredentials: true,
+    });
+
+    eventSource.onopen = () => {
+      setIsLive(true);
+      console.log("🟢 SSE Connected: Ready for real-time device updates");
+    };
+
+    eventSource.onmessage = (event) => {
+      if (!event.data) return;
+
+      try {
+        const data = JSON.parse(event.data);
+
+        setDevices((prevDevices) => {
+          if (Array.isArray(data)) return data;
+
+          const exists = prevDevices.find(
+            (d) => d.mac_address === data.mac_address,
+          );
+          if (exists) {
+            return prevDevices.map((d) =>
+              d.mac_address === data.mac_address ? { ...d, ...data } : d,
+            );
+          }
+          return [...prevDevices, data];
+        });
+      } catch (err) {
+        console.error("SSE JSON Parse Error:", err);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+      console.error("🔴 SSE Connection Error:", err);
+      setIsLive(false);
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, []);
 
   const isAdmin = user?.role?.toLowerCase() === "admin";
@@ -192,7 +237,6 @@ export default function DevicesPage() {
       key={device.id || index}
       className="group bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-500/50 transition-all duration-300 relative overflow-hidden"
     >
-      {/* 🟢 Status Badges */}
       <div className="absolute top-5 right-5 flex items-center gap-2">
         {device.is_active ? (
           <span className="px-2 py-1 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 text-[10px] font-bold rounded-md uppercase tracking-wide">
@@ -210,12 +254,16 @@ export default function DevicesPage() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
               </span>
-              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">Online</span>
+              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                Online
+              </span>
             </>
           ) : (
             <>
               <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">Offline</span>
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                Offline
+              </span>
             </>
           )}
         </div>
@@ -223,7 +271,16 @@ export default function DevicesPage() {
 
       <div className="mb-4">
         <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-blue-600 dark:text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-5 h-5 text-blue-600 dark:text-blue-400"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
             <rect x="9" y="9" width="6" height="6"></rect>
             <line x1="9" y1="1" x2="9" y2="4"></line>
@@ -236,37 +293,66 @@ export default function DevicesPage() {
             <line x1="1" y1="14" x2="4" y2="14"></line>
           </svg>
         </div>
-        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">MAC ADDRESS</h4>
-        <p className="font-mono font-bold text-lg text-slate-800 dark:text-slate-100">{device.mac_address}</p>
-        
-        {/* ปุ่มเจน QR */}
+        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+          MAC ADDRESS
+        </h4>
+        <p className="font-mono font-bold text-lg text-slate-800 dark:text-slate-100">
+          {device.mac_address}
+        </p>
+
         <button
           onClick={() => handleOpenWifiQr(device)}
           className="flex items-center gap-1.5 px-2 py-1 mt-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 rounded-md transition-colors w-fit"
           title="สร้าง QR สแกนต่อ WiFi บอร์ด"
         >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5V16M4.5 4.5h3v3h-3v-3zm9 0h3v3h-3v-3zm-9 9h3v3h-3v-3z" />
+          <svg
+            className="w-3.5 h-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5V16M4.5 4.5h3v3h-3v-3zm9 0h3v3h-3v-3zm-9 9h3v3h-3v-3z"
+            />
           </svg>
           <span className="text-[10px] font-bold tracking-wide">WIFI QR</span>
         </button>
       </div>
 
       <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">ผู้ป่วยที่ผูกกับบอร์ดนี้</h4>
+        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+          ผู้ป่วยที่ผูกกับบอร์ดนี้
+        </h4>
         {device.patient_name ? (
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-xs">
               {device.patient_name.charAt(0)}
             </div>
-            <p className="font-medium text-slate-700 dark:text-slate-300 text-sm truncate">{device.patient_name}</p>
+            <p className="font-medium text-slate-700 dark:text-slate-300 text-sm truncate">
+              {device.patient_name}
+            </p>
           </div>
         ) : (
           <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 border-dashed rounded-lg flex items-center gap-2">
-            <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="w-4 h-4 text-amber-500"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">ยังไม่ถูกผูกกับผู้ป่วย (รอการลงทะเบียน)</span>
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              ยังไม่ถูกผูกกับผู้ป่วย (รอการลงทะเบียน)
+            </span>
           </div>
         )}
       </div>
@@ -276,13 +362,20 @@ export default function DevicesPage() {
   return (
     <div className="relative min-h-screen p-6 md:p-10 font-sans">
       <div className="max-w-7xl mx-auto">
-        {/* ========================================== */}
-        {/* 🏷️ ส่วนหัวของหน้า (Header) */}
-        {/* ========================================== */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-blue-700 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-blue-700 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent flex items-center gap-3">
               จัดการอุปกรณ์รับเสียง
+              {/* 🟢 แสดงจุดไฟเขียวเล็กๆ ว่าเชื่อมต่อ Real-time อยู่ */}
+              {isLive && (
+                <span
+                  className="relative flex h-3 w-3 mt-1"
+                  title="เชื่อมต่อข้อมูลแบบ Real-time"
+                >
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                </span>
+              )}
             </h1>
             <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
               แสดงสถานะอุปกรณ์ที่ผูกกับผู้ป่วย
@@ -300,19 +393,23 @@ export default function DevicesPage() {
               stroke="currentColor"
               strokeWidth={2}
             >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             รีเฟรชข้อมูล
           </button>
         </div>
 
-        {/* ========================================== */}
-        {/* 📦 ส่วนแสดงผล (Loading / Error / Data) */}
-        {/* ========================================== */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {[1, 2, 3].map((skeleton) => (
-              <div key={skeleton} className="bg-white/60 dark:bg-slate-800/60 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 h-32 animate-pulse flex flex-col justify-between">
+              <div
+                key={skeleton}
+                className="bg-white/60 dark:bg-slate-800/60 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 h-32 animate-pulse flex flex-col justify-between"
+              >
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
                 <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
@@ -321,22 +418,48 @@ export default function DevicesPage() {
           </div>
         ) : error ? (
           <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-2xl p-8 text-center">
-            <svg className="w-12 h-12 text-red-500 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="w-12 h-12 text-red-500 mx-auto mb-3"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
-            <h3 className="text-lg font-bold text-red-800 dark:text-red-400">เกิดข้อผิดพลาด</h3>
+            <h3 className="text-lg font-bold text-red-800 dark:text-red-400">
+              เกิดข้อผิดพลาด
+            </h3>
             <p className="text-red-600 dark:text-red-300 mt-1">{error}</p>
           </div>
         ) : devices.length === 0 ? (
           <div className="bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-12 text-center shadow-sm">
             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg
+                className="w-8 h-8 text-slate-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">ยังไม่มีอุปกรณ์ในระบบ</h3>
+            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">
+              ยังไม่มีอุปกรณ์ในระบบ
+            </h3>
             <p className="text-slate-500 dark:text-slate-400 mt-2">
-              {isAdmin ? "ยังไม่มีการลงทะเบียนอุปกรณ์ใดๆ ในระบบ" : "ยังไม่มีอุปกรณ์ของผู้ป่วยที่อยู่ภายใต้การดูแลของคุณ"}
+              {isAdmin
+                ? "ยังไม่มีการลงทะเบียนอุปกรณ์ใดๆ ในระบบ"
+                : "ยังไม่มีอุปกรณ์ของผู้ป่วยที่อยู่ภายใต้การดูแลของคุณ"}
             </p>
           </div>
         ) : (
@@ -347,13 +470,15 @@ export default function DevicesPage() {
                 <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
                 อุปกรณ์ที่เปิดใช้งาน (Activated)
               </h2>
-              {devices.filter(d => d.is_active).length > 0 ? (
+              {devices.filter((d) => d.is_active).length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {devices.filter(d => d.is_active).map(renderDeviceCard)}
+                  {devices.filter((d) => d.is_active).map(renderDeviceCard)}
                 </div>
               ) : (
                 <div className="bg-white/40 dark:bg-slate-800/40 rounded-xl p-6 text-center border border-dashed border-slate-200 dark:border-slate-700">
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">ไม่มีอุปกรณ์ที่เปิดใช้งานในขณะนี้</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    ไม่มีอุปกรณ์ที่เปิดใช้งานในขณะนี้
+                  </p>
                 </div>
               )}
             </div>
@@ -364,13 +489,15 @@ export default function DevicesPage() {
                 <span className="w-3 h-3 rounded-full bg-amber-400 shadow-sm"></span>
                 อุปกรณ์ที่ยังไม่เปิดใช้งาน (Not Activated)
               </h2>
-              {devices.filter(d => !d.is_active).length > 0 ? (
+              {devices.filter((d) => !d.is_active).length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {devices.filter(d => !d.is_active).map(renderDeviceCard)}
+                  {devices.filter((d) => !d.is_active).map(renderDeviceCard)}
                 </div>
               ) : (
                 <div className="bg-white/40 dark:bg-slate-800/40 rounded-xl p-6 text-center border border-dashed border-slate-200 dark:border-slate-700">
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">ไม่มีอุปกรณ์ที่ยังไม่เปิดใช้งาน</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    ไม่มีอุปกรณ์ที่ยังไม่เปิดใช้งาน
+                  </p>
                 </div>
               )}
             </div>
@@ -378,29 +505,48 @@ export default function DevicesPage() {
         )}
       </div>
 
-      {/* ========================================== */}
-      {/* 📱 Modal แสดง WiFi QR Code (Popup กลางจอ) */}
-      {/* ========================================== */}
       {wifiModalDevice && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          
           <div className="dark:bg-slate-700/50 bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-xl border border-white/80 flex flex-col items-center gap-6 animate-in zoom-in-95 duration-200 relative w-full max-w-md">
-            
-            {/* ปุ่มปิด Modal (กากบาท) */}
-            <button 
+            <button
               onClick={() => setWifiModalDevice(null)}
               className="absolute top-4 right-4 p-2 bg-white/50 dark:bg-slate-700/50 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40 text-slate-500 rounded-full transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
 
             <h2 className="w-full text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
               <span className="text-purple-500">
-                <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="w-5 h-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                  />
                 </svg>
               </span>
               WiFi Setup QR Code
@@ -409,9 +555,15 @@ export default function DevicesPage() {
             <div className="relative group w-full flex justify-center">
               <div className="relative bg-white p-5 rounded-2xl shadow-xl border-2 border-emerald-100">
                 {wifiQrUrl ? (
-                  <img src={wifiQrUrl} alt="WiFi QR Code" className="w-56 h-56 md:w-64 md:h-64" />
+                  <img
+                    src={wifiQrUrl}
+                    alt="WiFi QR Code"
+                    className="w-56 h-56 md:w-64 md:h-64"
+                  />
                 ) : (
-                  <div className="w-56 h-56 md:w-64 md:h-64 flex items-center justify-center text-slate-400">กำลังสร้าง...</div>
+                  <div className="w-56 h-56 md:w-64 md:h-64 flex items-center justify-center text-slate-400">
+                    กำลังสร้าง...
+                  </div>
                 )}
               </div>
             </div>
@@ -421,11 +573,11 @@ export default function DevicesPage() {
                 {wifiModalDevice.mac_address}
               </p>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
-                SSID: <span className="font-bold text-indigo-600 dark:text-indigo-400">{wifiInfo.ssid}</span>
+                SSID:{" "}
+                <span className="font-bold text-indigo-600 dark:text-indigo-400">
+                  {wifiInfo.ssid}
+                </span>
               </p>
-              {/* <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Password: <span className="font-bold text-indigo-600 dark:text-indigo-400">{wifiInfo.pass}</span>
-              </p> */}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3 w-full justify-center">
@@ -433,8 +585,18 @@ export default function DevicesPage() {
                 onClick={handleDownloadWifiQr}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5 w-full sm:w-auto"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
                 </svg>
                 ดาวน์โหลด PNG
               </button>
@@ -442,8 +604,18 @@ export default function DevicesPage() {
                 onClick={handlePrintWifiQr}
                 className="flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-white rounded-xl font-bold text-sm hover:border-emerald-400 hover:text-emerald-600 transition-all hover:-translate-y-0.5 w-full sm:w-auto"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
+                  />
                 </svg>
                 พิมพ์ QR Code
               </button>
@@ -451,7 +623,6 @@ export default function DevicesPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
