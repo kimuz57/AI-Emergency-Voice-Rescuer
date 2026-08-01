@@ -148,8 +148,19 @@ def amplify_audio(pcm_data: bytes, volume_gain: float) -> bytes:
     if volume_gain == 1.0: 
         return pcm_data
     samples = array.array('h', pcm_data)
+
+    if not samples:
+        return pcm_data
+
+    peak = max(abs(sample) for sample in samples)
+    if peak == 0:
+        return pcm_data
+
+    max_safe_gain = 32767 / peak
+    effective_gain = min(volume_gain, max_safe_gain)
+
     for i in range(len(samples)):
-        val = int(samples[i] * volume_gain)
+        val = int(samples[i] * effective_gain)
         if val > 32767: val = 32767
         elif val < -32768: val = -32768
         samples[i] = val
