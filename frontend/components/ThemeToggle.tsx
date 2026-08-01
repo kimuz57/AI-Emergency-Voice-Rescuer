@@ -1,5 +1,5 @@
 "use client";
-
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 

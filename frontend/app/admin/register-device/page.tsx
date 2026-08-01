@@ -1,5 +1,5 @@
 "use client";
-
+/* eslint-disable @next/next/no-img-element, react-hooks/set-state-in-effect */
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";

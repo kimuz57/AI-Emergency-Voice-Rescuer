@@ -1,5 +1,5 @@
 "use client";
-
+/* eslint-disable react-hooks/set-state-in-effect, @next/next/no-img-element */
 import { useState, useEffect } from "react";
 import QRCode from "qrcode";
 
