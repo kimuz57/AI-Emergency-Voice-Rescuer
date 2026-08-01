@@ -33,7 +33,10 @@ func RequireAuth(c *fiber.Ctx) error {
 
     // 2. ลองดึง Token จาก Cookie หรือ Header
     tokenString := ExtractToken(c)
-
+    if tokenString == "" {
+		tokenString = c.Query("token")
+	}
+    
     // ถ้าหาไม่เจอเลย แปลว่ายังไม่ได้ล็อกอิน
     if tokenString == "" {
         fmt.Println("❌ Middleware: ไม่พบ Token ใน Cookie และ Header")

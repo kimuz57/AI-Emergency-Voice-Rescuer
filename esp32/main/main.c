@@ -61,28 +61,38 @@ char ap_password_dynamic[64] = {0};
 #define AUDIO_CHUNK_SAMPLES 1024    
 #define I2S_DMA_BUF_LEN     1024   
 
-// ==========================================
-// 🌟 สวิตช์สลับโหมด (เปลี่ยนแค่บรรทัดนี้บรรทัดเดียว!)
-// 1 = รันบน Local (คอมตัวเอง) | 0 = รันบน Server จริง
-// ==========================================
-#define IS_LOCAL_ENV 0 
-#if IS_LOCAL_ENV
-    // --- ตั้งค่าสำหรับ Local ---
-// สำหรับ API ต้องเป็น https:
-    #define TARGET_GO_API "http://10.151.202.101:8080/api/device/checkin?mac=%s&ip=%s"
-// สำหรับ MQTT ต้องเป็น wss:// (WebSocket Secure) และระบุพอร์ตที่ถูกต้อง
-    #define TARGET_MQTT_URI "ws://10.151.202.101:9001/mqtt"
-// (หรือถ้าใช้พอร์ต 8083 ก็แก้เป็น wss://s8449mbs-8083.asse.devtunnels.ms/mqtt)
-    #define SKIP_CERT_CHECK true  // Local ใช้ plain WS/ MQTT เพื่อเลี่ยง TLS ก่อน
+#define ENV_LOCAL   1
+#define ENV_SERVER  2
+#define ENV_LAB     3
+
+#define IS_LOCAL_ENV 1
+
+#if IS_LOCAL_ENV == ENV_LOCAL
+
+    #define TARGET_GO_API "http://192.168.1.109:8080/api/device/checkin?mac=%s&ip=%s"
+    #define TARGET_MQTT_URI "ws://192.168.1.109:9001/mqtt"
+    #define SKIP_CERT_CHECK true
     #define USER "kws"
     #define PASS "kws123"
-#else
-    // --- ตั้งค่าสำหรับ Server จริง ---
+
+#elif IS_LOCAL_ENV == ENV_SERVER
+
     #define TARGET_GO_API "https://kwsapi.wattanapong.com/api/device/checkin?mac=%s&ip=%s"
     #define TARGET_MQTT_URI "wss://mqtt.wattanapong.com:443/mqtt"
-    #define SKIP_CERT_CHECK false // Server จริงต้องตรวจสอบ Cert เพื่อความปลอดภัย
+    #define SKIP_CERT_CHECK false
     #define USER "kws"
     #define PASS "31J6LEg4T$4dtwCf"
+
+#elif IS_LOCAL_ENV == ENV_LAB
+
+    #define TARGET_GO_API "http://10.151.202.101:8080/api/device/checkin?mac=%s&ip=%s"
+    #define TARGET_MQTT_URI "ws://10.151.202.101:9001/mqtt"
+    #define SKIP_CERT_CHECK true
+    #define USER "kws"
+    #define PASS "kws123"
+
+#else
+    #error "Unknown Environment"
 #endif
 
 static esp_mqtt_client_handle_t mqtt_client = NULL;

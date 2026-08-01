@@ -76,6 +76,8 @@ func SetupRoutes(app *fiber.App) {
 		patientGroup.Post("/", controllers.CreatePatient)
 		patientGroup.Post("/register", controllers.RegisterPatientWithDevice)
 		patientGroup.Delete("/:id", controllers.DeletePatient)
+
+		patientGroup.Get("/stream", controllers.StreamPatients)
 	}
 
 	deviceGroup := app.Group("/api/device")
@@ -83,26 +85,19 @@ func SetupRoutes(app *fiber.App) {
 		// ให้ Python ยิงมาถามสถานะ Activation ของบอร์ดที่นี่
 		deviceGroup.Get("/checkin", controllers.CheckinDeviceIP)
 		deviceGroup.Get("/check-activation", controllers.CheckDeviceActivation)
+		deviceGroup.Post("/status", controllers.UpdateDeviceStatus)
 	}
 
 	alertGroup := app.Group("/api/alerts")
 	{
-		// 🟢 รับข้อมูลจาก ESP32 / AI
 		alertGroup.Post("/ai", controllers.CreateAlert)
-
-		// 🟢 รับข้อมูลการแจ้งเตือนทั่วไป
 		alertGroup.Post("/", controllers.CreateAlert)
-
-		// 🟢 ดึงข้อมูลการแจ้งเตือน (ที่ยังไม่ resolve)
 		alertGroup.Get("/", controllers.GetActiveAlerts)
-
-		// 🟢 ดึงประวัติและสถิติสำหรับหน้าปฏิทิน
 		alertGroup.Get("/history", controllers.GetHistoryAlerts)
-
-		// 🟢 อัปเดตสถานะรับทราบและช่วยเหลือ (ลบบรรทัดที่ซ้ำออกแล้ว)
 		alertGroup.Put("/:id/resolve", controllers.ResolveAlert)
-
 		alertGroup.Get("/stats", controllers.GetAlertStats)
+
+		alertGroup.Get("/stream", controllers.StreamAlerts)
 	}
 
 	// ==========================================

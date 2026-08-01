@@ -182,7 +182,7 @@ export default function PatientsPage() {
           </p>
         </div>
         <a
-          href="/registor-patient"
+          href="/register-patient"
           className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
         >
           <svg

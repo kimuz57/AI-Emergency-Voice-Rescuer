@@ -7,9 +7,13 @@ import (
 	"go_backend/models"
 	"go_backend/utils" // 🟢 อย่าลืม Import utils สำหรับแกะ Token
 	"strings"
-
+	"time"
+	"bufio"
+	"encoding/json"
+	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
+	"github.com/valyala/fasthttp"
 )
 
 // ในไฟล์ controllers/patient_controller.go
@@ -248,4 +252,72 @@ func DeletePatient(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "ลบข้อมูลผู้ป่วยและยกเลิกการผูกอุปกรณ์เรียบร้อยแล้ว",
 	})
+}
+
+func StreamPatients(c *fiber.Ctx) error {
+	c.Set("Content-Type", "text/event-stream")
+	c.Set("Cache-Control", "no-cache")
+	c.Set("Connection", "keep-alive")
+
+	// รับ email ที่ส่งมาจาก React
+	targetEmail := c.Query("email")
+
+	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+		ticker := time.NewTicker(1 * time.Second) // ส่งข้อมูลอัปเดตทุก 5 วินาที
+		defer ticker.Stop()
+
+		for range ticker.C {
+			if targetEmail == "" {
+				continue
+			}
+
+			// ดึงรายชื่อผู้ป่วยที่ผูกกับผู้ดูแลรายนี้
+			patientsData, err := fetchPatientsFromDB(targetEmail)
+			if err != nil {
+				continue
+			}
+
+			jsonData, err := json.Marshal(patientsData)
+			if err != nil {
+				continue
+			}
+
+			// ส่งข้อมูลรูปแบบ SSE
+			fmt.Fprintf(w, "data: %s\n\n", jsonData)
+
+			// ดันข้อมูลออกไปหา React ทันที
+			if err := w.Flush(); err != nil {
+				fmt.Println("Client disconnected from Patients SSE stream")
+				return
+			}
+		}
+	}))
+
+	return nil
+}
+
+// 🟢 Helper Function สำหรับ Query รายชื่อผู้ป่วยจาก DB
+func fetchPatientsFromDB(email string) ([]models.Patient, error) {
+	var user models.User
+	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		return []models.Patient{}, nil // ถ้าหาผู้ใช้งานไม่เจอ ให้ส่ง array เปล่า
+	}
+
+	var patients []models.Patient
+
+	// ดึงผู้ป่วยที่มีความสัมพันธ์กับ user_id นี้ผ่านตาราง caregiver_patients
+	err := database.DB.Table("patients").
+		Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id").
+		Where("caregiver_patients.user_id = ?", user.ID).
+		Find(&patients).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("ดึงข้อมูลผู้ป่วยล้มเหลว: %v", err)
+	}
+
+	if patients == nil {
+		patients = []models.Patient{}
+	}
+
+	return patients, nil
 }

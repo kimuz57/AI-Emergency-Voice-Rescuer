@@ -19,116 +19,117 @@ type EmergencyAlert = {
 };
 
 export default function Dashboard() {
+  //console.log("🟢 1. Dashboard Component Rendered!");
   const router = useRouter();
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [userData, setUserData] = useState<any>(null);
-  // 🟢 State จำลองรายชื่อผู้ป่วย (เดี๋ยวเราค่อยทำ API ดึงจาก Go มาใส่แทน)
-  // ลองเปลี่ยนเป็น [] เพื่อดูหน้าจอ "ไม่มีผู้ป่วย (Empty State)"
   const [patients, setPatients] = useState<any[]>([]);
 
-  // ==========================================
-  // 1. ฟังก์ชันดึงข้อมูลเหตุฉุกเฉินจริงจาก Go Backend (PostgreSQL)
-  // ==========================================
-  const fetchAlerts = async () => {
-    try {
-      const targetEmail = localStorage.getItem("userEmail");
-
-      if (!targetEmail || targetEmail === "null") {
-        console.log("❌ ไม่มีอีเมลที่ถูกต้อง หยุดการทำงาน API");
-        return;
-      }
-
-      const res = await fetch(
-        `${API_BASE_URL}/api/alerts?email=${targetEmail}`,
-        {
-          method: "GET", // ระบุ method ให้ชัดเจน
-          credentials: "include", // 🔑 สั่งให้แนบคุกกี้ httpOnly ไปด้วย!
-        },
-      );
-
-      if (res.ok) {
-        const data = await res.json();
-        setAlerts(Array.isArray(data) ? data : []);
-      } else {
-        setAlerts([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch alerts:", error);
-      setAlerts([]);
-    }
+  // Helper สำหรับดึง Token
+  const getAuthToken = () => {
+    if (typeof window === "undefined") return "";
+    const fromStorage = localStorage.getItem("token");
+    if (fromStorage) return fromStorage;
+    const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : "";
   };
 
-  const fetchPatients = async () => {
-    try {
-      const targetEmail = localStorage.getItem("userEmail");
-
-      if (!targetEmail || targetEmail === "null") {
-        console.log("❌ ไม่มีอีเมล");
-        return;
-      }
-
-      const getAuthToken = () => {
-        if (typeof window === "undefined") return "";
-        const fromStorage = localStorage.getItem("token");
-        if (fromStorage) return fromStorage;
-        const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
-        return match ? decodeURIComponent(match[1]) : "";
-      };
-
-      const token = getAuthToken();
-
-      const res = await fetch(`${API_BASE_URL}/api/patients`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        credentials: "include", // 🌟 ต้องมีบรรทัดนี้ เพื่อส่ง Cookie ให้ Backend
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setPatients(Array.isArray(data) ? data : []);
-      } else {
-        console.error("ดึงข้อมูลผู้ป่วยล้มเหลว");
-        setPatients([]);
-      }
-    } catch (error) {
-      console.error("เชื่อมต่อ Backend ล้มเหลว:", error);
-      setPatients([]);
-    }
-  };
-
-  // useEffect(() => {
-  //   fetchAlerts();
-  //   // โหลดข้อมูลใหม่ทุกๆ 5 วินาที
-  //   const interval = setInterval(fetchAlerts, 5000);
-  //   return () => clearInterval(interval);
-  // }, []);
+  // ==========================================
+  // เชื่อมต่อ SSE จาก Go Backend ผ่าน useEffect
+  // ==========================================
   useEffect(() => {
-    fetchAlerts();
-    fetchPatients(); // 🟢 1. สั่งดึงรายชื่อ/จำนวนคนไข้ตอนเปิดหน้าเว็บครั้งแรก
+    //console.log("🚀 2. useEffect ใน Dashboard เริ่มทำงาน!");
+    if (typeof window === "undefined") return;
 
-    const interval = setInterval(() => {
-      fetchAlerts();
-      fetchPatients(); // 🟢 2. สั่งให้อัปเดตข้อมูลคนไข้สดใหม่ทุกๆ 5 วินาที
-    }, 5000);
+    const targetEmail = localStorage.getItem("userEmail");
+    //console.log("📧 3. Email ที่ Dashboard อ่านได้:", targetEmail);
+    if (!targetEmail || targetEmail === "null") {
+      //console.log("❌ ไม่มีอีเมลที่ถูกต้อง หยุดการทำงาน SSE");
+      return;
+    }
 
-    return () => clearInterval(interval);
+    const token = getAuthToken();
+    //console.log("🔗 4. API_BASE_URL คือ:", API_BASE_URL);
+    // 1. เชื่อมต่อ SSE สำหรับ Alerts
+    // (ส่ง email/token ไปกับ Query Parameter และใส่ withCredentials: true เพื่อแนบคุกกี้)
+    const alertsUrl = `${API_BASE_URL}/api/alerts/stream?email=${encodeURIComponent(targetEmail)}&token=${encodeURIComponent(token)}`;
+    const alertsSource = new EventSource(alertsUrl, {
+      withCredentials: true, // 🔑 สั่งให้แนบ Cookie httpOnly ไปด้วย
+    });
+
+    alertsSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const newData = Array.isArray(data) ? data : [];
+        //console.log("✅ รับข้อมูล Alerts:", newData);
+
+        // 🟢 เปลี่ยนมาใช้ prev ดักเช็กข้อมูลซ้ำ
+        setAlerts((prev) => {
+          // ถ้าข้อมูลเหมือนเดิมเป๊ะ (เช่น [] กับ []) ไม่ต้องทำอะไร
+          if (JSON.stringify(prev) === JSON.stringify(newData)) return prev;
+          return newData; // ถ้ามีแจ้งเตือนใหม่ ค่อยอัปเดตหน้าจอ
+        });
+      } catch (error) {
+        console.error("Error parsing alerts:", error);
+      }
+    };
+
+    alertsSource.onerror = (error) => {
+      console.error("Alerts SSE connection error:", error);
+
+      // Browser จะทำ Auto-Reconnect ให้อัตโนมัติเมื่อหลุด
+    };
+
+    // 2. เชื่อมต่อ SSE สำหรับ Patients
+    const patientsUrl = `${API_BASE_URL}/api/patients/stream?email=${encodeURIComponent(targetEmail)}&token=${encodeURIComponent(token)}`;
+    const patientsSource = new EventSource(patientsUrl, {
+      withCredentials: true,
+    });
+
+    patientsSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const newData = Array.isArray(data) ? data : [];
+
+        // 🟢 ดักข้อมูลซ้ำของฝั่ง Patients ด้วย
+        setPatients((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(newData)) return prev;
+          return newData;
+        });
+      } catch (error) {
+        console.error("Error parsing patients:", error);
+      }
+    };
+
+    patientsSource.onerror = (error) => {
+      console.error("Patients SSE connection error:", error);
+    };
+
+    // 3. Clean up ปิด Connection เมื่อ Unmount Component (ป้องกัน Connection รั่ว)
+    return () => {
+      //console.log("🛑 React สั่งตัดสาย SSE เส้นเก่าทิ้งแล้ว!");
+      alertsSource.close();
+      patientsSource.close();
+    };
   }, []);
 
   // ==========================================
-  // 2. ฟังก์ชันเมื่อพยาบาลกดปุ่ม "รับทราบ" (อัปเดต DB)
+  // ฟังก์ชันเมื่อพยาบาลกดปุ่ม "รับทราบ" (อัปเดต DB)
   // ==========================================
   const handleResolve = async (id: number) => {
     if (!id) return;
     try {
       const res = await fetch(`${API_BASE_URL}/api/alerts/${id}/resolve`, {
         method: "PUT",
+        credentials: "include",
       });
-      if (res.ok) {
-        fetchAlerts(); // อัปเดตหน้าจอทันที
+
+      if (!res.ok) {
+        console.error("อัปเดตสถานะล้มเหลว");
       }
+      // 💡 ข้อดีของ SSE:
+      // ไม่จำเป็นต้องเรียกดึงข้อมูลใหม่แล้ว (ไม่ต้อง fetchAlerts)
+      // เพราะเมื่อ Go Backend อัปเดต DB เสร็จ Go จะพ่นข้อมูลใหม่กลับมาทาง SSE Stream ให้เองทันที!
     } catch (error) {
       console.error("อัปเดตสถานะล้มเหลว:", error);
     }
@@ -136,7 +137,7 @@ export default function Dashboard() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden">
-      <PhoneReminder hasPhone={!!userData?.phone} />
+      {/* <PhoneReminder hasPhone={!!userData?.phone} /> */}
       {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
       <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-red-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-20 animate-pulse pointer-events-none"></div>
       <div
@@ -213,7 +214,7 @@ export default function Dashboard() {
             </p>
 
             <Link
-              href="/registor-patient"
+              href="/register-patient"
               className="relative z-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl transition-all shadow-lg hover:shadow-indigo-500/30 flex items-center gap-3 hover:-translate-y-1"
             >
               <svg
@@ -267,9 +268,9 @@ export default function Dashboard() {
           /* 🚨 เงื่อนไขที่ 3: มีผู้ป่วยต้องการความช่วยเหลือ (โชว์ Alert Cards) */
           /* ========================================== */
           <div className="space-y-6">
-            {alerts.map((alert) => (
+            {alerts.map((alert, index) => (
               <div
-                key={alert.id || alert.ID || Math.random()}
+                key={alert.id || alert.ID || `alert-${index}`}
                 className="dark:bg-slate-800 dark:text-white bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl hover:-translate-y-1 transition-all group"
               >
                 {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}

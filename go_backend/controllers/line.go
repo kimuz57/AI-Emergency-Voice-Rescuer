@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-
+	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"go_backend/config"
 	"go_backend/database"
@@ -32,6 +32,8 @@ func LinkLineAccount(c *fiber.Ctx) error {
 	clientID := config.GetEnvRequired("LINE_LOGIN_CHANNEL_ID")
 	clientSecret := config.GetEnvRequired("LINE_LOGIN_CHANNEL_SECRET")
 	redirectURI := config.GetEnvRequired("LINE_LOGIN_CALLBACK_URL") // http://localhost:3000/line-callback
+	fmt.Println("redirectURI:", redirectURI)
+	fmt.Println("clientID:", clientID)
 
 	tokenURL := "https://api.line.me/oauth2/v2.1/token"
 	data := url.Values{}
@@ -47,10 +49,18 @@ func LinkLineAccount(c *fiber.Ctx) error {
 	r.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := client.Do(r)
-	if err != nil || resp.StatusCode != 200 {
-		return c.Status(500).JSON(fiber.Map{"error": "แลกเปลี่ยนรหัสกับ LINE ไม่สำเร็จ (Code อาจจะหมดอายุ)"})
+	if err != nil {
+		fmt.Println("❌ Request failed:", err)
+		return c.Status(500).JSON(fiber.Map{"error": "การเชื่อมต่อขัดข้อง"})
 	}
 	defer resp.Body.Close()
+
+	// 🟢 ถ้า StatusCode ไม่ใช่ 200 ให้ปริ้นต์สิ่งที่ LINE ตอบกลับมาออกมาดู!
+	if resp.StatusCode != 200 {
+		errorBody, _ := io.ReadAll(resp.Body)
+		fmt.Println("🚨 LINE ตอบกลับ Error มาว่า:", string(errorBody)) // << สำคัญมาก!
+		return c.Status(500).JSON(fiber.Map{"error": "แลกเปลี่ยนรหัสกับ LINE ไม่สำเร็จ (Code อาจจะหมดอายุ)"})
+	}
 
 	// อ่านค่า Access Token ที่ LINE ส่งมา
 	body, _ := io.ReadAll(resp.Body)
@@ -74,8 +84,14 @@ func LinkLineAccount(c *fiber.Ctx) error {
 	json.Unmarshal(bodyProfile, &profileResp)
 	
 	// พระเอกของเราอยู่ตรงนี้ครับ! ไอดีที่ขึ้นต้นด้วย U
-	lineUserID := profileResp["userId"].(string) 
+	lineUserID, ok := profileResp["userId"].(string)
 
+	if !ok {
+    	fmt.Println("LINE profile error:", profileResp)
+    	return c.Status(500).JSON(fiber.Map{
+        	"error": "ไม่พบ LINE userId",
+    	})
+	}
 	// 3. บันทึกลงฐานข้อมูล PostgreSQL
 	// ค้นหาผู้ใช้งานจาก Email
 	var user models.User

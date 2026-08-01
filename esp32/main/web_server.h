@@ -12,7 +12,7 @@
 
 #if IS_LOCAL_ENV
     // --- ตั้งค่าสำหรับ Local ---
-    #define SERVER_URL "https://s8449mbs-3000.asse.devtunnels.ms/registor-patient?mac=%s" 
+    #define SERVER_URL "https://s8449mbs-3000.asse.devtunnels.ms/register-patient?mac=%s" 
 #else
     // --- ตั้งค่าสำหรับ Server จริง ---
     #define SERVER_URL "https://kws.wattanapong.com/register-patient?mac=%s"

@@ -1,18 +1,8 @@
-# =====================
-# AI / Python (สำหรับไฟล์ mqtt_audio_receiver.py)
-# =====================
-__pycache__/
-*.py[cod]
-venv/
-env/
-.env_python
-
-# =====================
-# Dynamic Audio Files (ไฟล์เสียงที่ระบบสร้างขึ้น)
-# =====================
-audio_recordings/
-negative/
-emergency/
-audio_received/
-app_old.py
-mqtt_audio_receiver_old.py
+best_bcresnet_kws.pth
+best_sens_model.pth
+dockerfile
+epoch000_best_sens.pth
+model
+.venv
+models/*
+_pycache__

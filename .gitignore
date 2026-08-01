@@ -63,3 +63,7 @@ backend_ai/confusion.py
 QRCode
 command.md
 remove_comment.py
+
+docker.zip
+kws.zip
+a.py

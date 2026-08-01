@@ -108,10 +108,10 @@ export default function ProfilePage() {
   const handleConfirmCrop = async () => {
     try {
       if (!tempImage || !croppedAreaPixels) return;
-      
+
       // 1. นำรูปดิบ + พิกัด ไปประมวลผลตัดรูปผ่าน Canvas
       const croppedFile = await getCroppedImg(tempImage, croppedAreaPixels);
-      
+
       // 2. โชว์รูปที่ตัดแล้วบนหน้าเว็บ และปิดหน้าต่าง
       const croppedUrl = URL.createObjectURL(croppedFile as Blob);
       setPreviewImage(croppedUrl);
@@ -120,7 +120,6 @@ export default function ProfilePage() {
 
       // 3. ส่งไฟล์ที่ถูกตัดแล้วไปให้ Go Backend อัปโหลด
       uploadProfileImage(croppedFile as File);
-      
     } catch (e) {
       console.error("เกิดข้อผิดพลาดในการตัดรูป", e);
       alert("เกิดข้อผิดพลาดในการประมวลผลรูปภาพ");
@@ -168,11 +167,16 @@ export default function ProfilePage() {
 
   const handleConnectLINE = () => {
     const clientId = process.env.NEXT_PUBLIC_LINE_CLIENT_ID;
-    const redirectUri = encodeURIComponent(
-      process.env.NEXT_PUBLIC_LINE_CALLBACK_URL || "",
-    );
+
+    // 🟢 ใช้ window.location.origin เพื่อดึง URL ปัจจุบันที่กำลังเปิดอยู่ (เช่น ตอนนี้คือ DevTunnels)
+    const currentOrigin = window.location.origin;
+    const callbackUrl = `${currentOrigin}/line-callback`;
+
+    const redirectUri = encodeURIComponent(callbackUrl);
     const state = "random_string_12345";
+
     const lineLoginUrl = `https://access.line.me/oauth2/v2.1/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}&scope=profile%20openid`;
+
     window.location.href = lineLoginUrl;
   };
 
@@ -210,7 +214,9 @@ export default function ProfilePage() {
   };
 
   const handleDisconnectLINE = async () => {
-    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการเชื่อมต่อกับ LINE Notify?")) {
+    if (
+      !confirm("คุณแน่ใจหรือไม่ว่าต้องการยกเลิกการเชื่อมต่อกับ LINE Notify?")
+    ) {
       return;
     }
     try {
@@ -241,7 +247,9 @@ export default function ProfilePage() {
   };
 
   const handleDisconnectTelegram = async () => {
-    const confirm = window.confirm("แน่ใจหรือไม่ว่าต้องการยกเลิกการเชื่อมต่อ Telegram?");
+    const confirm = window.confirm(
+      "แน่ใจหรือไม่ว่าต้องการยกเลิกการเชื่อมต่อ Telegram?",
+    );
     if (!confirm) return;
     try {
       const res = await fetch(`${BASE_URL}/api/user/telegram/disconnect`, {
@@ -251,8 +259,10 @@ export default function ProfilePage() {
       });
 
       if (res.ok) {
-        setProfile((prev) => 
-          prev ? { ...prev, isTelegramConnected: false, notifyTelegram: false } : null
+        setProfile((prev) =>
+          prev
+            ? { ...prev, isTelegramConnected: false, notifyTelegram: false }
+            : null,
         );
       }
     } catch (error) {
@@ -265,7 +275,9 @@ export default function ProfilePage() {
       <div className="flex justify-center items-center h-screen w-full">
         <div className="animate-pulse flex flex-col items-center">
           <div className="h-12 w-12 bg-blue-400 rounded-full mb-4"></div>
-          <p className="text-slate-500 font-medium">กำลังโหลดข้อมูลผู้ดูแล...</p>
+          <p className="text-slate-500 font-medium">
+            กำลังโหลดข้อมูลผู้ดูแล...
+          </p>
         </div>
       </div>
     );
@@ -282,15 +294,16 @@ export default function ProfilePage() {
   return (
     <div className="w-full max-w-4xl mx-auto p-6 space-y-6 text-slate-800">
       <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">ข้อมูลส่วนตัว</h1>
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          ข้อมูลส่วนตัว
+        </h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
           จัดการข้อมูลบัญชีผู้ดูแลระบบและการแจ้งเตือนเหตุฉุกเฉิน
         </p>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 ">
         <div className="md:col-span-1 space-y-6 ">
-          
           {/* ========================================== */}
           {/* 👤 ส่วนโปรไฟล์รูปภาพ (คอลัมน์ซ้าย) */}
           {/* ========================================== */}
@@ -303,7 +316,11 @@ export default function ProfilePage() {
                 }`}
               >
                 {previewImage ? (
-                  <img src={previewImage} alt="Preview" className="w-full h-full object-cover" />
+                  <img
+                    src={previewImage}
+                    alt="Preview"
+                    className="w-full h-full object-cover"
+                  />
                 ) : profile?.profileImage ? (
                   <img
                     src={profile.profileImage}
@@ -324,8 +341,18 @@ export default function ProfilePage() {
                 className="absolute bottom-0 right-0 bg-blue-600 text-white p-2.5 rounded-full shadow-lg hover:bg-blue-700 transition-all border-2 border-white dark:border-slate-800 flex items-center justify-center transform group-hover:scale-110"
                 title="เปลี่ยนรูปโปรไฟล์"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
                 </svg>
               </button>
             </div>
@@ -357,9 +384,24 @@ export default function ProfilePage() {
             <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <h3 className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <span className="p-1.5 bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 rounded-lg">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
                   </svg>
                 </span>
                 ส่วนจัดการผู้ดูแลระบบ
@@ -367,41 +409,70 @@ export default function ProfilePage() {
 
               <div className="flex flex-col gap-1.5">
                 {/* 1. จัดการข้อมูลผู้ป่วย */}
-                <Link 
-                  href="/admin/patients" 
+                <Link
+                  href="/admin/patients"
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-sm text-slate-600 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-400 transition-all font-medium group"
                 >
-                  <svg className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  <svg
+                    className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                    />
                   </svg>
                   จัดการข้อมูลผู้ป่วย
                 </Link>
 
                 {/* 2. จัดการผู้ใช้งาน */}
-                <Link 
-                  href="/admin/users" 
+                <Link
+                  href="/admin/users"
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-sm text-slate-600 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-400 transition-all font-medium group"
                 >
-                  <svg className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  <svg
+                    className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"
+                    />
                   </svg>
                   จัดการผู้ใช้งาน
                 </Link>
 
                 {/* 3. ลงทะเบียนเพิ่มบอร์ด */}
-                <Link 
-                  href="/admin/registor-device" 
+                <Link
+                  href="/admin/register-device"
                   className="flex items-center gap-3 p-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-sm text-slate-600 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-400 transition-all font-medium group"
                 >
-                  <svg className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                  <svg
+                    className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
+                    />
                   </svg>
                   ลงทะเบียนเพิ่มบอร์ด
                 </Link>
               </div>
             </div>
           )}
-
         </div>
 
         <div className="md:col-span-2 space-y-6">
@@ -432,7 +503,9 @@ export default function ProfilePage() {
                     type="text"
                     disabled={!isEditing}
                     value={profile.name}
-                    onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                    onChange={(e) =>
+                      setProfile({ ...profile, name: e.target.value })
+                    }
                     className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm
                       text-slate-900 bg-white 
                       dark:text-white dark:bg-slate-700
@@ -449,7 +522,9 @@ export default function ProfilePage() {
                   type="text"
                   disabled={!isEditing}
                   value={profile.phone}
-                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  onChange={(e) =>
+                    setProfile({ ...profile, phone: e.target.value })
+                  }
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-mono
                     text-slate-900 bg-white 
                     dark:text-white dark:bg-slate-700
@@ -487,14 +562,20 @@ export default function ProfilePage() {
                 </div>
               </div>
               <button
-                onClick={profile.isLineConnected ? handleDisconnectLINE : handleConnectLINE}
+                onClick={
+                  profile.isLineConnected
+                    ? handleDisconnectLINE
+                    : handleConnectLINE
+                }
                 className={`px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap ${
                   profile.isLineConnected
                     ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-700/50 dark:hover:bg-amber-900/50"
                     : "bg-emerald-600 text-white hover:bg-emerald-700"
                 }`}
               >
-                {profile.isLineConnected ? "🚫 ยกเลิกการเชื่อมต่อ" : "🔗 เชื่อมต่อ LINE Notify"}
+                {profile.isLineConnected
+                  ? "🚫 ยกเลิกการเชื่อมต่อ"
+                  : "🔗 เชื่อมต่อ LINE Notify"}
               </button>
             </div>
 
@@ -510,7 +591,8 @@ export default function ProfilePage() {
                     Telegram Integration
                   </h4>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                    ส่งข้อความเตือนภัยและไฟล์เสียงเข้า Telegram ทันทีเมื่อเกิดเหตุ
+                    ส่งข้อความเตือนภัยและไฟล์เสียงเข้า Telegram
+                    ทันทีเมื่อเกิดเหตุ
                   </p>
                 </div>
               </div>
@@ -520,7 +602,10 @@ export default function ProfilePage() {
                   if (profile.isTelegramConnected) {
                     handleDisconnectTelegram();
                   } else {
-                    window.open(`https://t.me/EVR_Alert_bot?start=${profile.id}`, "_blank");
+                    window.open(
+                      `https://t.me/EVR_Alert_bot?start=${profile.id}`,
+                      "_blank",
+                    );
                     setTimeout(() => {
                       window.location.reload();
                     }, 5000);
@@ -532,7 +617,9 @@ export default function ProfilePage() {
                     : "bg-sky-500 text-white hover:bg-sky-600"
                 }`}
               >
-                {profile.isTelegramConnected ? "🚫 ยกเลิกการเชื่อมต่อ" : "🔗 เชื่อมต่อ Telegram"}
+                {profile.isTelegramConnected
+                  ? "🚫 ยกเลิกการเชื่อมต่อ"
+                  : "🔗 เชื่อมต่อ Telegram"}
               </button>
             </div>
 
@@ -550,7 +637,9 @@ export default function ProfilePage() {
                   <input
                     type="checkbox"
                     checked={profile.notifyWeb}
-                    onChange={(e) => setProfile({ ...profile, notifyWeb: e.target.checked })}
+                    onChange={(e) =>
+                      setProfile({ ...profile, notifyWeb: e.target.checked })
+                    }
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white dark:after:bg-slate-200 after:border-slate-300 dark:after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
@@ -571,7 +660,9 @@ export default function ProfilePage() {
                     type="checkbox"
                     disabled={!profile.isLineConnected}
                     checked={profile.notifyLine}
-                    onChange={(e) => setProfile({ ...profile, notifyLine: e.target.checked })}
+                    onChange={(e) =>
+                      setProfile({ ...profile, notifyLine: e.target.checked })
+                    }
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white dark:after:bg-slate-200 after:border-slate-300 dark:after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed"></div>
@@ -583,7 +674,8 @@ export default function ProfilePage() {
                     ส่งการแจ้งเตือนไปยังแอปพลิเคชัน Telegram
                   </h4>
                   <p className="text-xs text-slate-400 dark:text-slate-500">
-                    อนุญาตให้ระบบส่งข้อความแจ้งเหตุร้ายเข้าแชท Telegram ของเจ้าหน้าที่
+                    อนุญาตให้ระบบส่งข้อความแจ้งเหตุร้ายเข้าแชท Telegram
+                    ของเจ้าหน้าที่
                   </p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -591,7 +683,12 @@ export default function ProfilePage() {
                     type="checkbox"
                     disabled={!profile.isTelegramConnected}
                     checked={profile.notifyTelegram}
-                    onChange={(e) => setProfile({ ...profile, notifyTelegram: e.target.checked })}
+                    onChange={(e) =>
+                      setProfile({
+                        ...profile,
+                        notifyTelegram: e.target.checked,
+                      })
+                    }
                     className="sr-only peer"
                   />
                   <div className="w-11 h-6 bg-slate-200 dark:bg-slate-600 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white dark:after:bg-slate-200 after:border-slate-300 dark:after:border-slate-500 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sky-500 disabled:opacity-40 disabled:cursor-not-allowed"></div>
@@ -614,8 +711,10 @@ export default function ProfilePage() {
       {showCropper && tempImage && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
           <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-2xl w-full max-w-md mx-4">
-            <h3 className="text-xl font-bold mb-4 text-slate-900 dark:text-white">ปรับตำแหน่งรูปโปรไฟล์</h3>
-            
+            <h3 className="text-xl font-bold mb-4 text-slate-900 dark:text-white">
+              ปรับตำแหน่งรูปโปรไฟล์
+            </h3>
+
             {/* พื้นที่แสดงรูปสำหรับ Crop */}
             <div className="relative w-full h-64 bg-gray-900 rounded-xl overflow-hidden mb-6">
               <Cropper
@@ -634,7 +733,9 @@ export default function ProfilePage() {
 
             {/* แถบเลื่อนปรับระยะซูม */}
             <div className="mb-6">
-              <label className="text-sm text-slate-600 dark:text-slate-300 mb-2 block">ซูมรูปภาพ</label>
+              <label className="text-sm text-slate-600 dark:text-slate-300 mb-2 block">
+                ซูมรูปภาพ
+              </label>
               <input
                 type="range"
                 value={zoom}

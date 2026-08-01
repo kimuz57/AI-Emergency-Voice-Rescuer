@@ -40,8 +40,51 @@ _BYTES_PER_WINDOW = SAMPLE_RATE * CHANNELS * SAMPLE_WIDTH * SECONDS_PER_WINDOW
 _device_states = {}
 _device_activation_cache = {}
 
+_device_last_seen = {}      # เก็บเวลาล่าสุดที่บอร์ดส่งข้อมูลมา { "mac": timestamp }
+_device_is_online = {}      # เก็บสถานะว่าตอนนี้บอร์ดออนไลน์อยู่ไหม ป้องกันการยิง API ซ้ำ { "mac": True/False }
+
 _ai_inference_function = None
 audio_data_queue = queue.Queue(maxsize=20)
+
+def _send_status_to_go_async(payload, is_local):
+    go_status_url = f"{GO_SERVER_URL}/api/device/status" # เดี๋ยวเราจะไปสร้าง Route นี้ใน Go
+    try:
+        headers = {"X-Tunnel-Skip-AntiPhishing-Page": "true"}
+        requests.post(
+            go_status_url,
+            json=payload,
+            headers=headers,
+            timeout=5,
+            verify=not is_local
+        )
+    except Exception as exc:
+        print(f"⚠️ [GO Backend] แจ้งสถานะ Offline ไม่สำเร็จ: {exc}")
+
+# 🌟 [เพิ่มใหม่] Thread สำหรับตรวจสอบอุปกรณ์ที่หายไปเกิน 10 วินาที
+def device_monitor_worker():
+    TIMEOUT_SECONDS = 10
+    is_local = (app_env == "development")
+    
+    while True:
+        time.sleep(2) # ตื่นมาเช็คทุกๆ 2 วินาที (ไม่กิน CPU)
+        now = time.time()
+        
+        # ใช้ list() ครอบ .items() ป้องกัน Error Dictionary ถูกแก้ไขขณะวนลูป
+        for mac, last_time in list(_device_last_seen.items()):
+            # ถ้าสถานะปัจจุบันคือ 'ออนไลน์' และเวลาผ่านไปเกิน 10 วิ
+            if _device_is_online.get(mac, False) and (now - last_time) > TIMEOUT_SECONDS:
+                print(f"⚠️ [MONITOR] บอร์ด [{mac}] ขาดการติดต่อไปเกิน {TIMEOUT_SECONDS} วินาที -> สั่ง Offline")
+                
+                # 1. ปรับสถานะใน RAM ตัวเองเป็น False จะได้ไม่ยิง API ซ้ำรัวๆ
+                _device_is_online[mac] = False
+                
+                # 2. โยนงานแจ้ง Go Backend ไปให้ Thread เบื้องหลัง
+                payload = {"mac": mac, "status": "offline"}
+                threading.Thread(
+                    target=_send_status_to_go_async, 
+                    args=(payload, is_local), 
+                    daemon=True
+                ).start()
 
 def is_device_activated(device_mac: str) -> bool:
     """ตรวจสอบสถานะจาก RAM ก่อน ถ้าไม่มีค่อยถาม Go Backend"""
@@ -174,6 +217,7 @@ def _process_and_forward(pcm_bytes: bytes, device_mac: str) -> None:
         print(f"[ERROR] ✗ Processing or Go Routing failed: {exc}")
 
 def _flush_buffer(device_mac: str) -> None:
+    # print(_device_states )
     if device_mac not in _device_states or not _device_states[device_mac]["buffer"]:
         return
         
@@ -206,7 +250,10 @@ def on_message(client, userdata, msg):
     if topic.startswith("voice/audio/"):
         topic_parts = topic.split('/')
         device_mac = topic_parts[-1] if len(topic_parts) > 0 else "UNKNOWN_MAC"
-        
+
+        _device_last_seen[device_mac] = time.time()
+        _device_is_online[device_mac] = True
+
         if not is_device_activated(device_mac):
             return
         
@@ -241,7 +288,7 @@ def ai_worker():
 
 # 🌟 สตาร์ท Worker Thread นี้ตอนเริ่มทำงาน
 threading.Thread(target=ai_worker, daemon=True).start()
-
+threading.Thread(target=device_monitor_worker, daemon=True).start()
 def on_disconnect(client, userdata, flags, rc, properties=None):
     print(f"[MQTT] Disconnected (rc={rc})")
 
@@ -272,7 +319,7 @@ def start_receiver(inference_callback=None):
     # 🌟 2. ระบบเปิด/ปิด TLS อัตโนมัติ ตามพอร์ตที่ใช้งาน
     # ==========================================
     # ถ้าพอร์ตเป็นกลุ่มที่ต้องเข้ารหัส (WSS / MQTTS)
-    if BROKER_PORT in [443, 8083, 8883]:
+    if BROKER_PORT in [443, 8883]:
         if is_local:
             # รัน Local: เปิด WSS แต่ข้ามการตรวจสอบ Certificate (Bypass SSL)
             client.tls_set(cert_reqs=ssl.CERT_NONE)

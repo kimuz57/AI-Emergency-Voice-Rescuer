@@ -36,7 +36,7 @@ def run_kws_inference(audio_bytes: bytes) -> dict:
 
         detected = "yes" if prob_yes > prob_no else "no"
         final_prob = prob_yes if detected == "yes" else prob_no
-
+        # print(prob_yes, prob_no)
         return {
             "detected": detected,
             "probability": round(final_prob, 4)
