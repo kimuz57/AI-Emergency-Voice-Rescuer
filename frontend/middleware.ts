@@ -13,6 +13,9 @@ const protectedPaths = [
   "/admin",
 ];
 
+// 🔓 หน้าที่เข้าได้โดยไม่ต้อง Login (สำหรับลิงก์แจ้งเตือนฉุกเฉินจาก LINE / Telegram)
+const publicPaths = ["/alert"];
+
 export function middleware(request: NextRequest) {
   const token = request.cookies.get("token")?.value;
   const { pathname, search } = request.nextUrl;
@@ -25,7 +28,11 @@ export function middleware(request: NextRequest) {
     pathname.startsWith(path),
   );
 
-  if (!token && isProtectedPath) {
+  const isPublicPath = publicPaths.some((path) =>
+    pathname.startsWith(path),
+  );
+
+  if (!token && isProtectedPath && !isPublicPath) {
     // 🟢 ประกอบร่าง Path เดิมกับ Query Search (เช่น ?mac=...) แล้วทำ Encoding
     const originalUrl = pathname + search;
     const callbackUrl = encodeURIComponent(originalUrl);
@@ -53,5 +60,6 @@ export const config = {
     "/profile/:path*",
     "/history/:path*",
     "/admin/:path*",
+    // /alert ไม่ต้องใส่ใน matcher เพราะเป็น Public Path — ให้เข้าได้เสมอ
   ],
 };
