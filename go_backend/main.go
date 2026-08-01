@@ -19,7 +19,7 @@ import (
 func main() {
 	config.LoadConfig()
 	app := fiber.New()
-
+	app.Static("/api/audio", "./audio_recordings")
 	// ✅ ตั้ง CORS แค่ครั้งเดียว และใส่ OPTIONS ด้วย
 	app.Use(cors.New(cors.Config{
 		AllowOrigins:     config.GetEnv("FRONTEND_URL", "http://localhost:3000"),

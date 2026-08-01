@@ -92,14 +92,17 @@ func SetupRoutes(app *fiber.App) {
 
 	alertGroup := app.Group("/api/alerts")
 	{
-		alertGroup.Post("/ai", controllers.CreateAlert)
-		alertGroup.Post("/", controllers.CreateAlert)
-		alertGroup.Get("/", controllers.GetActiveAlerts)
-		alertGroup.Get("/history", controllers.GetHistoryAlerts)
-		alertGroup.Put("/:id/resolve", controllers.ResolveAlert)
-		alertGroup.Get("/stats", controllers.GetAlertStats)
+    	alertGroup.Post("/ai", controllers.CreateAlert)
+    	alertGroup.Post("/", controllers.CreateAlert)
+    	alertGroup.Get("/", controllers.GetActiveAlerts)
+    	alertGroup.Get("/history", controllers.GetHistoryAlerts)
+    	alertGroup.Put("/:id/resolve", controllers.ResolveAlert) // API สำหรับ Dashboard (id)
+    	alertGroup.Get("/stats", controllers.GetAlertStats)
+    	alertGroup.Get("/stream", controllers.StreamAlerts)
 
-		alertGroup.Get("/stream", controllers.StreamAlerts)
+    // 🌟 API สำหรับหน้า /alert จาก LINE
+    	alertGroup.Get("/device", controllers.GetAlertDeviceInfo)
+    	alertGroup.Post("/acknowledge", controllers.AcknowledgeAlert)
 	}
 
 	// ==========================================

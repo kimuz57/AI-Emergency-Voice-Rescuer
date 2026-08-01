@@ -200,7 +200,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 				// เปลี่ยนมาใช้ caregiver.ID แทน patientData.UserID
 				if err := database.DB.Where("user_id = ?", caregiver.ID).First(&lineMapping).Error; err == nil {
 					fmt.Println("👉 [LINE] เจอคนผูกไลน์แล้ว! เตรียมยิงไปที่ LineUserID:", lineMapping.LineUserID)
-					go sendLineOAPushMessage(lineMapping.LineUserID, patientData.Name, patientData.RoomNumber)
+					go sendLineOAPushMessage(lineMapping.LineUserID, patientData.Name, patientData.RoomNumber, macAddress)
 				} else {
 					fmt.Printf("⚠️ [LINE] คนดูแล ID %d ยังไม่ได้ผูกบัญชี LINE OA\n", caregiver.ID)
 				}
