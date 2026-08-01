@@ -603,13 +603,12 @@ export default function ProfilePage() {
                   if (profile.isTelegramConnected) {
                     handleDisconnectTelegram();
                   } else {
+                    // 1. เปิด Telegram Bot พร้อมส่ง User ID ไปด้วย
                     window.open(
                       `https://t.me/EVR_Alert_bot?start=${profile.id}`,
                       "_blank",
                     );
-                    setTimeout(() => {
-                      window.location.reload();
-                    }, 5000);
+                    // ❌ ตัด setTimeout ทิ้ง เพื่อไม่ให้รีเฟรชหน้าจอตัดหน้าผู้ใช้
                   }
                 }}
                 className={`px-4 py-2 rounded-xl text-xs font-bold shadow-sm transition-all whitespace-nowrap ${

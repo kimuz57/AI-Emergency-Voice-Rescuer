@@ -12,6 +12,8 @@ func SetupRoutes(app *fiber.App) {
 	// 🟢 1. ตั้งค่า Static Files (ย้ายมาไว้บนสุดให้เห็นชัดเจน)
 	api := app.Group("/api")
 	app.Static("/profile", "./profile")
+	// ตรวจสอบว่ามีบรรทัดนี้ใน main.go หรือยัง
+	app.Post("/api/telegram/webhook", controllers.TelegramWebhook)
 	app.Post("/api/webhook", controllers.TelegramWebhook)
 	api.Get("/devices", middleware.AuthMiddleware, controllers.GetDashboardDevices)
 	api.Post("/devices", middleware.AuthMiddleware, controllers.RegisterDevice)
