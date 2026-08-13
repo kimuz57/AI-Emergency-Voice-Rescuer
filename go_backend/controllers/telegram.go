@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/gofiber/fiber/v2"
+	"go_backend/config"
 )
 
 // 🟢 1. บันทึก Chat ID เพื่อเชื่อมต่อ (แมนนวล)
@@ -82,7 +83,6 @@ func DisconnectTelegram(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "ยกเลิกการเชื่อมต่อ Telegram แล้ว"})
 }
 
-// โครงสร้างสำหรับรับข้อมูล JSON ที่ Telegram ส่งมาให้
 type TelegramWebhookReq struct {
 	Message struct {
 		Text string `json:"text"`
@@ -92,72 +92,104 @@ type TelegramWebhookReq struct {
 	} `json:"message"`
 }
 
-// 🟢 4. ฟังก์ชันรับ Webhook จาก Telegram (Deep Link)
+// 🟢 ฟังก์ชันรับ Webhook พร้อมระบบ Debug Log
 func TelegramWebhook(c *fiber.Ctx) error {
-	var req TelegramWebhookReq
+	// 1. ปริ้นท์ Body ดิบๆ ที่ Telegram ส่งมาดูก่อนเลย (เช็กว่า Telegram ยิงมาถึงจริงไหม)
+	rawBody := c.Body()
+	fmt.Printf("📥 [WEBHOOK RAW]: %s\n", string(rawBody))
 
+	var req TelegramWebhookReq
 	if err := c.BodyParser(&req); err != nil {
-		return c.SendStatus(200)
+		fmt.Printf("❌ [WEBHOOK ERROR] BodyParser พัง: %v\n", err)
+		return c.SendStatus(200) // ส่ง 200 ให้ Telegram เลิกส่งซ้ำ
 	}
 
 	text := req.Message.Text
 	chatID := req.Message.Chat.ID
-	fmt.Println("🔥 [WEBHOOK] ข้อความที่ Telegram ส่งมาจริงๆ คือ --->", text)
+	fmt.Printf("🔥 [WEBHOOK PARSED] ข้อความ: '%s' | ChatID: %d\n", text, chatID)
 	
-	// เช็กว่าข้อความที่ส่งมาคือคำสั่ง "/start " ตามด้วย ID หรือไม่
+	// เช็กคำสั่ง /start
 	if strings.HasPrefix(text, "/start ") {
 		userIDStr := strings.TrimPrefix(text, "/start ")
 		userID, err := strconv.Atoi(userIDStr)
 
-		if err == nil && chatID != 0 {
+		if err != nil {
+			fmt.Printf("❌ [WEBHOOK ERROR] แปลง UserID ไม่ได้ ('%s'): %v\n", userIDStr, err)
+		} else if chatID == 0 {
+			fmt.Println("❌ [WEBHOOK ERROR] ChatID เป็น 0")
+		} else {
 			chatIdStr := fmt.Sprintf("%d", chatID)
+			fmt.Printf("🔍 [DB] กำลังบันทึก UserID: %d กับ ChatID: %s\n", userID, chatIdStr)
 
-			// 🟢 บันทึก Chat ID ลงตารางแยก (Upsert)
-			database.DB.Where(models.UserTelegramMapping{UserID: uint(userID)}).
-				Assign(models.UserTelegramMapping{
+			var mapping models.UserTelegramMapping
+			result := database.DB.Where("user_id = ?", userID).First(&mapping)
+
+			if result.Error != nil {
+				// สร้างใหม่
+				newMapping := models.UserTelegramMapping{
+					UserID:              uint(userID),
 					TelegramChatID:      chatIdStr,
 					IsTelegramConnected: true,
 					NotifyTelegram:      true,
-				}).
-				FirstOrCreate(&models.UserTelegramMapping{})
+				}
+				if createErr := database.DB.Create(&newMapping).Error; createErr != nil {
+					fmt.Printf("❌ [DB ERROR] สร้าง Mapping ไม่สำเร็จ: %v\n", createErr)
+				} else {
+					fmt.Println("✅ [DB] สร้างข้อมูล Telegram Mapping ใหม่สำเร็จ!")
+				}
+			} else {
+				// อัปเดต
+				updateErr := database.DB.Model(&mapping).Updates(models.UserTelegramMapping{
+					TelegramChatID:      chatIdStr,
+					IsTelegramConnected: true,
+					NotifyTelegram:      true,
+				}).Error
+				if updateErr != nil {
+					fmt.Printf("❌ [DB ERROR] อัปเดต Mapping ไม่สำเร็จ: %v\n", updateErr)
+				} else {
+					fmt.Println("✅ [DB] อัปเดตข้อมูล Telegram Mapping สำเร็จ!")
+				}
+			}
 			
-			// 🟢 ซิงก์ข้อมูล: สั่งอัปเดตสถานะในตารางหลัก users ด้วย
-			database.DB.Model(&models.User{}).Where("id = ?", userID).Update("is_telegram_connected", true)
+			// ซิงก์ตารางหลัก users
+			userUpdateErr := database.DB.Model(&models.User{}).Where("id = ?", userID).Update("is_telegram_connected", true).Error
+			if userUpdateErr != nil {
+				fmt.Printf("❌ [DB ERROR] อัปเดตตาราง users ไม่สำเร็จ: %v\n", userUpdateErr)
+			} else {
+				fmt.Println("✅ [DB] ซิงก์ตาราง users สำเร็จ!")
+			}
 			
-			// (ออปชันเสริม) เรียกฟังก์ชันส่งข้อความกลับไปหาแอป Telegram
-			// sendTelegramAlert(chatIdStr, "✅ เชื่อมต่อระบบ EVR สำเร็จ!")
+			// ส่งข้อความตอบกลับ
+			go sendReplyWithBackButton(chatIdStr)
 		}
 	}
 
-	// ต้องตอบ 200 OK ให้ Telegram เสมอ
 	return c.SendStatus(200)
 }
 
 func sendReplyWithBackButton(chatID string) {
-	// ⚠️ เปลี่ยนใส่ Token ของบอทคุณตรงนี้
-	botToken := "ใส่_TOKEN_ของบอท_ที่ได้จาก_BotFather_ตรงนี้"
-	
-	// ⚠️ เปลี่ยนเป็น URL หน้าเว็บ React ของคุณ (เช่น http://localhost:3000/profile หรือเว็บจริง)
-	frontendURL := "http://localhost:3000/profile"
+    // 🌟 ดึง Token และ URL จากไฟล์ .env ผ่าน config
+    botToken := config.GetEnvRequired("TELEGRAM_BOT_TOKEN")
+    frontendURL := config.GetEnv("FRONTEND_URL", "http://localhost:3000") + "/profile"
 
-	url := "https://api.telegram.org/bot" + botToken + "/sendMessage"
+    url := "https://api.telegram.org/bot" + botToken + "/sendMessage"
 
-	// สร้างโครงสร้างข้อมูลสำหรับปุ่มกด
-	payload := map[string]interface{}{
-		"chat_id": chatID,
-		"text":    "✅ เชื่อมต่อระบบ EVR Alert สำเร็จเรียบร้อยแล้ว!\n\nระบบพร้อมแจ้งเตือนไปยังแชทนี้แล้วครับ คุณสามารถกลับไปที่หน้าเว็บเพื่อใช้งานต่อได้เลย 👇",
-		"reply_markup": map[string]interface{}{
-			"inline_keyboard": [][]*map[string]interface{}{
-				{
-					{
-						"text": "🏠 กลับไปหน้าโปรไฟล์",
-						"url":  frontendURL,
-					},
-				},
-			},
-		},
-	}
+    // สร้างโครงสร้างข้อมูลสำหรับปุ่มกด
+    payload := map[string]interface{}{
+        "chat_id": chatID,
+        "text":    "✅ เชื่อมต่อระบบ EVR Alert สำเร็จเรียบร้อยแล้ว!\n\nระบบพร้อมแจ้งเตือนไปยังแชทนี้แล้วครับ คุณสามารถกลับไปที่หน้าเว็บเพื่อใช้งานต่อได้เลย 👇",
+        "reply_markup": map[string]interface{}{
+            "inline_keyboard": [][]*map[string]interface{}{
+                {
+                    {
+                        "text": "กลับไปหน้าโปรไฟล์",
+                        "url":  frontendURL,
+                    },
+                },
+            },
+        },
+    }
 
-	body, _ := json.Marshal(payload)
-	http.Post(url, "application/json", bytes.NewBuffer(body))
+    body, _ := json.Marshal(payload)
+    http.Post(url, "application/json", bytes.NewBuffer(body))
 }

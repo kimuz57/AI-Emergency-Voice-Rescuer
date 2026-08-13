@@ -12,6 +12,8 @@ func SetupRoutes(app *fiber.App) {
 	// 🟢 1. ตั้งค่า Static Files (ย้ายมาไว้บนสุดให้เห็นชัดเจน)
 	api := app.Group("/api")
 	app.Static("/profile", "./profile")
+	// ตรวจสอบว่ามีบรรทัดนี้ใน main.go หรือยัง
+	app.Post("/api/telegram/webhook", controllers.TelegramWebhook)
 	app.Post("/api/webhook", controllers.TelegramWebhook)
 	api.Get("/devices", middleware.AuthMiddleware, controllers.GetDashboardDevices)
 	api.Post("/devices", middleware.AuthMiddleware, controllers.RegisterDevice)
@@ -92,14 +94,17 @@ func SetupRoutes(app *fiber.App) {
 
 	alertGroup := app.Group("/api/alerts")
 	{
-		alertGroup.Post("/ai", controllers.CreateAlert)
-		alertGroup.Post("/", controllers.CreateAlert)
-		alertGroup.Get("/", controllers.GetActiveAlerts)
-		alertGroup.Get("/history", controllers.GetHistoryAlerts)
-		alertGroup.Put("/:id/resolve", controllers.ResolveAlert)
-		alertGroup.Get("/stats", controllers.GetAlertStats)
+    	alertGroup.Post("/ai", controllers.CreateAlert)
+    	alertGroup.Post("/", controllers.CreateAlert)
+    	alertGroup.Get("/", controllers.GetActiveAlerts)
+    	alertGroup.Get("/history", controllers.GetHistoryAlerts)
+    	alertGroup.Put("/:id/resolve", controllers.ResolveAlert) // API สำหรับ Dashboard (id)
+    	alertGroup.Get("/stats", controllers.GetAlertStats)
+    	alertGroup.Get("/stream", controllers.StreamAlerts)
 
-		alertGroup.Get("/stream", controllers.StreamAlerts)
+    // 🌟 API สำหรับหน้า /alert จาก LINE
+    	alertGroup.Get("/device", controllers.GetAlertDeviceInfo)
+    	alertGroup.Post("/acknowledge", controllers.AcknowledgeAlert)
 	}
 
 	// ==========================================
