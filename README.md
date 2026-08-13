@@ -3,6 +3,32 @@
 ระบบตรวจจับเสียงฉุกเฉินด้วย AI สำหรับผู้ดูแลผู้สูงอายุและผู้ป่วย  
 ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Python AI Server → Go Backend → Next.js Frontend
 
+**Team:**
+- นนท์ (Product Lead / Frontend)
+- กิต (Backend Lead / Go + Redis + DevOps)
+- อัง (Hardware & AI - ESP32 + INMP441 x4, DSP Pipeline, BCResNet)
+
+---
+
+## 📊 Project Status (Phase 3)
+
+### ✅ Completed
+- **Phase 3 Task 1:** Alert System with Coordinates Display
+  - BlinkingAlert component (red pulsing border)
+  - DirectionCompass component (rotating needle + distance + confidence)
+  - MicLevelIndicator component (4-mic signal levels)
+  - Dashboard integration with real-time SSE updates
+  - Mock data toggle for testing
+
+### 📝 Planned
+- **Phase 3 Task 2:** Waveform Audio Player
+  - Replace CustomAudioPlayer with WaveSurfer.js
+  - Visual waveform display for 16kHz evidence playback
+
+- **Phase 3 Task 3:** Patients Registry UX Improvements
+  - Add/Edit modal for patient management
+  - Device telemetry visualization enhancements
+
 ---
 
 ## สถาปัตยกรรมระบบ (System Architecture)
@@ -41,14 +67,15 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 │  Port 8080                      │
 │  ├─ Auth (Auth0 OAuth2)         │
 │  ├─ REST API                    │
-│  └─ WebSocket for Frontend      │
+│  └─ SSE (Server-Sent Events)    │
 └────────────┬────────────────────┘
-             │
+             │ SSE Streams
              ▼
 ┌─────────────────────────────────┐
 │  Next.js Web Dashboard          │
 │  Port 3000                      │
 │  Dashboard / History / Devices  │
+│  + Real-time Alert Monitoring   │
 └─────────────────────────────────┘
 ```
 
@@ -76,11 +103,12 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 5. Go Backend (mqtt_service.go)
    ├── รับ JSON จาก AI Server
    ├── บันทึกลง PostgreSQL
-   ├── ส่ง WebSocket event ไปยัง Next.js frontend
-   └── (TODO) LINE Notify / push notification
+   ├── ส่ง SSE (Server-Sent Events) ไปยัง Next.js frontend
+   └── ส่ง LINE Bot / Telegram notifications
 
 6. Next.js Frontend
-   └── แสดงผลข้อมูลแบบ Real-time บน Dashboard
+   ├── รับ SSE streams: /api/alerts/stream, /api/patients/stream, /api/device/stream
+   └── แสดงผลข้อมูลแบบ Real-time บน Dashboard (ไฟกะพริบแดง + พิกัดผู้ป่วย)
 ```
 
 ---
@@ -89,26 +117,35 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 
 ### Prerequisites
 
-- Python 3.11+, Go 1.21+, Node.js 20+, Flutter 3.10+
-- Docker (สำหรับ Mosquitto)
+- Python 3.12+, Go 1.26+, Node.js 20+
+- Docker (สำหรับ Mosquitto MQTT Broker)
+- PostgreSQL 14+ (สำหรับ Go Backend)
 - `best_sens_model.pth` วางไว้ที่ `backend_ai/models`
 
-### 1. เริ่ม MQTT Broker
+### One-Click Launcher (Windows)
+
+```powershell
+# รันทุกบริการพร้อมกัน (MQTT + Python + Go + Next.js)
+start_guardian.bat
+```
+
+### Manual Startup
+
+#### 1. เริ่ม MQTT Broker
 
 ```powershell
 docker-compose up -d
 ```
 
-### 2. เริ่ม Python AI Server
+#### 2. เริ่ม Python AI Server
 
 ```powershell
-cd "C:\Project 1\main_smartvoice"
-.\.venv\Scripts\Activate.ps1
 cd backend_ai
+# Activate virtual environment first
 uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### 3. เริ่ม Go Backend
+#### 3. เริ่ม Go Backend
 
 ```powershell
 cd go_backend
@@ -116,16 +153,18 @@ go run .
 # Listening on :8080
 ```
 
-### 4. เริ่ม Next.js Frontend
+#### 4. เริ่ม Next.js Frontend
 
 ```powershell
 cd frontend
-npm install
+npm install  # first time only
 npm run dev
 # http://localhost:3000
 ```
 
-### 5. ทดสอบ AI Server โดยตรง
+### Testing
+
+#### ทดสอบ AI Server โดยตรง
 
 ```powershell
 python -c "
@@ -141,6 +180,26 @@ print(r.json())
 ```json
 { "detected": "yes", "probability": 0.9998 }
 ```
+
+---
+
+## 🎯 Key Features
+
+### Phase 3 (Current)
+- **Real-time Alert Monitoring** with SSE (Server-Sent Events)
+- **Blinking Alert Cards** with red pulsing borders for emergency situations
+- **Direction Compass** with rotating needle showing patient coordinates (angle + distance)
+- **4-Microphone Signal Levels** with compact visual indicators
+- **Mock Data Toggle** for frontend testing without backend
+- **Dark Mode Support** across all components
+
+### Core Features
+- **AI-Powered Voice Detection** using BCResNet binary classifier
+- **Multi-Device Management** with ESP32 + INMP441 microphones
+- **PostgreSQL Database** for persistent storage
+- **LINE Bot & Telegram Notifications** for caregivers
+- **User Authentication** with JWT + Auth0 OAuth2
+- **Audio Playback** for emergency evidence review
 
 ---
 
