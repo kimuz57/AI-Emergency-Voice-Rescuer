@@ -5,8 +5,17 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import CustomAudioPlayer from "@/components/CustomAudioPlayer"; // ปรับ Path ให้ตรง
 import PhoneReminder from "@/components/PhoneReminder";
+import BlinkingAlert from "@/components/BlinkingAlert";
+import DirectionCompass from "@/components/DirectionCompass";
+import MicLevelIndicator from "@/components/MicLevelIndicator";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+type Coordinates = {
+  angle_degrees: number;
+  distance_meters: number | null;
+  confidence: number;
+};
 
 type EmergencyAlert = {
   ID?: number; // รองรับทั้ง ID และ id ตามที่ Go ส่งมา
@@ -16,14 +25,53 @@ type EmergencyAlert = {
   created_at: string;
   audio_url: string;
   status: string;
+  coordinates?: Coordinates; // 🆕 Phase 3: ข้อมูลพิกัดจาก 4-mic array
+  mic_levels?: number[]; // 🆕 Phase 3: ระดับสัญญาณ 4 ไมค์ (0-1)
 };
 
 export default function Dashboard() {
   //console.log("🟢 1. Dashboard Component Rendered!");
   const router = useRouter();
+
+  // 🆕 Phase 3: Mock data สำหรับทดสอบ UI (จะลบออกเมื่อ Backend พร้อม)
+  const MOCK_ALERT_DATA: EmergencyAlert[] = [
+    {
+      id: 1,
+      patient_name: "นายสมชาย ใจดี",
+      room_number: "A-301",
+      created_at: new Date().toISOString(),
+      audio_url: "/api/audio/emergency_001.wav",
+      status: "pending",
+      coordinates: {
+        angle_degrees: 45, // ทิศตะวันออกเฉียงเหนือ
+        distance_meters: 2.5, // 2.5 เมตร
+        confidence: 0.87, // 87% มั่นใจ
+      },
+      mic_levels: [0.8, 0.95, 0.65, 0.45], // ไมค์ตัวที่ 2 ดังที่สุด
+    },
+    // เพิ่มตัวอย่างที่ 2 (ไม่มีระยะทาง)
+    {
+      id: 2,
+      patient_name: "นางสาวมานี สุขใจ",
+      room_number: "B-205",
+      created_at: new Date(Date.now() - 300000).toISOString(), // 5 นาทีก่อน
+      audio_url: "/api/audio/emergency_002.wav",
+      status: "pending",
+      coordinates: {
+        angle_degrees: 180, // ทิศใต้
+        distance_meters: null, // ไม่ทราบระยะ
+        confidence: 0.65,
+      },
+      mic_levels: [0.45, 0.55, 0.92, 0.60], // ไมค์ตัวที่ 3 ดังที่สุด
+    },
+  ];
+
   const [alerts, setAlerts] = useState<EmergencyAlert[]>([]);
   const [userData, setUserData] = useState<any>(null);
   const [patients, setPatients] = useState<any[]>([]);
+
+  // 🆕 Phase 3: Toggle สำหรับเปิด/ปิด mock data (ใช้ในการทดสอบ)
+  const [useMockData, setUseMockData] = useState(true); // เปลี่ยนเป็น false เมื่อ Backend พร้อม
 
   // Helper สำหรับดึง Token
   const getAuthToken = () => {
@@ -44,24 +92,35 @@ export default function Dashboard() {
   useEffect(() => {
     const initEmail = async () => {
       let email = localStorage.getItem("userEmail");
-      
-      // ถ้าไม่มีใน localStorage ให้ลองถามจาก Session ดู (เหมือนที่เราทำใน Navbar)
-      if (!email || email === "null") {
-        try {
-          const sessionRes = await fetch("/api/auth/session", { cache: "no-store" });
+
+      // 🆕 ถ้ามี email ใน localStorage แล้ว ให้ใช้เลยทันที (ไม่ต้องรอ session)
+      if (email && email !== "null" && email !== "undefined") {
+        setUserEmail(email);
+        return;
+      }
+      try {
+        const sessionRes = await Promise.race([
+          fetch("/api/auth/session", { cache: "no-store" }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session timeout')), 3000)
+          )
+        ]) as Response;
+
+        if (sessionRes.ok) {
           const session = await sessionRes.json();
           if (session?.user?.email) {
             email = session.user.email;
             localStorage.setItem("userEmail", email as string);
+            setUserEmail(email);
           }
-        } catch (error) {
-          console.error("ดึง session ไม่สำเร็จ", error);
         }
-      }
-      
-      // เอาอีเมลที่ได้ไปใส่ State เพื่อกระตุ้นให้ระบบทำงานต่อ
-      if (email) {
-        setUserEmail(email);
+      } catch (error) {
+        // ถ้า session fail ให้ใช้ fallback email สำหรับทดสอบ
+        if (process.env.NODE_ENV === 'development') {
+          const fallbackEmail = "test@example.com";
+          setUserEmail(fallbackEmail);
+          localStorage.setItem("userEmail", fallbackEmail);
+        }
       }
     };
 
@@ -72,11 +131,41 @@ export default function Dashboard() {
   // 🚀 จังหวะที่ 2: เริ่มต่อท่อ SSE "เมื่อได้อีเมลแล้วเท่านั้น"
   // ==========================================
   useEffect(() => {
-    // 🛑 ถ้ายังไม่ได้อีเมล ให้หยุดรอก่อน อย่าเพิ่งทำงาน
     if (!userEmail) return;
 
+    // 🆕 Phase 3: ถ้าเปิด mock data ให้ใช้ข้อมูลทดสอบแทน SSE
+    if (useMockData) {
+      setAlerts(MOCK_ALERT_DATA);
+      // ยังคงเชื่อมต่อ SSE สำหรับ Patients (ไม่ต้อง mock)
+      const token = getAuthToken();
+      const patientsUrl = `${API_BASE_URL}/api/patients/stream?email=${encodeURIComponent(userEmail)}&token=${encodeURIComponent(token)}`;
+      const patientsSource = new EventSource(patientsUrl, {
+        withCredentials: true,
+      });
+
+      patientsSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const newData = Array.isArray(data) ? data : [];
+          setPatients((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
+        } catch (error) {
+          console.error("Error parsing patients:", error);
+        }
+      };
+
+      patientsSource.onerror = () => patientsSource.close();
+
+      return () => {
+        patientsSource.close();
+      };
+    }
+
+    // เคลียร์ alerts เดิม (mock data) ก่อนเริ่ม Live SSE
+    setAlerts([]);
+    setPatients([]);
+
     const token = getAuthToken();
-    
+
     // 1. เชื่อมต่อ SSE สำหรับ Alerts
     const alertsUrl = `${API_BASE_URL}/api/alerts/stream?email=${encodeURIComponent(userEmail)}&token=${encodeURIComponent(token)}`;
     const alertsSource = new EventSource(alertsUrl, {
@@ -118,9 +207,9 @@ export default function Dashboard() {
       alertsSource.close();
       patientsSource.close();
     };
-    
+
   // 🌟 จุดสำคัญที่สุด: บังคับให้ React รู้ว่า "ถ้า userEmail เปลี่ยน ให้รีสตาร์ทฟังก์ชันนี้นะ!"
-  }, [userEmail]);
+  }, [userEmail, useMockData]); // 🆕 เพิ่ม useMockData dependency
 
   // ==========================================
   // ฟังก์ชันเมื่อพยาบาลกดปุ่ม "รับทราบ" (อัปเดต DB)
@@ -156,6 +245,22 @@ export default function Dashboard() {
 
       {/* 📦 Main Container */}
       <div className="relative z-10 w-full max-w-5xl mt-6">
+        {/* 🆕 Phase 3: Debug toggle (จะลบออกเมื่อ production) */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 flex justify-end">
+            <button
+              onClick={() => setUseMockData(!useMockData)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                useMockData
+                  ? 'bg-amber-500 text-white hover:bg-amber-600'
+                  : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
+              }`}
+            >
+              {useMockData ? '🧪 Mock Data ON' : '📡 Live SSE'}
+            </button>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex flex-col md:flex-row items-center md:items-start gap-4 mb-10 text-center md:text-left bg-white/60 dark:bg-slate-800 backdrop-blur-md p-6 rounded-3xl border border-white/60 shadow-sm">
           <div className="p-3 bg-gradient-to-br rounded-2xl animate-bounce shadow-sm ">
@@ -192,9 +297,131 @@ export default function Dashboard() {
         </div>
 
         {/* ========================================== */}
-        {/* ⚪ เงื่อนไขที่ 1: ยังไม่มีผู้ป่วยในความดูแลเลย (Empty State) */}
+        {/* 🚨 เงื่อนไขที่ 1: มี Alert ฉุกเฉิน (แสดงก่อนเสมอ!) */}
         {/* ========================================== */}
-        {patients.length === 0 ? (
+        {alerts.length > 0 ? (
+          /* แสดงการ์ด Alert */
+          <div className="space-y-6">
+            {alerts.map((alert, index) => (
+              <BlinkingAlert
+                key={alert.id || alert.ID || `alert-${index}`}
+                isActive={true}
+                intensity="high"
+              >
+                <div className="dark:bg-slate-800 dark:text-white bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col gap-6 hover:shadow-xl transition-all group">
+                  {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}
+                  <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-red-500 to-rose-600 shadow-[0_0_15px_rgba(225,29,72,0.6)]"></div>
+
+                  {/* Header: ข้อมูลผู้ป่วย + เวลา */}
+                  <div className="flex-1 pl-4 w-full">
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                      <span className="dark:bg-red-500 dark:text-red-300 px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
+                        ⚠️ ต้องการความช่วยเหลือ!
+                      </span>
+                      <span className="dark:text-white text-xs text-slate-500 font-semibold bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">
+                        🕒{" "}
+                        {alert.created_at
+                          ? new Date(alert.created_at).toLocaleString("th-TH")
+                          : "ไม่ระบุเวลา"}
+                      </span>
+                    </div>
+                    <h2 className="dark:text-white text-3xl font-extrabold text-slate-800 mb-1 tracking-tight">
+                      {alert.patient_name}
+                    </h2>
+                    <p className="text-slate-500 text-sm font-medium flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                      ห้องพัก:{" "}
+                      <span className="dark:text-slate-200 text-slate-700 font-bold text-base">
+                        {alert.room_number}
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Main content: 2 columns layout */}
+                  <div className="flex flex-col lg:flex-row gap-6 pl-4">
+                    {/* Left column: Direction Compass */}
+                    {alert.coordinates && (
+                      <div className="flex-shrink-0">
+                        <DirectionCompass
+                          angle={alert.coordinates.angle_degrees}
+                          distance={alert.coordinates.distance_meters}
+                          confidence={alert.coordinates.confidence}
+                        />
+                      </div>
+                    )}
+
+                    {/* Right column: Audio player + Mic levels */}
+                    <div className="flex-1 space-y-4">
+                      {/* Audio player */}
+                      <div className="dark:bg-slate-700 bg-slate-50/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200/60 dark:border-slate-600 shadow-inner">
+                        <p className="dark:text-white text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wide">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
+                          เสียงร้องขอความช่วยเหลือ:
+                        </p>
+                        <CustomAudioPlayer
+                          src={`${API_BASE_URL}${alert.audio_url}`}
+                        />
+                      </div>
+
+                      {/* Mic levels */}
+                      {alert.mic_levels && alert.mic_levels.length === 4 && (
+                        <div className="dark:bg-slate-700/50 bg-slate-50/60 backdrop-blur-sm rounded-xl p-3 border border-slate-200/60 dark:border-slate-600">
+                          <MicLevelIndicator
+                            levels={alert.mic_levels}
+                            compact={true}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer: ปุ่มรับทราบ */}
+                  <div className="w-full flex justify-end pl-4">
+                    <button
+                      onClick={() => {
+                        const idToResolve = alert.id ?? alert.ID;
+                        if (idToResolve !== undefined) {
+                          handleResolve(idToResolve);
+                        }
+                      }}
+                      className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-indigo-500/40 transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2"
+                    >
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2.5"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      รับทราบ & ช่วยเหลือ
+                    </button>
+                  </div>
+                </div>
+              </BlinkingAlert>
+            ))}
+          </div>
+        ) : /* ========================================== */
+        /* ⚪ เงื่อนไขที่ 2: ยังไม่มีผู้ป่วยในความดูแลเลย (Empty State) */
+        /* ========================================== */
+        patients.length === 0 ? (
           <div className="bg-white/80 dark:bg-slate-800 backdrop-blur-xl border border-white rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden group">
             {/* แสงตกแต่งพื้นหลัง Empty State */}
             <div className="dark:bg-slate-700 inset-0 bg-gradient-to-b from-slate-50 to-white opacity-50"></div>
@@ -278,93 +505,119 @@ export default function Dashboard() {
           /* ========================================== */
           <div className="space-y-6">
             {alerts.map((alert, index) => (
-              <div
+              <BlinkingAlert
                 key={alert.id || alert.ID || `alert-${index}`}
-                className="dark:bg-slate-800 dark:text-white bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-6 hover:shadow-xl hover:-translate-y-1 transition-all group"
+                isActive={true}
+                intensity="high"
               >
-                {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}
-                <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-red-500 to-rose-600 shadow-[0_0_15px_rgba(225,29,72,0.6)]"></div>
+                <div className="dark:bg-slate-800 dark:text-white bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col gap-6 hover:shadow-xl transition-all group">
+                  {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}
+                  <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-red-500 to-rose-600 shadow-[0_0_15px_rgba(225,29,72,0.6)]"></div>
 
-                {/* 1. ข้อมูลผู้ป่วย */}
-                <div className="flex-1 pl-4 w-full">
-                  <div className=" flex flex-wrap items-center gap-3 mb-3">
-                    <span className="dark:bg-red-500 dark:text-red-300 px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
-                      ⚠️ ต้องการความช่วยเหลือ!
-                    </span>
-                    <span className="dark:text-white text-xs text-slate-500 font-semibold bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">
-                      🕒{" "}
-                      {alert.created_at
-                        ? new Date(alert.created_at).toLocaleString("th-TH")
-                        : "ไม่ระบุเวลา"}
-                    </span>
+                  {/* Header: ข้อมูลผู้ป่วย + เวลา */}
+                  <div className="flex-1 pl-4 w-full">
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                      <span className="dark:bg-red-500 dark:text-red-300 px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
+                        ⚠️ ต้องการความช่วยเหลือ!
+                      </span>
+                      <span className="dark:text-white text-xs text-slate-500 font-semibold bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">
+                        🕒{" "}
+                        {alert.created_at
+                          ? new Date(alert.created_at).toLocaleString("th-TH")
+                          : "ไม่ระบุเวลา"}
+                      </span>
+                    </div>
+                    <h2 className="dark:text-white text-3xl font-extrabold text-slate-800 mb-1 tracking-tight">
+                      {alert.patient_name}
+                    </h2>
+                    <p className="text-slate-500 text-sm font-medium flex items-center gap-2">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                        />
+                      </svg>
+                      ห้องพัก:{" "}
+                      <span className="dark:text-slate-200 text-slate-700 font-bold text-base">
+                        {alert.room_number}
+                      </span>
+                    </p>
                   </div>
-                  <h2 className="dark:text-white text-3xl font-extrabold text-slate-800 mb-1 tracking-tight">
-                    {alert.patient_name}
-                  </h2>
-                  <p className="text-slate-500 text-sm font-medium flex items-center gap-2">
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
+
+                  {/* Main content: 2 columns layout */}
+                  <div className="flex flex-col lg:flex-row gap-6 pl-4">
+                    {/* Left column: Direction Compass */}
+                    {alert.coordinates && (
+                      <div className="flex-shrink-0">
+                        <DirectionCompass
+                          angle={alert.coordinates.angle_degrees}
+                          distance={alert.coordinates.distance_meters}
+                          confidence={alert.coordinates.confidence}
+                        />
+                      </div>
+                    )}
+
+                    {/* Right column: Audio player + Mic levels */}
+                    <div className="flex-1 space-y-4">
+                      {/* Audio player */}
+                      <div className="dark:bg-slate-700 bg-slate-50/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200/60 dark:border-slate-600 shadow-inner">
+                        <p className="dark:text-white text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wide">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
+                          เสียงร้องขอความช่วยเหลือ:
+                        </p>
+                        <CustomAudioPlayer
+                          src={`${API_BASE_URL}${alert.audio_url}`}
+                        />
+                      </div>
+
+                      {/* Mic levels */}
+                      {alert.mic_levels && alert.mic_levels.length === 4 && (
+                        <div className="dark:bg-slate-700/50 bg-slate-50/60 backdrop-blur-sm rounded-xl p-3 border border-slate-200/60 dark:border-slate-600">
+                          <MicLevelIndicator
+                            levels={alert.mic_levels}
+                            compact={true}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Footer: ปุ่มรับทราบ */}
+                  <div className="w-full flex justify-end pl-4">
+                    <button
+                      onClick={() => {
+                        const idToResolve = alert.id ?? alert.ID;
+                        if (idToResolve !== undefined) {
+                          handleResolve(idToResolve);
+                        }
+                      }}
+                      className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-indigo-500/40 transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      />
-                    </svg>
-                    ห้องพัก:{" "}
-                    <span className="dark:text-slate-200 text-slate-700 font-bold text-base">
-                      {alert.room_number}
-                    </span>
-                  </p>
-                </div>
-
-                {/* 2. เครื่องเล่นเสียง AI */}
-                <div className="dark:bg-slate-700 flex-1 w-full md:w-auto bg-slate-50/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200/60 shadow-inner">
-                  <p className="dark:text-white text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wide">
-                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
-                    เสียงร้องขอความช่วยเหลือ:
-                  </p>
-
-                  {/* กล่องใส่ Component เสียงเดิมของคุณ */}
-                  <div className="w-full relative z-20">
-                    <CustomAudioPlayer
-                      src={`${API_BASE_URL}${alert.audio_url}`}
-                    />
+                      <svg
+                        className="w-6 h-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2.5"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      รับทราบ & ช่วยเหลือ
+                    </button>
                   </div>
                 </div>
-
-                {/* 3. ปุ่มรับทราบ */}
-                <div className="w-full md:w-auto flex justify-end mt-2 md:mt-0 relative z-20">
-                  <button
-                    onClick={() => {
-                      const idToResolve = alert.id ?? alert.ID;
-                      if (idToResolve !== undefined) {
-                        handleResolve(idToResolve);
-                      }
-                    }}
-                    className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-indigo-500/40 transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2 group-hover:scale-105"
-                  >
-                    <svg
-                      className="w-6 h-6"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2.5"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    รับทราบ & ช่วยเหลือ
-                  </button>
-                </div>
-              </div>
+              </BlinkingAlert>
             ))}
           </div>
         )}

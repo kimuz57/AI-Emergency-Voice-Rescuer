@@ -28,11 +28,23 @@ export default function Navbar() {
       let targetEmail = localStorage.getItem("userEmail");
       console.log("👉 [1] ค่าที่อ่านได้จาก localStorage คือ:", targetEmail);
 
-      // 🟢 2. เรียกดึงข้อมูล Session มารอไว้เลย เผื่อต้องใช้ทั้งเรื่องอีเมลและดึงรูปภาพมาสลับสวมรอย
-      const sessionRes = await fetch("/api/auth/session", {
-        cache: "no-store" 
-      });
-      const session = await sessionRes.json();
+      // 🟢 2. เรียกดึงข้อมูล Session (พร้อม timeout + error handling)
+      let session = null;
+      try {
+        const sessionRes = await Promise.race([
+          fetch("/api/auth/session", { cache: "no-store" }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session timeout')), 3000)
+          )
+        ]) as Response;
+
+        if (sessionRes.ok) {
+          session = await sessionRes.json();
+        }
+      } catch (sessionError) {
+        console.log("⚠️ [Session] ไม่สามารถดึง session ได้:", sessionError);
+        // ไม่ throw ต่อ เพราะไม่ critical
+      }
 
       // เช็คว่าใน localStorage ไม่มีอีเมลจริงไหม
       if (
@@ -67,78 +79,118 @@ export default function Navbar() {
         return;
       }
 
-      // 🟢 3. ได้อีเมลชัวร์ๆ แล้ว ยิง API ไปถาม Go Backend โดยใช้ค่า apiUrl จาก env
+      // 🟢 3. ได้อีเมลชัวร์ๆ แล้ว ยิง API ไปถาม Go Backend (พร้อม timeout + error handling)
       console.log(
         "✅ [6] ได้อีเมลแล้ว กำลังยิงไปถาม Go Backend ด้วยอีเมล:",
         targetEmail,
       );
-      const res = await fetch(`${API_BASE_URL}/api/user/profile?email=${targetEmail}`, {
-        method: "GET",
-        cache: "no-store",       // 🚫 สั่งเด็ดขาดว่า "ห้ามจำข้อมูลเก่านะ!"
-        credentials: "include",  // 🔑 เผื่ออนาคต Go Backend ของคุณต้องอ่าน Cookie/Session
-        headers: {
-          "Content-Type": "application/json"
-        }
-      });
 
-      if (res.ok) {
-        const data = await res.json();
-        console.log("✅ [7] ข้อมูลที่ Go Backend ตอบกลับมาคือ:", data);
+      try {
+        const res = await Promise.race([
+          fetch(`${API_BASE_URL}/api/user/profile?email=${targetEmail}`, {
+            method: "GET",
+            cache: "no-store",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" }
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Backend timeout')), 5000)
+          )
+        ]) as Response;
 
-        // 🟢 4. ทริคเด็ดเรื่องรูปภาพ: ถ้า Go หลังบ้านไม่มีรูป หรือส่งมาเป็นค่าว่าง/รูปแตก
-        // แต่ใน Google Session มีรูปหล่อๆ อยู่ ให้เอารูป Google มาเสียบแทนทันที
-        const sessionEmail = session?.user?.email?.toLowerCase();
-        const isSameSessionUser =
-          sessionEmail && sessionEmail === targetEmail.toLowerCase();
+        if (res.ok) {
+          const data = await res.json();
+          console.log("✅ [7] ข้อมูลที่ Go Backend ตอบกลับมาคือ:", data);
 
-        if (
-          isSameSessionUser &&
-          (!data.profileImage ||
-            data.profileImage === "" ||
-            data.profileImage.includes("picture/0"))
-        ) {
-          if (session?.user?.image) {
-            data.profileImage = session.user.image;
+          // 🟢 4. ทริคเด็ดเรื่องรูปภาพ
+          const sessionEmail = session?.user?.email?.toLowerCase();
+          const isSameSessionUser =
+            sessionEmail && sessionEmail === targetEmail.toLowerCase();
+
+          if (
+            isSameSessionUser &&
+            (!data.profileImage ||
+              data.profileImage === "" ||
+              data.profileImage.includes("picture/0"))
+          ) {
+            if (session?.user?.image) {
+              data.profileImage = session.user.image;
+            }
           }
-        }
 
-        setUser(data); // อัปเดต State ขึ้นหน้าเว็บ
-      } else {
-        console.log("❌ [8] Go Backend บอกว่าหาอีเมลนี้ไม่เจอใน Database!");
+          setUser(data); // อัปเดต State ขึ้นหน้าเว็บ
+        } else {
+          console.log("❌ [8] Go Backend ตอบกลับ status:", res.status);
+          // 🆕 ไม่มี Backend → ใช้ข้อมูล fallback
+          setUser({
+            name: targetEmail?.split('@')[0] || "ผู้ใช้งาน",
+            email: targetEmail || "ไม่มีข้อมูล",
+            role: "User",
+            profileImage: session?.user?.image || ""
+          });
+        }
+      } catch (backendError) {
+        console.log("⚠️ [Backend] ไม่สามารถเชื่อมต่อ Backend ได้:", backendError);
+        // 🆕 Backend ไม่ตอบ → ใช้ข้อมูล fallback จาก session หรือ email
+        setUser({
+          name: session?.user?.name || targetEmail?.split('@')[0] || "ผู้ใช้งาน",
+          email: targetEmail || session?.user?.email || "ไม่มีข้อมูล",
+          role: "User",
+          profileImage: session?.user?.image || ""
+        });
       }
     } catch (error) {
       console.error("💥 ล้มเหลวในการดึงข้อมูลโปรไฟล์:", error);
+      // 🆕 ใช้ fallback data เพื่อไม่ให้ Next.js dev overlay ขึ้น
+      const email = localStorage.getItem("userEmail") || "ไม่มีข้อมูล";
+      setUser({
+        name: email.split('@')[0] || "ผู้ใช้งาน",
+        email: email,
+        role: "User",
+        profileImage: ""
+      });
     }
   };
 
-  // 🟢 ฟังก์ชันสำหรับ ส่งคำสั่ง Logout ไปหลังบ้าน และล้างข้อมูลหน้าบ้าน
   // 🟢 ฟังก์ชันสำหรับ ส่งคำสั่ง Logout ไปหลังบ้าน และล้างข้อมูลหน้าบ้าน
   const handleLogout = async () => {
     try {
       console.log("⏳ 1. กำลังสั่งลบคุกกี้...");
 
-      // 1. ยิงไปลบคุกกี้ที่ Go Backend
-      const res = await fetch(`${API_BASE_URL}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
-      });
-      
-      await fetch("/api/logout", {
-        method: "POST",
-      });
-
-      if (res.ok) {
-        console.log("✅ 2. API ตอบกลับแล้วว่าลบเสร็จ!");
+      // 1. ยิงไปลบคุกกี้ที่ Go Backend (ไม่ critical ถ้า fail)
+      try {
+        await Promise.race([
+          fetch(`${API_BASE_URL}/api/auth/logout`, {
+            method: "POST",
+            credentials: "include",
+          }),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Logout timeout')), 3000)
+          )
+        ]);
+        console.log("✅ 2. Backend logout สำเร็จ");
+      } catch (backendError) {
+        console.log("⚠️ Backend logout ไม่สำเร็จ (ข้าม):", backendError);
       }
 
-      // 2. ล้างข้อมูลหน้าบ้าน
+      try {
+        await fetch("/api/logout", { method: "POST" });
+      } catch (nextAuthError) {
+        console.log("⚠️ NextAuth logout ไม่สำเร็จ (ข้าม):", nextAuthError);
+      }
+
+      // 2. ล้างข้อมูลหน้าบ้าน (สำคัญที่สุด)
       localStorage.removeItem("token");
       localStorage.removeItem("userEmail");
 
-      // 3. 🌟 เรียก signOut ของ NextAuth ตัวเดียวจบ (มันจะล้าง Session และพาไปหน้า "/" ให้ทันที)
+      // 3. 🌟 เรียก signOut ของ NextAuth
       await signOut({ callbackUrl: "/" });
     } catch (error) {
       console.error("❌ ล้มเหลว:", error);
+      // 🆕 แม้ error ก็ยังล้าง localStorage และ redirect
+      localStorage.removeItem("token");
+      localStorage.removeItem("userEmail");
+      window.location.href = "/";
     }
   };
 
