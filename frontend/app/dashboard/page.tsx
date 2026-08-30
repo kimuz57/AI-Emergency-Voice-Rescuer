@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import CustomAudioPlayer from "@/components/CustomAudioPlayer"; // ปรับ Path ให้ตรง
+import WaveformAudioPlayer from "@/components/WaveformAudioPlayer"; // ปรับ Path ให้ตรง
 import PhoneReminder from "@/components/PhoneReminder";
 import BlinkingAlert from "@/components/BlinkingAlert";
 import DirectionCompass from "@/components/DirectionCompass";
@@ -370,7 +370,7 @@ export default function Dashboard() {
                           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
                           เสียงร้องขอความช่วยเหลือ:
                         </p>
-                        <CustomAudioPlayer
+                        <WaveformAudioPlayer
                           src={`${API_BASE_URL}${alert.audio_url}`}
                         />
                       </div>
@@ -572,7 +572,7 @@ export default function Dashboard() {
                           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
                           เสียงร้องขอความช่วยเหลือ:
                         </p>
-                        <CustomAudioPlayer
+                        <WaveformAudioPlayer
                           src={`${API_BASE_URL}${alert.audio_url}`}
                         />
                       </div>
