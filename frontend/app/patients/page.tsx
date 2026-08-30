@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 import { useState, useEffect } from "react";
+import PatientFormModal from "@/components/PatientFormModal";
 // import UnderConstruction from '../../components/UnderConstruction';
 
 // ปรับ Type ให้ตรงกับข้อมูลที่ใช้ใน Frontend
@@ -8,9 +9,11 @@ type Patient = {
   id: number;
   name: string;
   age: number;
+  gender: string;
   room: string;
   condition: string;
   deviceId: string;
+  deviceName: string;
   avatar: string;
 };
 
@@ -19,18 +22,18 @@ const avatarColors = ["#4f46e5", "#0891b2", "#059669", "#d97706", "#dc2626"];
 // ตั้งค่า URL ของ Backend (ควรใช้ Environment Variable ในระบบจริง)
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
+const getAuthToken = () => {
+  if (typeof window === "undefined") return "";
+  const fromStorage = localStorage.getItem("token");
+  if (fromStorage) return fromStorage;
+  const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+};
+
 export default function PatientsPage() {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [isLoading, setIsLoading] = useState(true); // เพิ่ม State สำหรับโหลดข้อมูล
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({
-    name: "",
-    age: "",
-    room: "",
-    condition: "",
-    deviceId: "",
-    gender: "ไม่ระบุ", // เพิ่มมาเผื่อ API Backend
-  });
+  const [editing, setEditing] = useState<Patient | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
 
   // 🟢 1. ฟังก์ชันดึงข้อมูลจาก Backend
@@ -39,14 +42,6 @@ export default function PatientsPage() {
     try {
       // ดึง email ของ User ปัจจุบัน (ตัวอย่างใช้ localStorage, ปรับแก้ตามระบบ Auth ของคุณ)
       const userEmail = localStorage.getItem("userEmail");
-
-      const getAuthToken = () => {
-        if (typeof window === "undefined") return "";
-        const fromStorage = localStorage.getItem("token");
-        if (fromStorage) return fromStorage;
-        const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
-        return match ? decodeURIComponent(match[1]) : "";
-      };
 
       const token = getAuthToken();
 
@@ -66,17 +61,23 @@ export default function PatientsPage() {
       const mappedPatients: Patient[] = data.map((p: any) => {
         // สร้างตัวย่อชื่อ 2 ตัวอักษร
         const initials = p.Name ? p.Name.substring(0, 2) : "ผป";
-        // ดึง MAC Address จาก Device ตัวแรก (ถ้ามี) หมายเหตุ: Backend คุณตั้ง json:"board_id" ไว้
-        const deviceMac =
-          p.Devices && p.Devices.length > 0 ? p.Devices[0].board_id : "—";
+        // ดึง MAC Address จากอุปกรณ์ที่ผูกไว้ตัวแรก (ถ้ามี)
+        // Backend ส่ง models.Patient ดิบมา ข้อมูลอุปกรณ์เลยอยู่ที่
+        // DeviceAssignments[].device.mac_address ไม่ใช่ Devices[].board_id
+        const assignment =
+          p.DeviceAssignments && p.DeviceAssignments.length > 0
+            ? p.DeviceAssignments[0]
+            : null;
 
         return {
           id: p.ID,
           name: p.Name,
           age: p.Age,
+          gender: p.Gender || "ไม่ระบุ",
           room: p.RoomNumber,
           condition: p.MedicalCondition,
-          deviceId: deviceMac,
+          deviceId: assignment?.device?.mac_address || "—",
+          deviceName: assignment?.device_name || "",
           avatar: initials,
         };
       });
@@ -95,63 +96,19 @@ export default function PatientsPage() {
     fetchPatients();
   }, []);
 
-  // 🟢 2. ฟังก์ชันเพิ่มข้อมูลผู้ป่วยใหม่
-  // const handleAdd = async () => {
-  //   if (!form.name || !form.age || !form.room) {
-  //     alert("กรุณากรอกข้อมูลที่จำเป็นให้ครบถ้วน");
-  //     return;
-  //   }
-
-  //   try {
-  //     const userEmail =
-  //       localStorage.getItem("user_email") || "admin@example.com";
-
-  //     // เตรียม Payload ให้ตรงกับ Struct RegisterInput ใน Go
-  //     const payload = {
-  //       patientName: form.name,
-  //       age: parseInt(form.age),
-  //       gender: form.gender,
-  //       roomNumber: form.room,
-  //       medicalCondition: form.condition,
-  //       caregiverEmail: userEmail,
-  //       board_id: form.deviceId,
-  //       deviceName: "ไมค์หัวเตียง", // ตั้งค่าเริ่มต้นตาม Backend
-  //     };
-
-  //     const res = await fetch(`${API_URL}/api/patients/register`, {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify(payload),
-  //     });
-
-  //     const data = await res.json();
-
-  //     if (res.ok) {
-  //       alert("เพิ่มข้อมูลผู้ป่วยเรียบร้อยแล้ว");
-  //       setForm({
-  //         name: "",
-  //         age: "",
-  //         room: "",
-  //         condition: "",
-  //         deviceId: "",
-  //         gender: "ไม่ระบุ",
-  //       });
-  //       setShowModal(false);
-  //       fetchPatients(); // โหลดข้อมูลตารางใหม่
-  //     } else {
-  //       alert(data.error || "เกิดข้อผิดพลาดในการบันทึก");
-  //     }
-  //   } catch (error) {
-  //     console.error("Add Error:", error);
-  //     alert("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้");
-  //   }
-  // };
-
-  // 🟢 3. ฟังก์ชันลบข้อมูลผู้ป่วย
+  // 🟢 2. ฟังก์ชันลบข้อมูลผู้ป่วย
   const handleDelete = async (id: number) => {
     try {
+      // ต้องแนบ Token/Cookie เหมือน fetchPatients ไม่งั้น RequireAuth ตีกลับ 401
+      const token = getAuthToken();
+
       const res = await fetch(`${API_URL}/api/patients/${id}`, {
         method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: "include",
       });
 
       const data = await res.json();
@@ -282,8 +239,8 @@ export default function PatientsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        {/* ปุ่ม Edit ถูกซ่อนไว้เป็น Placeholder ตามโค้ดเดิม */}
                         <button
+                          onClick={() => setEditing(p)}
                           className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                           title="แก้ไข"
                         >
@@ -335,100 +292,15 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* Modal เพิ่มข้อมูลผู้ป่วย (Add Patient Modal) */}
-      {/* {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="dark:bg-slate-800 bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6">
-            <div className="dark:text-white flex items-center justify-between mb-5">
-              <h2 className="dark:text-white text-lg font-bold text-slate-800">
-                เพิ่มผู้ป่วยใหม่
-              </h2>
-              <button
-                href="/devices"
-                className="dark:text-white text-slate-400 hover:text-slate-600 transition-colors"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="dark:text-white space-y-4">
-              {[
-                {
-                  label: "ชื่อ-นามสกุล",
-                  key: "name",
-                  placeholder: "นาย/นาง/นางสาว ชื่อ นามสกุล",
-                  type: "text",
-                },
-                {
-                  label: "อายุ",
-                  key: "age",
-                  placeholder: "เช่น 72",
-                  type: "number",
-                },
-                {
-                  label: "หมายเลขห้อง/เตียง",
-                  key: "room",
-                  placeholder: "เช่น A-101",
-                  type: "text",
-                },
-                {
-                  label: "โรคประจำตัว",
-                  key: "condition",
-                  placeholder: "เช่น ความดันโลหิตสูง",
-                  type: "text",
-                },
-                {
-                  label: "Device ID (MAC Address)",
-                  key: "deviceId",
-                  placeholder: "เช่น AA:BB:CC:DD:EE:FF",
-                  type: "text",
-                },
-              ].map(({ label, key, placeholder, type }) => (
-                <div key={key}>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">
-                    {label}
-                  </label>
-                  <input
-                    type={type}
-                    placeholder={placeholder}
-                    value={(form as any)[key]}
-                    onChange={(e) =>
-                      setForm({ ...form, [key]: e.target.value })
-                    }
-                    className="dark:bg-slate-700 dark:border-slate-600 dark:text-white w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleAdd}
-                className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors"
-              >
-                บันทึก
-              </button>
-            </div>
-          </div>
-        </div>
-      )} */}
+      {/* Modal แก้ไขข้อมูลผู้ป่วย (Edit Patient Modal) */}
+      {editing && (
+        <PatientFormModal
+          mode="edit"
+          patient={editing}
+          onClose={() => setEditing(null)}
+          onSaved={fetchPatients}
+        />
+      )}
 
       {/* Modal ยืนยันการลบ (Delete Confirm Modal) */}
       {deleteConfirm !== null && (
