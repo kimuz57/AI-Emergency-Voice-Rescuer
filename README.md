@@ -16,18 +16,38 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 - **Phase 3 Task 1:** Alert System with Coordinates Display
   - BlinkingAlert component (red pulsing border)
   - DirectionCompass component (rotating needle + distance + confidence)
-  - MicLevelIndicator component (4-mic signal levels)
   - Dashboard integration with real-time SSE updates
   - Mock data toggle for testing
 
-### 📝 Planned
 - **Phase 3 Task 2:** Waveform Audio Player
-  - Replace CustomAudioPlayer with WaveSurfer.js
-  - Visual waveform display for 16kHz evidence playback
+  - `WaveformAudioPlayer` built on WaveSurfer.js, replacing `CustomAudioPlayer`
+    on the dashboard
+  - Fallback UI when the audio file fails to load (404 / network error)
 
 - **Phase 3 Task 3:** Patients Registry UX Improvements
-  - Add/Edit modal for patient management
-  - Device telemetry visualization enhancements
+  - `PatientFormModal` — working Edit modal (Add still uses `/register-patient`,
+    which the ESP32 QR flow links to directly)
+  - Fixed Delete returning 401 (missing auth header) and the always-empty
+    Device ID column
+
+- **Admin-only audio diagnostics**
+  - Mic signal levels moved off the caregiver alert card to
+    `/admin/audio-diagnostics`
+  - `useAdminGuard` hook verifies the role against the backend instead of
+    `localStorage`
+
+- **Backend:** `PUT /api/patients/:id` with caregiver ownership check
+- **Hardware:** dual-mic TDOA direction finding in `firmwareV2`
+
+### 🚧 In Progress / Blocked
+- **`mic_levels` from the backend** — the diagnostics page is finished and runs
+  on mock data. It needs `mic_levels` added to the Alert model and populated by
+  the DSP pipeline.
+
+### 📝 Planned
+- Device Telemetry page (online/offline visualisation)
+- Migrate `history/` and `register-patient/` off `CustomAudioPlayer`
+- Redis as a high-performance queue replacing MQTT for some flows
 
 ---
 
@@ -36,7 +56,7 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 ```
 ┌─────────────────────────────────┐
 │  ESP32 + INMP441 Microphone     │
-│  (I2S 16kHz, mono, 16-bit PCM) │
+│  (I2S 8kHz, 16-bit PCM)         │
 └────────────┬────────────────────┘
              │ WiFi · MQTT topic: voice/audio/{deviceId}
              ▼
@@ -84,7 +104,7 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 ## Data Flow (รายละเอียด)
 
 ```
-1. ESP32 บันทึกเสียง I2S 16kHz
+1. ESP32 บันทึกเสียง I2S 8kHz
    └── publish binary PCM ทุก 2 วินาที
        MQTT topic: voice/audio/{deviceId}
 
@@ -95,12 +115,12 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
    ├── รับ binary PCM data
    └── ส่ง HTTP POST ไปยัง AI Server (/need-help)
 
-4. Python AI Server (app.py / detect.py)
+4. Python AI Server (app.py / model.py)
    ├── โหลด audio → resample → MelSpectrogram
    ├── BCResNet inference → probability score
    └── return JSON: {"detected": "yes"|"no", "probability": 0.9998}
 
-5. Go Backend (mqtt_service.go)
+5. Go Backend (services/mqtt_service.go)
    ├── รับ JSON จาก AI Server
    ├── บันทึกลง PostgreSQL
    ├── ส่ง SSE (Server-Sent Events) ไปยัง Next.js frontend
@@ -120,7 +140,7 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 - Python 3.12+, Go 1.26+, Node.js 20+
 - Docker (สำหรับ Mosquitto MQTT Broker)
 - PostgreSQL 14+ (สำหรับ Go Backend)
-- `best_sens_model.pth` วางไว้ที่ `backend_ai/models`
+- `best_sens_model.pth` วางไว้ที่ `api/models`
 
 ### One-Click Launcher (Windows)
 
@@ -128,6 +148,9 @@ ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Pyt
 # รันทุกบริการพร้อมกัน (MQTT + Python + Go + Next.js)
 start_guardian.bat
 ```
+
+> ⚠️ สคริปต์นี้ยังไม่อัปเดตหลังเปลี่ยนชื่อโฟลเดอร์ (ยัง hardcode `D:\backend_golang`
+> และชื่อเก่า `backend_ai` / `go_backend`) ระหว่างนี้ให้เริ่มทีละบริการตามด้านล่าง
 
 ### Manual Startup
 
@@ -140,7 +163,7 @@ docker-compose up -d
 #### 2. เริ่ม Python AI Server
 
 ```powershell
-cd backend_ai
+cd api
 # Activate virtual environment first
 uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
@@ -148,7 +171,7 @@ uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 #### 3. เริ่ม Go Backend
 
 ```powershell
-cd go_backend
+cd backend
 go run .
 # Listening on :8080
 ```
@@ -170,7 +193,7 @@ npm run dev
 python -c "
 import requests
 r = requests.post('http://localhost:8000/need-help',
-    files={'sound': ('help.wav', open('backend_ai/samples/help.wav','rb'), 'audio/wav')})
+    files={'sound': ('help.wav', open('help.wav','rb'), 'audio/wav')})
 print(r.json())
 "
 ```
@@ -189,7 +212,7 @@ print(r.json())
 - **Real-time Alert Monitoring** with SSE (Server-Sent Events)
 - **Blinking Alert Cards** with red pulsing borders for emergency situations
 - **Direction Compass** with rotating needle showing patient coordinates (angle + distance)
-- **4-Microphone Signal Levels** with compact visual indicators
+- **Mic Signal Levels** on an admin-only diagnostics page (`/admin/audio-diagnostics`)
 - **Mock Data Toggle** for frontend testing without backend
 - **Dark Mode Support** across all components
 
@@ -212,7 +235,7 @@ print(r.json())
 | Method       | `POST`                                       |
 | URL          | `http://localhost:8000/need-help`            |
 | Content-Type | `multipart/form-data`                        |
-| Form field   | `sound` — WAV file (16kHz, mono, 16-bit PCM) |
+| Form field   | `sound` — WAV file (8kHz, mono, 16-bit PCM)  |
 
 **Response:**
 
@@ -258,7 +281,7 @@ print(r.json())
 
 **Network:** ESP32 สร้าง Soft-AP (`SmartVoice_AP`) → PC เชื่อมต่อ → ESP32 ได้ IP `192.168.4.1`  
 **MQTT Broker:** `192.168.4.2:1883`  
-**Audio Specs:** 16kHz, mono, 16-bit PCM (อ่าน 32-bit I2S แล้ว shift เป็น 16-bit)
+**Audio Specs:** 8kHz, mono, 16-bit PCM (อ่าน 32-bit I2S แล้ว shift เป็น 16-bit)
 
 ---
 
