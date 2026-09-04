@@ -471,6 +471,27 @@ export default function ProfilePage() {
                   </svg>
                   ลงทะเบียนเพิ่มบอร์ด
                 </Link>
+
+                {/* 4. วิเคราะห์สัญญาณเสียง (ระดับไมค์ 4 ตัว) */}
+                <Link
+                  href="/admin/audio-diagnostics"
+                  className="flex items-center gap-3 p-3 rounded-xl hover:bg-purple-50 dark:hover:bg-purple-900/30 text-sm text-slate-600 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-400 transition-all font-medium group"
+                >
+                  <svg
+                    className="w-5 h-5 text-slate-400 group-hover:text-purple-500 transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z"
+                    />
+                  </svg>
+                  วิเคราะห์สัญญาณเสียง
+                </Link>
               </div>
             </div>
           )}

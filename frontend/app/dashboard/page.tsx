@@ -7,7 +7,6 @@ import WaveformAudioPlayer from "@/components/WaveformAudioPlayer"; // ปรั
 import PhoneReminder from "@/components/PhoneReminder";
 import BlinkingAlert from "@/components/BlinkingAlert";
 import DirectionCompass from "@/components/DirectionCompass";
-import MicLevelIndicator from "@/components/MicLevelIndicator";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -26,7 +25,6 @@ type EmergencyAlert = {
   audio_url: string;
   status: string;
   coordinates?: Coordinates; // 🆕 Phase 3: ข้อมูลพิกัดจาก 4-mic array
-  mic_levels?: number[]; // 🆕 Phase 3: ระดับสัญญาณ 4 ไมค์ (0-1)
 };
 
 export default function Dashboard() {
@@ -47,7 +45,6 @@ export default function Dashboard() {
         distance_meters: 2.5, // 2.5 เมตร
         confidence: 0.87, // 87% มั่นใจ
       },
-      mic_levels: [0.8, 0.95, 0.65, 0.45], // ไมค์ตัวที่ 2 ดังที่สุด
     },
     // เพิ่มตัวอย่างที่ 2 (ไม่มีระยะทาง)
     {
@@ -62,7 +59,6 @@ export default function Dashboard() {
         distance_meters: null, // ไม่ทราบระยะ
         confidence: 0.65,
       },
-      mic_levels: [0.45, 0.55, 0.92, 0.60], // ไมค์ตัวที่ 3 ดังที่สุด
     },
   ];
 
@@ -362,8 +358,10 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Right column: Audio player + Mic levels */}
-                    <div className="flex-1 space-y-4">
+                    {/* Right column: Audio player
+                        จัดกึ่งกลางแนวตั้ง เพราะพอถอดแถบ SIGNAL ออกแล้ว
+                        คอลัมน์นี้เตี้ยกว่าเข็มทิศ ถ้าชิดบนจะเหลือที่ว่างค้างด้านล่าง */}
+                    <div className="flex-1 flex flex-col justify-center space-y-4">
                       {/* Audio player */}
                       <div className="dark:bg-slate-700 bg-slate-50/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200/60 dark:border-slate-600 shadow-inner">
                         <p className="dark:text-white text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wide">
@@ -375,15 +373,9 @@ export default function Dashboard() {
                         />
                       </div>
 
-                      {/* Mic levels */}
-                      {alert.mic_levels && alert.mic_levels.length === 4 && (
-                        <div className="dark:bg-slate-700/50 bg-slate-50/60 backdrop-blur-sm rounded-xl p-3 border border-slate-200/60 dark:border-slate-600">
-                          <MicLevelIndicator
-                            levels={alert.mic_levels}
-                            compact={true}
-                          />
-                        </div>
-                      )}
+                      {/* หมายเหตุ: แถบ SIGNAL ของไมค์ทั้ง 4 ย้ายไปหน้า
+                          /admin/audio-diagnostics แล้ว — ผู้ดูแล (caregiver)
+                          สนใจแค่ว่าตรวจจับเหตุได้ไหม ไม่ใช่ไมค์ตัวไหนดังกว่ากัน */}
                     </div>
                   </div>
 
