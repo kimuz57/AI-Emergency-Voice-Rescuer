@@ -1,8 +1,0 @@
-best_bcresnet_kws.pth
-best_sens_model.pth
-dockerfile
-epoch000_best_sens.pth
-model
-.venv
-models/*
-_pycache__

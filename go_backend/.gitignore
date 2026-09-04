@@ -1,9 +1,0 @@
-.env
-.env.production
-audio_recordings
-negative
-tmp
-profile/*
-profile
-localhost+2.pem
-localhost+2-key.pem
