@@ -77,6 +77,7 @@ func SetupRoutes(app *fiber.App) {
 		patientGroup.Get("/", controllers.GetPatientsByCaretaker) // ย้ายจากข้างบนมารวมกลุ่ม
 		patientGroup.Post("/", controllers.CreatePatient)
 		patientGroup.Post("/register", controllers.RegisterPatientWithDevice)
+		patientGroup.Put("/:id", controllers.UpdatePatient) // 🟢 เพิ่มใหม่: แก้ไขข้อมูลผู้ป่วย (เจ้าของ/แอดมิน)
 		patientGroup.Delete("/:id", controllers.DeletePatient)
 
 		patientGroup.Get("/stream", controllers.StreamPatients)

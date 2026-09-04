@@ -254,6 +254,114 @@ func DeletePatient(c *fiber.Ctx) error {
 	})
 }
 
+// ==========================================
+// 🟢 UpdatePatientInput: ฟิลด์ตรงกับ PatientFormModal ฝั่ง frontend
+// (patientName, age, gender, roomNumber, medicalCondition)
+// ไม่รวมข้อมูลอุปกรณ์ เพราะหน้าแก้ไขไม่ได้ให้เปลี่ยนอุปกรณ์ตรงนี้
+// ==========================================
+type UpdatePatientInput struct {
+	PatientName      string `json:"patientName"`
+	Age              int    `json:"age"`
+	Gender           string `json:"gender"`
+	RoomNumber       string `json:"roomNumber"`
+	MedicalCondition string `json:"medicalCondition"`
+}
+
+// UpdatePatient แก้ไขข้อมูลผู้ป่วย (PUT /api/patients/:id)
+// - caregiver ทั่วไป: แก้ได้เฉพาะผู้ป่วยที่ผูกกับตัวเองผ่าน caregiver_patients เท่านั้น
+// - admin: ข้ามการเช็คความเป็นเจ้าของ แก้ไขได้ทุกคน
+//
+// 🟢 หมายเหตุ: โค้ดนี้สมมติว่า models.User มีฟิลด์ Role string (เช่น "admin")
+// ถ้าฟิลด์/ค่าจริงต่างจากนี้ ให้ปรับบรรทัด isAdmin ด้านล่างให้ตรงกับ model จริง
+func UpdatePatient(c *fiber.Ctx) error {
+	patientID := c.Params("id")
+
+	// ==========================================
+	// 1. ตรวจสอบผู้ใช้งานจาก Token (pattern เดียวกับ RegisterPatientWithDevice)
+	// ==========================================
+	tokenString := middleware.ExtractToken(c)
+	if tokenString == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "กรุณาล็อกอินก่อนทำรายการ"})
+	}
+
+	claims, err := utils.ParseToken(tokenString)
+	if err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Session หมดอายุหรือไม่ถูกต้อง"})
+	}
+
+	var currentUser models.User
+	if err := database.DB.Where("email = ?", claims.Email).First(&currentUser).Error; err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ใช้งาน กรุณาล็อกอินใหม่"})
+	}
+
+	// 🟢 ปรับตรงนี้ถ้าชื่อฟิลด์/ค่า Role ของ models.User ในโปรเจกต์จริงไม่ตรงกัน
+	isAdmin := currentUser.Role == "admin"
+
+	// ==========================================
+	// 2. ค้นหาผู้ป่วย + ตรวจสอบสิทธิ์การแก้ไข
+	// ==========================================
+	var patient models.Patient
+
+	if isAdmin {
+		// แอดมิน: แก้ได้ทุกคน ไม่ต้องเช็คความเป็นเจ้าของ
+		if err := database.DB.First(&patient, patientID).Error; err != nil {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ป่วยในระบบ"})
+		}
+	} else {
+		// ผู้ดูแลทั่วไป: ต้องเป็น caregiver ที่ผูกกับผู้ป่วยรายนี้เท่านั้น
+		err := database.DB.
+			Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id").
+			Where("patients.id = ? AND caregiver_patients.user_id = ?", patientID, currentUser.ID).
+			First(&patient).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+					"error": "ไม่พบข้อมูลผู้ป่วย หรือคุณไม่มีสิทธิ์แก้ไขผู้ป่วยรายนี้",
+				})
+			}
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์"})
+		}
+	}
+
+	// ==========================================
+	// 3. รับและตรวจสอบข้อมูลที่ส่งมา
+	// ==========================================
+	var input UpdatePatientInput
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "รูปแบบข้อมูลไม่ถูกต้อง"})
+	}
+
+	name := strings.TrimSpace(input.PatientName)
+	room := strings.TrimSpace(input.RoomNumber)
+
+	if name == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "กรุณากรอกชื่อ-นามสกุล"})
+	}
+	if room == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "กรุณากรอกหมายเลขห้อง/เตียง"})
+	}
+
+	// ==========================================
+	// 4. อัปเดตข้อมูลลง Database
+	// ==========================================
+	updates := map[string]interface{}{
+		"name":              name,
+		"age":               input.Age,
+		"gender":            input.Gender,
+		"room_number":       room,
+		"medical_condition": strings.TrimSpace(input.MedicalCondition),
+	}
+
+	if err := database.DB.Model(&patient).Updates(updates).Error; err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถบันทึกการแก้ไขข้อมูลได้"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "แก้ไขข้อมูลผู้ป่วยสำเร็จ",
+		"patient": patient,
+	})
+}
+
 func StreamPatients(c *fiber.Ctx) error {
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
