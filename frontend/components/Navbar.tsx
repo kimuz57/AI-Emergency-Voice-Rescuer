@@ -1,8 +1,8 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect, @next/next/no-img-element */
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
+import { useCallback, useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
+import Sidebar from "@/components/Sidebar";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 // กำหนดโครงสร้างข้อมูล User
@@ -14,8 +14,9 @@ type UserProfile = {
 };
 
 export default function Navbar() {
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  // เมนูย้ายจาก dropdown ใต้รูปโปรไฟล์ มาเป็น Sidebar ที่เลื่อนออกมาจากซ้าย
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
 
   // 🟢 1. เปลี่ยนจากฟิกค่า เป็นการตั้ง State เริ่มต้นเป็นค่าว่าง
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -237,57 +238,70 @@ export default function Navbar() {
 
   useEffect(() => {
     fetchUserProfile(); // ดึงข้อมูลทันทีเมื่อโหลดหน้าเว็บ
-
-    // สคริปต์ตรวจจับคลิกนอกหน้าต่างเพื่อปิด Dropdown
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsProfileOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    // การปิดเมนูย้ายไปอยู่ใน Sidebar แล้ว (ฉากหลัง + Esc + เปลี่ยนหน้า)
   }, []);
 
-  // 🟢 3. ลอจิกเช็ครูปโปรไฟล์: ถ้าใน DB คอลัมน์ profile ไม่มีรูป จะสลับไปใช้รูปตัวอักษรย่ออัตโนมัติ
-  const avatarUrl =
-    user?.profileImage ||
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || "User")}&background=0D8ABC&color=fff&rounded=true`;
-
   return (
-    <nav className="fixed top-0 left-0 w-full z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-300">
-      <div className="flex items-center gap-2">
-        <div className="flex items-end gap-1 h-6">
-          <div
-            className="w-1.5 h-3 bg-blue-600 rounded-full animate-bounce"
-            style={{ animationDelay: "0ms" }}
-          ></div>
-          <div
-            className="w-1.5 h-6 bg-indigo-500 rounded-full animate-bounce"
-            style={{ animationDelay: "150ms" }}
-          ></div>
-          <div
-            className="w-1.5 h-4 bg-purple-500 rounded-full animate-bounce"
-            style={{ animationDelay: "300ms" }}
-          ></div>
-        </div>
-        <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-          <a
-            href="/dashboard"
-            className="hover:text-blue-600 transition-colors cursor-pointer"
-          >
-            Emergency Voice Rescuer
-          </a>
-        </span>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="relative" ref={dropdownRef}>
-          {/* ปุ่มกดรูปโปรไฟล์ */}
+    <>
+      <nav className="fixed top-0 left-0 w-full z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-300">
+        <div className="flex items-center gap-3">
+          {/* ปุ่มเปิดเมนู Sidebar */}
           <button
-            onClick={() => setIsProfileOpen(!isProfileOpen)}
+            type="button"
+            onClick={() => setIsSidebarOpen(true)}
+            aria-label="เปิดเมนู"
+            aria-expanded={isSidebarOpen}
+            aria-controls="app-sidebar"
+            className="rounded-lg p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-6 h-6"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+
+          <div className="flex items-center gap-2">
+            <div className="hidden sm:flex items-end gap-1 h-6">
+              <div
+                className="w-1.5 h-3 bg-blue-600 rounded-full animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              ></div>
+              <div
+                className="w-1.5 h-6 bg-indigo-500 rounded-full animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              ></div>
+              <div
+                className="w-1.5 h-4 bg-purple-500 rounded-full animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              ></div>
+            </div>
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <a
+                href="/dashboard"
+                className="hover:text-blue-600 transition-colors cursor-pointer"
+              >
+                Emergency Voice Rescuer
+              </a>
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {/* รูปโปรไฟล์ยังกดได้ แต่ตอนนี้เปิด Sidebar แทน dropdown เดิม */}
+          <button
+            onClick={() => setIsSidebarOpen(true)}
+            aria-label="เปิดเมนูผู้ใช้"
             className="flex items-center gap-3 focus:outline-none transition-transform hover:scale-103"
           >
             <img
@@ -300,7 +314,6 @@ export default function Navbar() {
               referrerPolicy="no-referrer"
               alt="Profile"
               className="w-11 h-11 rounded-full border border-gray-200 dark:border-slate-600 object-cover shadow-sm bg-white dark:bg-slate-700"
-              // 🟢 เพิ่ม onError ตรงนี้! ถ้ารูปพัง ให้เปลี่ยน src เป็นรูปตัวอักษรแทน
               onError={(e) => {
                 e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                   user?.name || "U",
@@ -308,226 +321,15 @@ export default function Navbar() {
               }}
             />
           </button>
-
-          {/* หน้าต่างเมนูรายละเอียด */}
-          {/* 🟢 1. เอาคำว่า && user ออก ให้เหลือแค่นี้ เพื่อให้หน้าต่างกางได้เสมอ */}
-          {isProfileOpen && (
-            <div className="absolute right-0 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 overflow-hidden z-50">
-              <div className="px-4 py-4 border-b border-gray-50 dark:border-slate-700 bg-blue-50/40 dark:bg-slate-700/40">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={avatarUrl}
-                    alt="Profile Large"
-                    className="w-11 h-11 rounded-full border border-gray-200 dark:border-slate-600 object-cover shadow-sm bg-white dark:bg-slate-700"
-                    // 🟢 เพิ่ม onError ตรงนี้เหมือนกัน!
-                    onError={(e) => {
-                      e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                        user?.name || "U",
-                      )}&background=0D8ABC&color=fff&rounded=true`;
-                    }}
-                  />
-                  <div className="overflow-hidden">
-                    {/* 🟢 2. เติมเครื่องหมาย ? (Optional Chaining) และค่าสำรอง (||) ป้องกัน Error */}
-                    <p className="text-sm font-bold text-gray-800 dark:text-slate-100 truncate">
-                      {user?.name || "ผู้ใช้งานระบบ"}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-slate-400 truncate mb-1">
-                      {user?.email || "ไม่มีข้อมูลอีเมล"}
-                    </p>
-                    <span className="dark:bg-slate-800 bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-bold">
-                      {user?.role || "User"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="py-1">
-                <Link
-                  href="/"
-                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                  หน้าแรก
-                </Link>
-                <a
-                  href="/dashboard"
-                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect width="7" height="9" x="3" y="3" rx="1" />
-                    <rect width="7" height="5" x="14" y="3" rx="1" />
-                    <rect width="7" height="9" x="14" y="12" rx="1" />
-                    <rect width="7" height="5" x="3" y="16" rx="1" />
-                  </svg>
-                  แดชบอร์ด
-                </a>
-                <a
-                  href="/profile"
-                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                  ข้อมูลส่วนตัว
-                </a>
-                <a
-                  href="#"
-                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-                    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-                  </svg>
-                  การแจ้งเตือน
-                </a>
-                <a
-                  href="/register-patient"
-                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                    <circle cx="9" cy="7" r="4" />
-                    <line x1="19" x2="19" y1="8" y2="14" />
-                    <line x1="22" x2="16" y1="11" y2="11" />
-                  </svg>
-                  ลงทะเบียนเพิ่มผู้ป่วย
-                </a>
-                <a
-                  href="/patients"
-                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                  </svg>
-                  ข้อมูลผู้ป่วย
-                </a>
-
-                {/* 🟢 เพิ่มเมนู History (ประวัติและสถิติ) */}
-                <Link
-                  href="/history"
-                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <polyline points="12 6 12 12 16 14" />
-                  </svg>
-                  ประวัติและสถิติ
-                </Link>
-
-                {/* 🟢 เพิ่มเมนู จัดการอุปกรณ์รับเสียง ตรงนี้ */}
-                <Link
-                  href="/device"
-                  className="flex items-center gap-2 block px-4 py-2.5 text-sm text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" x2="12" y1="19" y2="22" />
-                  </svg>
-                  จัดการอุปกรณ์รับเสียง
-                </Link>
-              </div>
-              <div className="border-t border-gray-100 dark:border-slate-700 py-1 bg-gray-50 dark:bg-slate-700/50">
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 w-full text-left block px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:font-bold transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" x2="9" y1="12" y2="12" />
-                  </svg>
-                  ออกจากระบบ
-                </button>
-              </div>
-            </div>
-          )}
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      <Sidebar
+        open={isSidebarOpen}
+        onClose={closeSidebar}
+        user={user}
+        onLogout={handleLogout}
+      />
+    </>
   );
 }
