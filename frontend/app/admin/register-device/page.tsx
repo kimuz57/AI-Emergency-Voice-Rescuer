@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const APP_URL = process.env.FRONTEND_URL || "https://kws.wattanapong.com";
@@ -603,6 +604,10 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
 // 🏠 Main Page (Tabs Controller) — wrapped in Suspense
 // ============================================================
 function DevicesPageContent() {
+  // หน้านี้เคยไม่มีด่านตรวจสิทธิ์เลย ใครล็อกอินก็พิมพ์ URL เข้ามาได้
+  // ตอนนี้ใช้ตัวเดียวกับหน้า admin อื่น
+  const { isAdmin, isChecking } = useAdminGuard();
+
   const searchParams = useSearchParams();
   const scannedMAC = searchParams.get("mac")?.toUpperCase() || "";
 
@@ -610,6 +615,20 @@ function DevicesPageContent() {
   const [activeTab, setActiveTab] = useState<"qr" | "register">(
     scannedMAC ? "register" : "qr",
   );
+
+  if (isChecking) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
+        <div className="w-8 h-8 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...
+        </p>
+      </div>
+    );
+  }
+
+  // ไม่ผ่านด่าน — useAdminGuard สั่ง redirect ไปแล้ว
+  if (!isAdmin) return null;
 
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 md:p-8 font-sans overflow-hidden">

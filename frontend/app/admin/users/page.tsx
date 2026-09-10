@@ -1,13 +1,17 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const avatarColors = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#EF4444"];
 
 export default function AdminUsers() {
-  const router = useRouter();
+  // เดิมหน้านี้เช็คสิทธิ์จาก localStorage.userRole ซึ่งมีปัญหา 2 อย่าง:
+  // ปลอมได้ใน devtools และคีย์นั้นถูกตั้งเฉพาะตอนล็อกอินด้วยอีเมล/รหัสผ่าน
+  // (ล็อกอินด้วย Google จะไม่มีเลย ทำให้แอดมินตัวจริงเข้าหน้านี้ไม่ได้)
+  // ตอนนี้ถาม backend เหมือนหน้า admin อื่นๆ
+  const { isAdmin, isChecking } = useAdminGuard();
   const [isLoading, setIsLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
 
@@ -25,7 +29,7 @@ export default function AdminUsers() {
     is_telegram_connected: false,
   });
 
-  const fetchUsers = () => {
+  const fetchUsers = useCallback(() => {
     fetch(`${API_URL}/api/admin/users`, {
       method: "GET",
       credentials: "include",
@@ -44,16 +48,11 @@ export default function AdminUsers() {
         setUsers([]);
         setIsLoading(false);
       });
-  };
+  }, []);
 
   useEffect(() => {
-    const role = localStorage.getItem("userRole");
-    if (!role || role.toLowerCase() !== "admin") {
-      router.push("/dashboard");
-      return;
-    }
-    fetchUsers();
-  }, [router]);
+    if (isAdmin) fetchUsers();
+  }, [isAdmin, fetchUsers]);
 
   const handleDelete = async (id: number) => {
     try {
@@ -111,6 +110,20 @@ export default function AdminUsers() {
       alert("เกิดข้อผิดพลาดในการเชื่อมต่อ");
     }
   };
+
+  if (isChecking) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-20 flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...
+        </p>
+      </div>
+    );
+  }
+
+  // ไม่ผ่านด่าน — useAdminGuard สั่ง redirect ไปแล้ว
+  if (!isAdmin) return null;
 
   return (
     <div className="p-6">

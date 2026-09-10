@@ -183,6 +183,7 @@ export default function Navbar() {
       // 2. ล้างข้อมูลหน้าบ้าน (สำคัญที่สุด)
       localStorage.removeItem("token");
       localStorage.removeItem("userEmail");
+      localStorage.removeItem("userRole"); // ของเก่าที่อาจค้างจาก build ก่อนหน้า
 
       // 3. 🌟 เรียก signOut ของ NextAuth
       await signOut({ callbackUrl: "/" });
@@ -191,6 +192,7 @@ export default function Navbar() {
       // 🆕 แม้ error ก็ยังล้าง localStorage และ redirect
       localStorage.removeItem("token");
       localStorage.removeItem("userEmail");
+      localStorage.removeItem("userRole");
       window.location.href = "/";
     }
   };

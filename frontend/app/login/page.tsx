@@ -131,9 +131,10 @@ function LoginFormContent() {
           const loggedInEmail = data.user?.email || email;
           localStorage.setItem("userEmail", loggedInEmail);
 
-          if (data.user?.role) {
-            localStorage.setItem("userRole", data.user.role);
-          }
+          // ไม่เก็บ role ลง localStorage อีกแล้ว — ทุกหน้า admin ถาม backend
+          // ผ่าน useAdminGuard แทน ค่าที่เก็บไว้ในเครื่องปลอมได้ และค้างข้ามคน
+          // เพราะ logout ไม่เคยล้างมันทิ้ง
+          localStorage.removeItem("userRole");
 
           const token = data.token || data.accessToken;
           if (token) {
