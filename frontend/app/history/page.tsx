@@ -179,7 +179,7 @@ export default function HistoryPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+          <h1 className="text-2xl font-bold neu-text flex items-center gap-3">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="w-8 h-8 text-indigo-500"
@@ -197,13 +197,13 @@ export default function HistoryPage() {
             </svg>
             ประวัติและสถิติเหตุการณ์
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+          <p className="neu-text-muted text-sm mt-1">
             ดูประวัติการขอความช่วยเหลือย้อนหลังและวิเคราะห์แนวโน้ม
           </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl shadow-inner border border-slate-200 dark:border-slate-700 shrink-0 overflow-x-auto">
+        <div className="neu-card-sm flex p-1 shrink-0 overflow-x-auto">
           <button
             onClick={() => setActiveTab("calendar")}
             className={`whitespace-nowrap px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
@@ -228,10 +228,10 @@ export default function HistoryPage() {
       </div>
 
       {loading ? (
-        <div className="h-[600px] flex items-center justify-center bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800">
+        <div className="neu-card h-[600px] flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <div className="w-10 h-10 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-            <p className="text-slate-500 font-medium">
+            <p className="neu-text-muted font-medium">
               กำลังโหลดข้อมูลประวัติ...
             </p>
           </div>
@@ -242,22 +242,22 @@ export default function HistoryPage() {
           <div
             className={`transition-opacity duration-300 w-full max-w-full ${activeTab === "calendar" ? "block" : "hidden"}`}
           >
-            <div className="bg-white dark:bg-slate-900 p-3 sm:p-6 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 w-full overflow-hidden">
+            <div className="neu-card p-3 sm:p-6 w-full overflow-hidden">
               {/* ส่วนหัวของปฏิทิน (ปุ่มสถานะ และ ช่องค้นหาวันที่) */}
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
                 <div className="flex flex-wrap items-center gap-4">
-                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <div className="flex items-center gap-2 text-sm neu-text-muted">
                     <div className="w-3 h-3 rounded-full bg-red-500"></div>{" "}
                     ยังไม่ช่วยเหลือ
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                  <div className="flex items-center gap-2 text-sm neu-text-muted">
                     <div className="w-3 h-3 rounded-full bg-emerald-500"></div>{" "}
                     ช่วยเหลือแล้ว
                   </div>
                 </div>
 
                 {/* Date Picker */}
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 p-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 w-full sm:w-auto shadow-sm">
+                <div className="neu-card-sm flex items-center gap-2 p-2 px-3 w-full sm:w-auto">
                   <label
                     htmlFor="jumpDate"
                     className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap"
@@ -268,7 +268,7 @@ export default function HistoryPage() {
                     type="date"
                     id="jumpDate"
                     onChange={handleDateJump}
-                    className="bg-transparent text-sm outline-none text-slate-700 dark:text-slate-200 cursor-pointer w-full"
+                    className="bg-transparent text-sm outline-none neu-text cursor-pointer w-full"
                   />
                 </div>
               </div>
@@ -404,7 +404,7 @@ export default function HistoryPage() {
                     ].map((stat, idx) => (
                       <div
                         key={idx}
-                        className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 flex items-center gap-5 hover:-translate-y-1 transition-transform"
+                        className="neu-card p-6 flex items-center gap-5 hover:-translate-y-1 transition-transform"
                       >
                         <div
                           className={`w-14 h-14 rounded-2xl flex items-center justify-center ${stat.bg} ${stat.color}`}
@@ -424,10 +424,10 @@ export default function HistoryPage() {
                           </svg>
                         </div>
                         <div>
-                          <p className="text-slate-500 dark:text-slate-400 font-medium text-sm">
+                          <p className="neu-text-muted font-medium text-sm">
                             {stat.label}
                           </p>
-                          <h3 className="text-3xl font-extrabold text-slate-800 dark:text-white mt-1">
+                          <h3 className="text-3xl font-extrabold neu-text mt-1">
                             {stat.value}
                           </h3>
                         </div>
@@ -437,8 +437,8 @@ export default function HistoryPage() {
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {/* Daily Trends (Bar Chart) */}
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
-                      <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">
+                    <div className="neu-card p-6">
+                      <h3 className="text-lg font-bold neu-text mb-6">
                         จำนวนเหตุการณ์รายวัน (30 วันล่าสุด)
                       </h3>
                       <div className="h-72">
@@ -491,8 +491,8 @@ export default function HistoryPage() {
                     </div>
 
                     {/* Hourly Heatmap/Pattern (Area Chart) */}
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-800">
-                      <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-6">
+                    <div className="neu-card p-6">
+                      <h3 className="text-lg font-bold neu-text mb-6">
                         ช่วงเวลาที่เกิดเหตุบ่อย (รูปแบบรายชั่วโมง)
                       </h3>
                       <div className="h-72">
@@ -573,14 +573,14 @@ export default function HistoryPage() {
       {/* Event Detail Modal */}
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
+          <div className="neu-card w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-300">
             {/* Modal Header */}
             <div
               className={`p-6 text-white ${selectedEvent.is_resolved ? "bg-gradient-to-r from-emerald-500 to-teal-600" : "bg-gradient-to-r from-red-500 to-rose-600"}`}
             >
               <div className="flex justify-between items-start">
                 <div className="flex gap-3 items-center">
-                  <div className="bg-white/20 p-2 rounded-xl backdrop-blur-md">
+                  <div className="neu-card-sm p-2">
                     <svg
                       className="w-8 h-8"
                       fill="none"
@@ -632,19 +632,19 @@ export default function HistoryPage() {
             {/* Modal Body */}
             <div className="p-6 md:p-8 space-y-6">
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1 uppercase tracking-wider">
+                <div className="neu-card p-4">
+                  <p className="text-xs neu-text-muted font-semibold mb-1 uppercase tracking-wider">
                     ผู้ป่วย
                   </p>
-                  <p className="text-lg font-bold text-slate-800 dark:text-white">
+                  <p className="text-lg font-bold neu-text">
                     {selectedEvent.patient_name}
                   </p>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mb-1 uppercase tracking-wider">
+                <div className="neu-card p-4">
+                  <p className="text-xs neu-text-muted font-semibold mb-1 uppercase tracking-wider">
                     สถานที่
                   </p>
-                  <p className="text-lg font-bold text-slate-800 dark:text-white">
+                  <p className="text-lg font-bold neu-text">
                     {selectedEvent.room_number}
                   </p>
                 </div>

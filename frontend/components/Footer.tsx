@@ -2,15 +2,15 @@ import React from "react";
 
 export default function Footer() {
   return (
-    <footer className="mt-auto w-full py-6 border-t border-gray-200 dark:border-slate-700 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 text-gray-500 text-xs uppercase tracking-[0.2em] font-bold">
-        <p className="dark:text-slate-400">© 2026 Emergency Voice Rescuer</p>
+    <footer className="neu-bar-top mt-auto w-full py-6 transition-colors duration-300">
+      <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4 neu-text-muted text-xs uppercase tracking-[0.2em] font-bold">
+        <p>© 2026 Emergency Voice Rescuer</p>
 
         <div className="flex items-center gap-2">
           {/* 🟢 เปลี่ยนจากอิโมจิ มาใช้ SVG แม่กุญแจลายเส้นตามที่คุณต้องการ */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
-            className="w-4 h-4 text-slate-400 dark:text-slate-500"
+            className="w-4 h-4 neu-text-muted"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
@@ -22,7 +22,7 @@ export default function Footer() {
             <path d="M7 11V7a5 5 0 0 1 10 0v4" />
           </svg>
 
-          <p className="dark:text-slate-400">
+          <p>
             สภาพแวดล้อมที่เป็นส่วนตัวและปลอดภัย
           </p>
         </div>

@@ -64,21 +64,21 @@ export default function WaveformAudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="dark:bg-slate-700 flex items-center gap-2 bg-gray-100 p-1.5 px-3 rounded-full w-full max-w-sm mt-2 relative shadow-sm border border-gray-200">
+    <div className="neu-inset flex items-center gap-2 p-1.5 px-3 rounded-full w-full max-w-sm mt-2 relative">
       <button
         onClick={togglePlay}
         disabled={loadError}
-        className="shrink-0 p-1.5 hover:bg-gray-200 rounded-full transition-colors text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+        className="neu-icon-btn shrink-0 p-2 disabled:opacity-40 disabled:cursor-not-allowed"
       >
         {isPlaying ? (
-          <svg className="dark:text-white w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
         ) : (
-          <svg className="dark:text-white w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
         )}
       </button>
 
       {!loadError && (
-        <div className="dark:text-white shrink-0 text-xs font-medium text-gray-600 min-w-[65px] text-center">
+        <div className="shrink-0 text-xs font-medium neu-text-muted min-w-[65px] text-center">
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
       )}
@@ -115,13 +115,13 @@ export default function WaveformAudioPlayer({ src }: { src: string }) {
       >
         <button
           disabled={loadError}
-          className="p-1.5 hover:bg-gray-200 rounded-full transition-colors text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          className="neu-icon-btn p-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
         </button>
 
         {showVolume && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 bg-white w-7 h-24 rounded-xl shadow-lg border border-gray-100 flex justify-center items-center z-50">
+          <div className="neu-card-sm absolute bottom-8 left-1/2 -translate-x-1/2 w-9 h-24 rounded-xl flex justify-center items-center z-50">
             <input
               type="range"
               min="0"
@@ -129,7 +129,7 @@ export default function WaveformAudioPlayer({ src }: { src: string }) {
               step="0.05"
               value={volume}
               onChange={handleVolume}
-              className="w-16 h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-600 -rotate-90 origin-center"
+              className="w-16 h-1 rounded-lg appearance-none cursor-pointer -rotate-90 origin-center bg-[var(--neu-shadow-dark)] accent-[var(--neu-accent)]"
             />
           </div>
         )}

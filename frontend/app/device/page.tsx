@@ -235,7 +235,7 @@ export default function DevicesPage() {
   const renderDeviceCard = (device: DeviceData, index: number) => (
     <div
       key={device.id || index}
-      className="group bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-xl hover:border-blue-300 dark:hover:border-blue-500/50 transition-all duration-300 relative overflow-hidden"
+      className="neu-card group p-5 dark:hover:border-blue-500/50 transition-all duration-300 relative overflow-hidden"
     >
       <div className="absolute top-5 right-5 flex items-center gap-2">
         {device.is_active ? (
@@ -261,7 +261,7 @@ export default function DevicesPage() {
           ) : (
             <>
               <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              <span className="text-[11px] font-bold neu-text-muted uppercase tracking-wide">
                 Offline
               </span>
             </>
@@ -293,10 +293,10 @@ export default function DevicesPage() {
             <line x1="1" y1="14" x2="4" y2="14"></line>
           </svg>
         </div>
-        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+        <h4 className="text-[10px] font-bold neu-text-muted uppercase tracking-widest mb-1">
           MAC ADDRESS
         </h4>
-        <p className="font-mono font-bold text-lg text-slate-800 dark:text-slate-100">
+        <p className="font-mono font-bold text-lg neu-text">
           {device.mac_address}
         </p>
 
@@ -323,7 +323,7 @@ export default function DevicesPage() {
       </div>
 
       <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-        <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+        <h4 className="text-[10px] font-bold neu-text-muted uppercase tracking-widest mb-2">
           ผู้ป่วยที่ผูกกับบอร์ดนี้
         </h4>
         {device.patient_name ? (
@@ -331,12 +331,12 @@ export default function DevicesPage() {
             <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-xs">
               {device.patient_name.charAt(0)}
             </div>
-            <p className="font-medium text-slate-700 dark:text-slate-300 text-sm truncate">
+            <p className="font-medium neu-text text-sm truncate">
               {device.patient_name}
             </p>
           </div>
         ) : (
-          <div className="px-3 py-2 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 border-dashed rounded-lg flex items-center gap-2">
+          <div className="neu-card-sm px-3 py-2 flex items-center gap-2">
             <svg
               className="w-4 h-4 text-amber-500"
               fill="none"
@@ -350,7 +350,7 @@ export default function DevicesPage() {
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-semibold neu-text-muted">
               ยังไม่ถูกผูกกับผู้ป่วย (รอการลงทะเบียน)
             </span>
           </div>
@@ -377,14 +377,14 @@ export default function DevicesPage() {
                 </span>
               )}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-2">
+            <p className="neu-text-muted mt-1 flex items-center gap-2">
               แสดงสถานะอุปกรณ์ที่ผูกกับผู้ป่วย
             </p>
           </div>
 
           <button
             onClick={fetchData}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
+            className="neu-card-sm flex items-center gap-2 px-4 py-2 text-sm font-bold neu-text-muted hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
           >
             <svg
               className={`w-4 h-4 ${isLoading ? "animate-spin text-blue-500" : ""}`}
@@ -408,7 +408,7 @@ export default function DevicesPage() {
             {[1, 2, 3].map((skeleton) => (
               <div
                 key={skeleton}
-                className="bg-white/60 dark:bg-slate-800/60 rounded-2xl p-6 border border-slate-100 dark:border-slate-700 h-32 animate-pulse flex flex-col justify-between"
+                className="neu-card p-6 h-32 animate-pulse flex flex-col justify-between"
               >
                 <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
                 <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
@@ -437,10 +437,10 @@ export default function DevicesPage() {
             <p className="text-red-600 dark:text-red-300 mt-1">{error}</p>
           </div>
         ) : devices.length === 0 ? (
-          <div className="bg-white/60 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-2xl p-12 text-center shadow-sm">
+          <div className="neu-card p-12 text-center">
             <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
-                className="w-8 h-8 text-slate-400"
+                className="w-8 h-8 neu-text-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -453,10 +453,10 @@ export default function DevicesPage() {
                 />
               </svg>
             </div>
-            <h3 className="text-xl font-bold text-slate-700 dark:text-slate-300">
+            <h3 className="text-xl font-bold neu-text">
               ยังไม่มีอุปกรณ์ในระบบ
             </h3>
-            <p className="text-slate-500 dark:text-slate-400 mt-2">
+            <p className="neu-text-muted mt-2">
               {isAdmin
                 ? "ยังไม่มีการลงทะเบียนอุปกรณ์ใดๆ ในระบบ"
                 : "ยังไม่มีอุปกรณ์ของผู้ป่วยที่อยู่ภายใต้การดูแลของคุณ"}
@@ -466,7 +466,7 @@ export default function DevicesPage() {
           <div className="flex flex-col gap-10">
             {/* Activated Devices */}
             <div>
-              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+              <h2 className="text-xl font-bold neu-text mb-4 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
                 อุปกรณ์ที่เปิดใช้งาน (Activated)
               </h2>
@@ -475,8 +475,8 @@ export default function DevicesPage() {
                   {devices.filter((d) => d.is_active).map(renderDeviceCard)}
                 </div>
               ) : (
-                <div className="bg-white/40 dark:bg-slate-800/40 rounded-xl p-6 text-center border border-dashed border-slate-200 dark:border-slate-700">
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                <div className="neu-card-sm p-6 text-center">
+                  <p className="neu-text-muted text-sm">
                     ไม่มีอุปกรณ์ที่เปิดใช้งานในขณะนี้
                   </p>
                 </div>
@@ -485,7 +485,7 @@ export default function DevicesPage() {
 
             {/* Not Activated Devices */}
             <div>
-              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+              <h2 className="text-xl font-bold neu-text mb-4 flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-amber-400 shadow-sm"></span>
                 อุปกรณ์ที่ยังไม่เปิดใช้งาน (Not Activated)
               </h2>
@@ -494,8 +494,8 @@ export default function DevicesPage() {
                   {devices.filter((d) => !d.is_active).map(renderDeviceCard)}
                 </div>
               ) : (
-                <div className="bg-white/40 dark:bg-slate-800/40 rounded-xl p-6 text-center border border-dashed border-slate-200 dark:border-slate-700">
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                <div className="neu-card-sm p-6 text-center">
+                  <p className="neu-text-muted text-sm">
                     ไม่มีอุปกรณ์ที่ยังไม่เปิดใช้งาน
                   </p>
                 </div>
@@ -507,10 +507,10 @@ export default function DevicesPage() {
 
       {wifiModalDevice && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-          <div className="dark:bg-slate-700/50 bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-xl border border-white/80 flex flex-col items-center gap-6 animate-in zoom-in-95 duration-200 relative w-full max-w-md">
+          <div className="neu-card p-6 md:p-8 flex flex-col items-center gap-6 animate-in zoom-in-95 duration-200 relative w-full max-w-md">
             <button
               onClick={() => setWifiModalDevice(null)}
-              className="absolute top-4 right-4 p-2 bg-white/50 dark:bg-slate-700/50 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40 text-slate-500 rounded-full transition-colors"
+              className="absolute top-4 right-4 p-2 bg-white/50 dark:bg-slate-700/50 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/40 neu-text-muted rounded-full transition-colors"
             >
               <svg
                 className="w-5 h-5"
@@ -527,7 +527,7 @@ export default function DevicesPage() {
               </svg>
             </button>
 
-            <h2 className="w-full text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+            <h2 className="w-full text-xl font-bold neu-text flex items-center gap-2">
               <span className="text-purple-500">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -553,7 +553,7 @@ export default function DevicesPage() {
             </h2>
 
             <div className="relative group w-full flex justify-center">
-              <div className="relative bg-white p-5 rounded-2xl shadow-xl border-2 border-emerald-100">
+              <div className="neu-card relative p-5">
                 {wifiQrUrl ? (
                   <img
                     src={wifiQrUrl}
@@ -561,7 +561,7 @@ export default function DevicesPage() {
                     className="w-56 h-56 md:w-64 md:h-64"
                   />
                 ) : (
-                  <div className="w-56 h-56 md:w-64 md:h-64 flex items-center justify-center text-slate-400">
+                  <div className="w-56 h-56 md:w-64 md:h-64 flex items-center justify-center neu-text-muted">
                     กำลังสร้าง...
                   </div>
                 )}
@@ -569,10 +569,10 @@ export default function DevicesPage() {
             </div>
 
             <div className="text-center w-full">
-              <p className="font-mono text-xl font-bold text-slate-800 dark:text-white tracking-widest">
+              <p className="font-mono text-xl font-bold neu-text tracking-widest">
                 {wifiModalDevice.mac_address}
               </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">
+              <p className="text-sm neu-text-muted mt-2">
                 SSID:{" "}
                 <span className="font-bold text-indigo-600 dark:text-indigo-400">
                   {wifiInfo.ssid}
@@ -602,7 +602,7 @@ export default function DevicesPage() {
               </button>
               <button
                 onClick={handlePrintWifiQr}
-                className="flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-white rounded-xl font-bold text-sm hover:border-emerald-400 hover:text-emerald-600 transition-all hover:-translate-y-0.5 w-full sm:w-auto"
+                className="neu-card-sm flex items-center justify-center gap-2 px-6 py-3 neu-text font-bold text-sm hover:text-emerald-600 transition-all hover:-translate-y-0.5 w-full sm:w-auto"
               >
                 <svg
                   className="w-4 h-4"

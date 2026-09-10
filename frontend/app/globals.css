@@ -25,6 +25,276 @@
 }
 
 /* ============================================
+   Neumorphism Design System
+   --------------------------------------------
+   ทุกพื้นผิวใช้สีพื้นเดียวกัน ต่างกันแค่ทิศทางของเงา
+   นูน (extruded) = เงาออกนอก / จม (inset) = เงาเข้าใน
+   คลาสเดียวใช้ได้ทั้งสองธีม เพราะอ่านค่าจากตัวแปรด้านล่าง
+   ============================================ */
+:root {
+  --neu-bg: #E0E5EC;
+  --neu-shadow-dark: #A3B1C6;
+  --neu-shadow-light: #FFFFFF;
+  --neu-text: #2D3748;
+  --neu-muted: #718096;
+  --neu-accent: #6366F1;
+  --neu-accent-contrast: #FFFFFF;
+
+  --neu-out: 9px 9px 16px var(--neu-shadow-dark),
+             -9px -9px 16px var(--neu-shadow-light);
+  --neu-out-sm: 5px 5px 10px var(--neu-shadow-dark),
+                -5px -5px 10px var(--neu-shadow-light);
+  --neu-in: inset 6px 6px 10px var(--neu-shadow-dark),
+            inset -6px -6px 10px var(--neu-shadow-light);
+  --neu-in-sm: inset 3px 3px 6px var(--neu-shadow-dark),
+               inset -3px -3px 6px var(--neu-shadow-light);
+}
+
+html.dark {
+  --neu-bg: #2A2D35;
+  --neu-shadow-dark: #1C1E24;
+  --neu-shadow-light: #383C46;
+  --neu-text: #E2E8F0;
+  --neu-muted: #94A3B8;
+  --neu-accent: #818CF8;
+  --neu-accent-contrast: #1C1E24;
+}
+
+/* ---------- พื้นผิว ---------- */
+/* พื้นเปล่าสีเดียวกับวัสดุหลัก ใช้กับ layout wrapper */
+.neu-surface {
+  background: var(--neu-bg);
+}
+
+/* แถบบน/ล่างที่ต้องดูลอยจากพื้นเล็กน้อย — ใช้เงาข้างเดียวไม่ใช่เงารอบตัว
+   เพราะแถบกินเต็มความกว้าง ถ้าใส่เงารอบตัวจะเห็นขอบซ้าย-ขวาแปลกๆ */
+.neu-bar {
+  background: var(--neu-bg);
+  box-shadow: 0 6px 14px -6px var(--neu-shadow-dark);
+}
+
+.neu-bar-top {
+  background: var(--neu-bg);
+  box-shadow: 0 -6px 14px -6px var(--neu-shadow-dark);
+}
+
+.neu-card {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-out);
+  border-radius: 1.5rem;
+  border: none;
+}
+
+.neu-card-sm {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-out-sm);
+  border-radius: 1rem;
+  border: none;
+}
+
+.neu-inset {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-in);
+  border-radius: 1rem;
+  border: none;
+}
+
+.neu-inset-sm {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-in-sm);
+  border-radius: 0.75rem;
+  border: none;
+}
+
+/* ---------- ช่องกรอกข้อมูล (จม) ---------- */
+.neu-input {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-in);
+  border-radius: 1rem;
+  border: none;
+  color: var(--neu-text);
+  outline: none;
+  transition: box-shadow 0.2s ease;
+}
+
+.neu-input::placeholder {
+  color: var(--neu-muted);
+  opacity: 0.8;
+}
+
+.neu-input:focus {
+  box-shadow: var(--neu-in), 0 0 0 2px var(--neu-accent);
+}
+
+.neu-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* select ต้องบังคับสีพื้นเอง ไม่งั้นเบราว์เซอร์ใส่พื้นขาวให้ */
+select.neu-input option {
+  background: var(--neu-bg);
+  color: var(--neu-text);
+}
+
+/* ---------- ปุ่ม ---------- */
+.neu-btn {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-out-sm);
+  border-radius: 1rem;
+  border: none;
+  color: var(--neu-text);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.neu-btn:hover:not(:disabled) {
+  color: var(--neu-accent);
+}
+
+/* กดแล้วยุบลงไป — เป็นสัญญาณสัมผัสหลักของ neumorphism */
+.neu-btn:active:not(:disabled),
+.neu-btn[data-pressed="true"] {
+  box-shadow: var(--neu-in-sm);
+}
+
+.neu-btn:focus-visible {
+  box-shadow: var(--neu-out-sm), 0 0 0 2px var(--neu-accent);
+  outline: none;
+}
+
+.neu-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  box-shadow: var(--neu-out-sm);
+}
+
+/* สถานะถูกเลือก/กำลังอยู่หน้านี้ = จมค้างไว้ */
+.neu-active {
+  box-shadow: var(--neu-in-sm);
+  color: var(--neu-accent);
+}
+
+/* ปุ่มหลักที่ต้องเด่น — ยังเป็นทรง neumorphic แต่เติมสี accent */
+.neu-btn-accent {
+  background: var(--neu-accent);
+  color: var(--neu-accent-contrast);
+  box-shadow: var(--neu-out-sm);
+  border-radius: 1rem;
+  border: none;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.neu-btn-accent:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.neu-btn-accent:active:not(:disabled) {
+  box-shadow: var(--neu-in-sm);
+}
+
+.neu-btn-accent:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* ปุ่มไอคอนกลม */
+.neu-icon-btn {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-out-sm);
+  border-radius: 9999px;
+  border: none;
+  color: var(--neu-muted);
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.neu-icon-btn:hover:not(:disabled) {
+  color: var(--neu-accent);
+}
+
+.neu-icon-btn:active:not(:disabled) {
+  box-shadow: var(--neu-in-sm);
+}
+
+/* ---------- สวิตช์เปิด/ปิด ----------
+   รางเป็นร่องจม ลูกบิดเป็นปุ่มนูน — เปิดแล้วรางเปลี่ยนเป็นสี accent */
+.neu-switch {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-in-sm);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.neu-switch::after {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-out-sm);
+  border: none;
+}
+
+.peer:checked ~ .neu-switch {
+  background: var(--neu-accent);
+}
+
+.peer:checked ~ .neu-switch::after {
+  background: var(--neu-accent-contrast);
+}
+
+/* ---------- รายการเมนู ----------
+   เขียน hover/active ไว้ในนี้ทั้งหมด ไม่ผสมกับ hover: ของ Tailwind
+   เพราะคลาส .neu-* เป็น CSS ธรรมดา (unlayered) จะชนะ utility ที่อยู่ใน
+   @layer ของ Tailwind เสมอ ผสมกันแล้ว hover จะไม่ทำงาน */
+.neu-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--neu-muted);
+  transition: box-shadow 0.2s ease, color 0.2s ease;
+}
+
+.neu-nav-item:hover {
+  color: var(--neu-accent);
+  box-shadow: var(--neu-out-sm);
+}
+
+.neu-nav-item[aria-current="page"] {
+  color: var(--neu-accent);
+  box-shadow: var(--neu-in-sm);
+}
+
+/* ---------- ข้อความ ---------- */
+.neu-text { color: var(--neu-text); }
+.neu-text-muted { color: var(--neu-muted); }
+.neu-text-accent { color: var(--neu-accent); }
+
+/* ---------- อื่นๆ ---------- */
+.neu-divider {
+  height: 1px;
+  border: none;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--neu-shadow-dark),
+    transparent
+  );
+  opacity: 0.6;
+}
+
+/* แถบ/หลอดที่ต้องดูจม เช่น progress, waveform, level meter */
+.neu-track {
+  background: var(--neu-bg);
+  box-shadow: var(--neu-in-sm);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+
+/* ============================================
    Base Styles
    ============================================ */
 body {
@@ -34,6 +304,8 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
+  background-color: var(--neu-bg);
+  color: var(--neu-text);
 }
 
 
@@ -418,21 +690,15 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
 /* ============================================
    Epic Background Animation (Elderly Theme)
    ============================================ */
+/* Neumorphism ต้องการพื้นเรียบสีเดียวกับการ์ด ไม่งั้นการ์ดจะดูลอยอยู่บนรูป
+   แทนที่จะดูเหมือนถูกปั๊มนูนขึ้นมาจากผืนเดียวกัน — ภาพพื้นหลังเดิมเลยถูกถอดออก */
 body::before {
   content: "";
   position: fixed;
-  top: -10%; left: -10%;
-  width: 120%; height: 120%;
+  inset: 0;
   z-index: -1;
-  background-image: linear-gradient(to bottom, rgba(224, 234, 252, 0.3), rgba(207, 222, 243, 0.6)), url('/bg-elderly-light.jpg');
-  background-size: cover;
-  background-position: center;
-  animation: epic-bg-anim 40s ease-in-out infinite alternate;
+  background-color: var(--neu-bg);
   pointer-events: none;
-}
-
-html.dark body::before {
-  background-image: linear-gradient(to bottom, rgba(15, 23, 42, 0.5), rgba(2, 6, 23, 0.8)), url('/bg-elderly-dark.jpg');
 }
 
 @keyframes epic-bg-anim {

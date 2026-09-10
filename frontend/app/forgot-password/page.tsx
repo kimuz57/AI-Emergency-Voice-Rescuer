@@ -40,10 +40,10 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-transparent flex flex-col items-center justify-center p-4 transition-colors">
-      <div className="w-full max-w-md bg-white dark:bg-slate-800/80 backdrop-blur-md rounded-3xl shadow-xl p-8 border border-slate-200 dark:border-slate-700">
+      <div className="neu-card w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">ลืมรหัสผ่าน?</h1>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">
+          <h1 className="text-2xl font-bold neu-text mb-2">ลืมรหัสผ่าน?</h1>
+          <p className="neu-text-muted text-sm">
             กรอกอีเมลของคุณเพื่อรับลิงก์สำหรับตั้งรหัสผ่านใหม่
           </p>
         </div>
@@ -62,7 +62,7 @@ export default function ForgotPasswordPage() {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
           <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 mb-1 block">
+            <label className="text-xs font-semibold neu-text-muted ml-1 mb-1 block">
               อีเมล
             </label>
             <input
@@ -71,7 +71,7 @@ export default function ForgotPasswordPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="your@email.com"
-              className="w-full px-4 py-3 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm"
             />
           </div>
 
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
         <div className="mt-8 text-center">
           <Link
             href="/login"
-            className="text-sm font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors flex items-center justify-center gap-2"
+            className="text-sm font-semibold neu-text-muted hover:text-slate-800 dark:hover:text-white transition-colors flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

@@ -211,10 +211,10 @@ export default function AdminPatients() {
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+          <h1 className="text-2xl font-bold neu-text">
             จัดการข้อมูลผู้ป่วย
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm neu-text-muted mt-1">
             แอดมินสามารถแก้ไขประวัติผู้ป่วยและลบข้อมูลออกจากระบบได้
           </p>
         </div>
@@ -222,27 +222,27 @@ export default function AdminPatients() {
 
       <div className="overflow-x-auto shadow-md rounded-lg">
         <table className="w-full text-sm text-left">
-          <thead className="dark:bg-slate-800 dark:text-white bg-slate-50 border-b border-slate-200">
+          <thead className="dark:bg-slate-800 bg-slate-50 border-b border-slate-200">
             <tr>
-              <th className="px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
                 ผู้ป่วย
               </th>
-              <th className="px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
                 อายุ
               </th>
-              <th className="px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
                 ห้องพัก
               </th>
-              <th className="px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
                 โรคประจำตัว
               </th>
-              <th className="px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
                 ผู้ดูแล
               </th>
-              <th className="px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
                 Device ID
               </th>
-              <th className="px-6 py-4 text-right text-slate-500 font-semibold uppercase tracking-wide text-xs">
+              <th className="px-6 py-4 text-right neu-text-muted font-semibold uppercase tracking-wide text-xs">
                 การดำเนินการ
               </th>
             </tr>
@@ -252,7 +252,7 @@ export default function AdminPatients() {
               <tr>
                 <td
                   colSpan={7}
-                  className="px-6 py-8 text-center text-slate-500"
+                  className="px-6 py-8 text-center neu-text-muted"
                 >
                   กำลังโหลดข้อมูล...
                 </td>
@@ -261,7 +261,7 @@ export default function AdminPatients() {
               <tr>
                 <td
                   colSpan={7}
-                  className="px-6 py-8 text-center text-slate-500"
+                  className="px-6 py-8 text-center neu-text-muted"
                 >
                   ยังไม่มีข้อมูลผู้ป่วยในระบบ
                 </td>
@@ -270,7 +270,7 @@ export default function AdminPatients() {
               patients.map((p: any, i) => (
                 <tr
                   key={p.ID}
-                  className="dark:bg-slate-800 dark:text-white hover:bg-slate-700 transition-colors"
+                  className="dark:bg-slate-800 hover:bg-slate-700 transition-colors"
                 >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -283,12 +283,12 @@ export default function AdminPatients() {
                       >
                         {p.Name ? p.Name.charAt(0) : "?"}
                       </div>
-                      <span className="font-medium text-slate-800 dark:text-white">
+                      <span className="font-medium neu-text">
                         {p.Name}
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  <td className="px-6 py-4 neu-text-muted">
                     {p.Age} ปี
                   </td>
                   <td className="px-6 py-4">
@@ -296,26 +296,26 @@ export default function AdminPatients() {
                       {p.RoomNumber}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  <td className="px-6 py-4 neu-text-muted">
                     {p.MedicalCondition}
                   </td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
+                  <td className="px-6 py-4 neu-text-muted">
                     {p.Caregivers && p.Caregivers.length > 0 ? (
                       p.Caregivers.map((c: any) => c.name || c.Name).join(", ")
                     ) : (
-                      <span className="text-slate-400 italic text-xs">
+                      <span className="neu-text-muted italic text-xs">
                         ยังไม่มีผู้ดูแล
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                  <td className="px-6 py-4 font-mono text-xs neu-text-muted">
                     {p.DeviceAssignments && p.DeviceAssignments.length > 0 ? (
                       p.DeviceAssignments.map(
                         (d: any) =>
                           d.device?.mac_address || d.device_id || d.DeviceID,
                       ).join(", ")
                     ) : (
-                      <span className="text-slate-400 italic text-xs">
+                      <span className="neu-text-muted italic text-xs">
                         ไม่มีอุปกรณ์
                       </span>
                     )}
@@ -324,7 +324,7 @@ export default function AdminPatients() {
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEditPopup(p)}
-                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        className="p-2 neu-text-muted hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                         title="แก้ไข"
                       >
                         <svg
@@ -344,7 +344,7 @@ export default function AdminPatients() {
                       </button>
                       <button
                         onClick={() => setDeleteConfirm(p.ID)}
-                        className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-2 neu-text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="ลบ"
                       >
                         <svg
@@ -376,14 +376,14 @@ export default function AdminPatients() {
         {/* 🟡 Popup แก้ไขข้อมูลผู้ป่วย */}
         {editPatient && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="dark:bg-slate-800 bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 overflow-y-auto max-h-[90vh]">
-              <h3 className="dark:text-white text-xl font-bold text-slate-800 mb-4 border-b pb-3 dark:border-slate-700">
+            <div className="neu-card w-full max-w-md mx-4 p-6 overflow-y-auto max-h-[90vh]">
+              <h3 className="text-xl font-bold neu-text mb-4 border-b pb-3 dark:border-slate-700">
                 แก้ไขข้อมูลผู้ป่วย
               </h3>
 
               <div className="flex flex-col gap-4 mb-6">
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 block mb-1">
+                  <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
                     ชื่อ-นามสกุลผู้ป่วย
                   </label>
                   <input
@@ -392,13 +392,13 @@ export default function AdminPatients() {
                     onChange={(e) =>
                       setEditForm({ ...editForm, name: e.target.value })
                     }
-                    className="w-full p-2.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="neu-input w-full p-2.5 text-sm outline-none"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 block mb-1">
+                    <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
                       อายุ (ปี)
                     </label>
                     <input
@@ -411,11 +411,11 @@ export default function AdminPatients() {
                           age: Number(e.target.value),
                         })
                       }
-                      className="w-full p-2.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="neu-input w-full p-2.5 text-sm outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 block mb-1">
+                    <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
                       ห้องพัก
                     </label>
                     <input
@@ -427,13 +427,13 @@ export default function AdminPatients() {
                           room_number: e.target.value,
                         })
                       }
-                      className="w-full p-2.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="neu-input w-full p-2.5 text-sm outline-none"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 block mb-1">
+                  <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
                     โรคประจำตัว / อาการ
                   </label>
                   <input
@@ -445,23 +445,23 @@ export default function AdminPatients() {
                         medical_condition: e.target.value,
                       })
                     }
-                    className="w-full p-2.5 text-sm border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="neu-input w-full p-2.5 text-sm outline-none"
                   />
                 </div>
 
                 {/* 🟢 ส่วนแสดงรายชื่อผู้ดูแล พร้อมช่องค้นหา */}
                 <div>
-                  <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 block mb-1">
+                  <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
                     ผู้ดูแล (เลือกได้มากกว่า 1 คน)
                   </label>
 
-                  <div className="border border-slate-200 dark:border-slate-600 rounded-lg bg-slate-50 dark:bg-slate-700 overflow-hidden flex flex-col">
+                  <div className="neu-card-sm overflow-hidden flex flex-col">
                     {/* ช่องพิมพ์ค้นหา */}
                     <div className="p-2 border-b border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
                       <div className="relative">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+                          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 neu-text-muted"
                           viewBox="0 0 24 24"
                           fill="none"
                           stroke="currentColor"
@@ -477,7 +477,7 @@ export default function AdminPatients() {
                           placeholder="ค้นหาชื่อ หรือ อีเมล..."
                           value={caregiverSearch}
                           onChange={(e) => setCaregiverSearch(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 text-xs border border-slate-200 dark:border-slate-600 rounded bg-slate-50 dark:bg-slate-700 dark:text-white outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="neu-input w-full pl-8 pr-3 py-1.5 text-xs outline-none"
                         />
                       </div>
                     </div>
@@ -500,13 +500,13 @@ export default function AdminPatients() {
                                 onChange={() =>
                                   handleCaregiverToggle(cg.id || cg.ID)
                                 }
-                                className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                                className="neu-input w-4 h-4 text-indigo-600"
                               />
                               <div className="flex flex-col">
-                                <span className="text-sm font-medium dark:text-slate-200">
+                                <span className="text-sm font-medium">
                                   {cg.name}
                                 </span>
-                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                <span className="text-xs neu-text-muted">
                                   {cg.email}
                                 </span>
                               </div>
@@ -514,7 +514,7 @@ export default function AdminPatients() {
                           );
                         })
                       ) : (
-                        <div className="p-3 text-center text-xs text-slate-500 italic">
+                        <div className="p-3 text-center text-xs neu-text-muted italic">
                           ไม่พบผู้ดูแลที่คุณค้นหา
                         </div>
                       )}
@@ -526,7 +526,7 @@ export default function AdminPatients() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setEditPatient(null)}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-slate-200 neu-text-muted rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   ยกเลิก
                 </button>
@@ -544,7 +544,7 @@ export default function AdminPatients() {
         {/* 🔴 Popup ยืนยันการลบ */}
         {deleteConfirm !== null && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="dark:bg-slate-800 bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
+            <div className="neu-card w-full max-w-sm mx-4 p-6 text-center">
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -561,16 +561,16 @@ export default function AdminPatients() {
                   <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
                 </svg>
               </div>
-              <h3 className="dark:text-white text-base font-bold text-slate-800 mb-1">
+              <h3 className="text-base font-bold neu-text mb-1">
                 ยืนยันการลบผู้ป่วย
               </h3>
-              <p className="dark:text-slate-400 text-sm text-slate-500 mb-5">
+              <p className="text-sm neu-text-muted mb-5">
                 ข้อมูลผู้ป่วยและอุปกรณ์ที่เชื่อมโยงจะถูกลบออกจากระบบ
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  className="flex-1 px-4 py-2.5 border border-slate-200 neu-text-muted rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                 >
                   ยกเลิก
                 </button>

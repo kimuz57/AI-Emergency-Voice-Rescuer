@@ -233,7 +233,7 @@ export default function Dashboard() {
     <div className="relative min-h-screen flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden">
       {/* <PhoneReminder hasPhone={!!userData?.phone} /> */}
       {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
-      <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-red-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-20 animate-pulse pointer-events-none"></div>
+      {/* เอา blob สีเบลอออก — neumorphism ต้องการพื้นเรียบสีเดียว */}
       <div
         className="dark:bg-slate-800 fixed bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse pointer-events-none"
         style={{ animationDelay: "2s" }}
@@ -246,7 +246,7 @@ export default function Dashboard() {
           <div className="mb-4 flex justify-end">
             <button
               onClick={() => setUseMockData(!useMockData)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`neu-btn px-4 py-2 text-xs font-bold ${
                 useMockData
                   ? 'bg-amber-500 text-white hover:bg-amber-600'
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
@@ -258,8 +258,8 @@ export default function Dashboard() {
         )}
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row items-center md:items-start gap-4 mb-10 text-center md:text-left bg-white/60 dark:bg-slate-800 backdrop-blur-md p-6 rounded-3xl border border-white/60 shadow-sm">
-          <div className="p-3 bg-gradient-to-br rounded-2xl animate-bounce shadow-sm ">
+        <div className="neu-card flex flex-col md:flex-row items-center md:items-start gap-4 mb-10 text-center md:text-left p-6 border border-white/60 shadow-sm">
+          <div className="neu-card-sm p-3 animate-bounce">
             <span className="text-3xl md:text-4xl">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -283,10 +283,10 @@ export default function Dashboard() {
             </span>
           </div>
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold bg-gradient-to-r from-slate-800 to-slate-600 bg-clip-text text-transparent tracking-tight dark:text-white">
+            <h1 className="text-2xl md:text-3xl font-extrabold neu-text tracking-tight">
               บอร์ดแจ้งเตือนผู้ป่วยวิกฤต
             </h1>
-            <p className="text-slate-500 font-medium mt-1 text-sm md:text-base">
+            <p className="neu-text-muted font-medium mt-1 text-sm md:text-base">
               (ข้อมูลอัปเดตเรียลไทม์จากระบบ AI Sensor)
             </p>
           </div>
@@ -304,7 +304,7 @@ export default function Dashboard() {
                 isActive={true}
                 intensity="high"
               >
-                <div className="dark:bg-slate-800 dark:text-white bg-white/80 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-lg border border-red-100 relative overflow-hidden flex flex-col gap-6 hover:shadow-xl transition-all group">
+                <div className="neu-card p-6 md:p-8 relative overflow-hidden flex flex-col gap-6 hover:shadow-xl transition-all group">
                   {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}
                   <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-red-500 to-rose-600 shadow-[0_0_15px_rgba(225,29,72,0.6)]"></div>
 
@@ -314,17 +314,17 @@ export default function Dashboard() {
                       <span className="dark:bg-red-500 dark:text-red-300 px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
                         ⚠️ ต้องการความช่วยเหลือ!
                       </span>
-                      <span className="dark:text-white text-xs text-slate-500 font-semibold bg-slate-100 dark:bg-slate-700 px-3 py-1 rounded-full">
+                      <span className="neu-inset-sm neu-text-muted text-xs font-semibold px-3 py-1.5 rounded-full">
                         🕒{" "}
                         {alert.created_at
                           ? new Date(alert.created_at).toLocaleString("th-TH")
                           : "ไม่ระบุเวลา"}
                       </span>
                     </div>
-                    <h2 className="dark:text-white text-3xl font-extrabold text-slate-800 mb-1 tracking-tight">
+                    <h2 className="text-3xl font-extrabold neu-text mb-1 tracking-tight">
                       {alert.patient_name}
                     </h2>
-                    <p className="text-slate-500 text-sm font-medium flex items-center gap-2">
+                    <p className="neu-text-muted text-sm font-medium flex items-center gap-2">
                       <svg
                         className="w-4 h-4"
                         fill="none"
@@ -339,7 +339,7 @@ export default function Dashboard() {
                         />
                       </svg>
                       ห้องพัก:{" "}
-                      <span className="dark:text-slate-200 text-slate-700 font-bold text-base">
+                      <span className="neu-text font-bold text-base">
                         {alert.room_number}
                       </span>
                     </p>
@@ -363,8 +363,8 @@ export default function Dashboard() {
                         คอลัมน์นี้เตี้ยกว่าเข็มทิศ ถ้าชิดบนจะเหลือที่ว่างค้างด้านล่าง */}
                     <div className="flex-1 flex flex-col justify-center space-y-4">
                       {/* Audio player */}
-                      <div className="dark:bg-slate-700 bg-slate-50/80 backdrop-blur-sm rounded-2xl p-4 border border-slate-200/60 dark:border-slate-600 shadow-inner">
-                        <p className="dark:text-white text-xs font-bold text-slate-500 mb-3 flex items-center gap-2 uppercase tracking-wide">
+                      <div className="neu-inset p-4 rounded-2xl">
+                        <p className="neu-text-muted text-xs font-bold mb-3 flex items-center gap-2 uppercase tracking-wide">
                           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
                           เสียงร้องขอความช่วยเหลือ:
                         </p>
@@ -388,7 +388,7 @@ export default function Dashboard() {
                           handleResolve(idToResolve);
                         }
                       }}
-                      className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:shadow-indigo-500/40 transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2"
+                      className="neu-btn-accent w-full md:w-auto px-8 py-4 rounded-2xl font-bold text-lg transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2"
                     >
                       <svg
                         className="w-6 h-6"
@@ -414,13 +414,13 @@ export default function Dashboard() {
         /* ⚪ เงื่อนไขที่ 2: ยังไม่มีผู้ป่วยในความดูแลเลย (Empty State) */
         /* ========================================== */
         patients.length === 0 ? (
-          <div className="bg-white/80 dark:bg-slate-800 backdrop-blur-xl border border-white rounded-3xl p-12 flex flex-col items-center justify-center text-center shadow-lg relative overflow-hidden group">
+          <div className="neu-card p-12 flex flex-col items-center justify-center text-center relative overflow-hidden group">
             {/* แสงตกแต่งพื้นหลัง Empty State */}
-            <div className="dark:bg-slate-700 inset-0 bg-gradient-to-b from-slate-50 to-white opacity-50"></div>
 
-            <div className="relative z-10 bg-slate-100 rounded-full p-6 mb-6 group-hover:scale-110 transition-transform duration-500 dark:bg-slate-800">
+
+            <div className="neu-inset relative z-10 rounded-full p-6 mb-6 group-hover:scale-110 transition-transform duration-500">
               <svg
-                className="w-12 h-12 text-slate-400 dark:text-white"
+                className="w-12 h-12 neu-text-muted"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -433,17 +433,17 @@ export default function Dashboard() {
                 ></path>
               </svg>
             </div>
-            <h2 className="relative z-10 text-2xl font-extrabold text-slate-800 mb-2 dark:text-white ">
+            <h2 className="relative z-10 text-2xl font-extrabold neu-text mb-2">
               คุณยังไม่มีผู้ป่วยในการดูแล
             </h2>
-            <p className="relative z-10 text-slate-500 mb-8 max-w-md leading-relaxed dark:text-slate-200">
+            <p className="relative z-10 neu-text-muted mb-8 max-w-md leading-relaxed">
               กรุณาเพิ่มข้อมูลผู้ป่วยและเชื่อมต่ออุปกรณ์ EVR Sensor
               เพื่อเริ่มการเฝ้าระวังตลอด 24 ชั่วโมง
             </p>
 
             <Link
               href="/register-patient"
-              className="relative z-10 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold py-4 px-8 rounded-2xl transition-all shadow-lg hover:shadow-indigo-500/30 flex items-center gap-3 hover:-translate-y-1"
+              className="neu-btn-accent relative z-10 font-bold py-4 px-8 rounded-2xl transition-all shadow-lg hover:shadow-indigo-500/30 flex items-center gap-3 hover:-translate-y-1"
             >
               <svg
                 className="w-5 h-5"
@@ -465,11 +465,11 @@ export default function Dashboard() {
           /* ========================================== */
           /* 🟢 เงื่อนไขที่ 3: มีผู้ป่วยแล้ว แต่ไม่มีใครป่วยหนัก (สถานการณ์ปกติ) */
           /* ========================================== */
-          <div className="dark:bg-slate-800 bg-emerald-50/80 backdrop-blur-xl border border-emerald-100 rounded-3xl p-10 text-center flex flex-col items-center justify-center gap-4 shadow-lg relative overflow-hidden">
+          <div className="neu-card p-10 text-center flex flex-col items-center justify-center gap-4 shadow-lg relative overflow-hidden">
             {/* แสงวิ้งๆ สีเขียวมรกตแสดงความปลอดภัย */}
-            <div className="absolute top-[-50%] left-[-20%] w-[300px] h-[300px] bg-emerald-300 rounded-full mix-blend-multiply filter blur-[80px] opacity-30 animate-pulse pointer-events-none "></div>
+            <div className="hidden pointer-events-none "></div>
 
-            <div className="relative z-10 bg-emerald-100/80 dark:bg-slate-700 p-4 rounded-full shadow-sm">
+            <div className="neu-inset relative z-10 p-4 rounded-full">
               <svg
                 className="w-10 h-10 text-emerald-600 dark:text-emerald-400"
                 fill="none"
@@ -487,7 +487,7 @@ export default function Dashboard() {
             <h2 className="relative z-10 font-extrabold text-2xl text-emerald-800 tracking-wide dark:text-emerald-400">
               สถานการณ์ปกติ ปลอดภัยดี
             </h2>
-            <p className="dark:bg-slate-700 relative z-10 text-emerald-600/80 font-medium bg-white/50  px-6 py-2 rounded-full backdrop-blur-sm dark:text-emerald-400">
+            <p className="neu-inset-sm relative z-10 text-emerald-600 dark:text-emerald-400 font-medium px-6 py-2 rounded-full">
               ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบ AI กำลังเฝ้าระวัง...
             </p>
           </div>

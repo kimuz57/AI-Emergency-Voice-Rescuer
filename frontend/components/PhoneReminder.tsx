@@ -41,7 +41,7 @@ export default function PhoneReminder({ hasPhone }: { hasPhone: boolean }) {
 
   return (
     // 🌟 กล่อง Popup เด้งที่มุมขวาล่าง (Toast Notification)
-    <div className="fixed bottom-6 right-6 z-50 max-w-sm w-full bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 p-5 transform transition-all duration-500 ease-in-out animate-in slide-in-from-bottom-5 fade-in">
+    <div className="neu-card fixed bottom-6 right-6 z-50 max-w-sm w-full p-5 transform transition-all duration-500 ease-in-out animate-in slide-in-from-bottom-5 fade-in">
       <div className="flex items-start gap-4">
         {/* ไอคอนเตือนความจำ */}
         <div className="flex-shrink-0 w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-blue-600 dark:text-blue-400">
@@ -51,17 +51,17 @@ export default function PhoneReminder({ hasPhone }: { hasPhone: boolean }) {
         </div>
         
         <div className="flex-1">
-          <h3 className="text-sm font-bold text-slate-800 dark:text-white mb-1">
+          <h3 className="text-sm font-bold neu-text mb-1">
             เพิ่มเบอร์โทรศัพท์ของคุณ
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+          <p className="text-xs neu-text-muted mb-4 leading-relaxed">
             เพื่อให้ระบบสามารถส่งการแจ้งเตือนเหตุฉุกเฉินถึงคุณได้ทันท่วงที กรุณาเพิ่มเบอร์โทรศัพท์ในโปรไฟล์
           </p>
           
           <div className="flex gap-2">
             <button 
               onClick={handleClose}
-              className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 neu-text-muted rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               ภายหลัง
             </button>

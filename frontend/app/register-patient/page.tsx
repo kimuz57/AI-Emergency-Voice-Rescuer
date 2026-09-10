@@ -123,10 +123,10 @@ function RegistrationFormContent() {
       ></div>
 
       {/* Main Container */}
-      <div className="dark:bg-slate-800 relative z-10 w-full max-w-4xl bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 md:p-10 border border-white/60">
+      <div className="neu-card relative z-10 w-full max-w-4xl p-8 md:p-10">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="dark:bg-slate-700 inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 mb-4 shadow-sm">
+          <div className="neu-card inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 mb-4">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="w-8 h-8 text-blue-600 dark:text-blue-400"
@@ -153,19 +153,19 @@ function RegistrationFormContent() {
           <h1 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-purple-600 bg-clip-text text-transparent">
             ลงทะเบียนผู้ป่วย
           </h1>
-          <p className="text-slate-500 dark:text-slate-300 mt-2">
+          <p className="neu-text-muted mt-2">
             สร้าง QR Code สำหรับบอร์ด หรือลงทะเบียนผู้ป่วยพร้อมผูกอุปกรณ์
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* ส่วนที่ 1: ข้อมูลผู้ป่วย */}
-          <div className="dark:bg-slate-800 bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-sm border border-white flex flex-col gap-5 relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="neu-card p-6 md:p-8 flex flex-col gap-5 relative overflow-hidden group transition-shadow">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-purple-500"></div>
 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <h2 className="dark:text-white text-lg font-bold text-slate-800">
+                <h2 className="text-lg font-bold neu-text">
                   ข้อมูลผู้ป่วย
                 </h2>
                 {scannedMAC && (
@@ -178,7 +178,7 @@ function RegistrationFormContent() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
                   ชื่อ-นามสกุล
                 </label>
                 <input
@@ -187,13 +187,13 @@ function RegistrationFormContent() {
                   value={formData.patientName}
                   onChange={handleChange}
                   required
-                  className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm text-slate-700"
+                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+                  <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
                     อายุ (ปี)
                   </label>
                   <input
@@ -201,18 +201,18 @@ function RegistrationFormContent() {
                     name="age"
                     value={formData.age}
                     onChange={handleChange}
-                    className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm text-slate-700"
+                    className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
                   />
                 </div>
                 <div>
-                  <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+                  <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
                     เพศ
                   </label>
                   <select
                     name="gender"
                     value={formData.gender}
                     onChange={handleChange}
-                    className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm text-slate-700 appearance-none"
+                    className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text appearance-none"
                   >
                     <option value="ชาย">ชาย</option>
                     <option value="หญิง">หญิง</option>
@@ -222,7 +222,7 @@ function RegistrationFormContent() {
               </div>
 
               <div>
-                <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
                   หมายเลขห้อง
                 </label>
                 <input
@@ -232,12 +232,12 @@ function RegistrationFormContent() {
                   onChange={handleChange}
                   required
                   placeholder="เช่น 101A"
-                  className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm text-slate-700"
+                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
                   โรคประจำตัว (ถ้ามี)
                 </label>
                 <input
@@ -246,17 +246,17 @@ function RegistrationFormContent() {
                   value={formData.medicalCondition}
                   onChange={handleChange}
                   placeholder="เช่น ความดัน, เบาหวาน"
-                  className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm text-slate-700"
+                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
                 />
               </div>
             </div>
           </div>
 
           {/* ส่วนที่ 2: ข้อมูลอุปกรณ์ ESP32 */}
-          <div className="dark:bg-slate-800 bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-sm border border-white flex flex-col gap-5 relative overflow-hidden group hover:shadow-md transition-shadow">
+          <div className="neu-card p-6 md:p-8 flex flex-col gap-5 relative overflow-hidden group transition-shadow">
             <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-teal-500"></div>
 
-            <h2 className="dark:text-white text-xl font-bold text-slate-800 flex items-center gap-2">
+            <h2 className="text-xl font-bold neu-text flex items-center gap-2">
               <span className="text-emerald-500">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -277,7 +277,7 @@ function RegistrationFormContent() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
-                <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
                   รหัสบอร์ด (MAC Address)
                 </label>
                 <input
@@ -287,12 +287,12 @@ function RegistrationFormContent() {
                   onChange={handleChange}
                   required
                   placeholder="เช่น AA:BB:CC:DD:EE:FF"
-                  className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm text-slate-700 uppercase font-mono"
+                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text uppercase font-mono"
                 />
               </div>
 
               <div>
-                <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
                   จุดติดตั้งอุปกรณ์
                 </label>
                 <input
@@ -301,7 +301,7 @@ function RegistrationFormContent() {
                   value={formData.deviceName}
                   onChange={handleChange}
                   required
-                  className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm text-slate-700"
+                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
                 />
               </div>
             </div>
@@ -339,7 +339,7 @@ export default function DeviceRegistrationPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-800 text-slate-500">
+        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-800 neu-text-muted">
           กำลังโหลดข้อมูล...
         </div>
       }

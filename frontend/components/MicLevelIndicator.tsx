@@ -35,7 +35,7 @@ export default function MicLevelIndicator({
   if (compact) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+        <span className="text-[10px] font-bold neu-text-muted uppercase tracking-wide">
           🎤 Signal:
         </span>
         <div className="flex gap-1.5">
@@ -56,7 +56,7 @@ export default function MicLevelIndicator({
                 onBlur={() => setHovered((prev) => (prev === index ? null : prev))}
               >
                 {/* Mini bar */}
-                <div className="w-8 h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+                <div className="neu-track w-8 h-2">
                   <div
                     className={`h-full transition-all duration-300 ${
                       isMax
@@ -78,7 +78,7 @@ export default function MicLevelIndicator({
                 {isHovered && (
                   <div
                     role="tooltip"
-                    className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 bg-slate-800 text-white text-[9px] font-bold rounded whitespace-nowrap pointer-events-none z-50 shadow-lg"
+                    className="neu-card-sm absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2.5 py-1.5 neu-text text-[9px] font-bold whitespace-nowrap pointer-events-none z-50"
                   >
                     {labels[index]}: {percentage}%
                   </div>
@@ -101,10 +101,10 @@ export default function MicLevelIndicator({
 
         return (
           <div key={index} className="flex items-center gap-3">
-            <span className="text-xs font-medium text-slate-600 dark:text-slate-300 w-14 shrink-0">
+            <span className="text-xs font-medium neu-text-muted w-14 shrink-0">
               {labels[index]}
             </span>
-            <div className="flex-1 h-3 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+            <div className="neu-track flex-1 h-3">
               <div
                 className={`h-full transition-all duration-300 ${
                   isMax
@@ -114,7 +114,7 @@ export default function MicLevelIndicator({
                 style={{ width: `${percentage}%` }}
               />
             </div>
-            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 w-10 text-right tabular-nums shrink-0">
+            <span className="text-xs font-bold neu-text-muted w-10 text-right tabular-nums shrink-0">
               {percentage}%
             </span>
             <span className="w-4 shrink-0 text-sm">

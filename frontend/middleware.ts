@@ -11,6 +11,7 @@ const protectedPaths = [
   "/profile",
   "/history",
   "/admin",
+  "/calendar", // ปฏิทินแสดงข้อมูลผู้ป่วย ต้องล็อกอินก่อน
 ];
 
 // 🔓 หน้าที่เข้าได้โดยไม่ต้อง Login (สำหรับลิงก์แจ้งเตือนฉุกเฉินจาก LINE / Telegram)
@@ -60,6 +61,8 @@ export const config = {
     "/profile/:path*",
     "/history/:path*",
     "/admin/:path*",
+    "/calendar/:path*",
+    "/calendar",
     // /alert ไม่ต้องใส่ใน matcher เพราะเป็น Public Path — ให้เข้าได้เสมอ
   ],
 };

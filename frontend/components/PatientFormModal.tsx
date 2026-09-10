@@ -160,10 +160,8 @@ export default function PatientFormModal({
   };
 
   const inputClass = (key: string) =>
-    `dark:bg-slate-700 dark:border-slate-600 dark:text-white w-full px-3 py-2.5 border rounded-xl text-sm outline-none focus:ring-2 focus:border-transparent transition ${
-      errors[key]
-        ? "border-red-400 focus:ring-red-400"
-        : "border-slate-200 focus:ring-indigo-500"
+    `neu-input w-full px-4 py-3 text-sm ${
+      errors[key] ? "!shadow-[var(--neu-in),0_0_0_2px_#f87171]" : ""
     }`;
 
   return (
@@ -173,14 +171,14 @@ export default function PatientFormModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="dark:bg-slate-800 bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+      <div className="neu-card w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-5">
           <div>
-            <h2 className="dark:text-white text-lg font-bold text-slate-800">
+            <h2 className="text-lg font-bold neu-text">
               {isEdit ? "แก้ไขข้อมูลผู้ป่วย" : "เพิ่มผู้ป่วยใหม่"}
             </h2>
             {isEdit && patient && (
-              <p className="dark:text-slate-400 text-xs text-slate-500 mt-0.5">
+              <p className="text-xs neu-text-muted mt-0.5">
                 {patient.name}
               </p>
             )}
@@ -189,7 +187,7 @@ export default function PatientFormModal({
             type="button"
             onClick={onClose}
             title="ปิด"
-            className="dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg p-1 transition-colors"
+            className="neu-icon-btn p-2"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -210,7 +208,7 @@ export default function PatientFormModal({
 
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
-            <label className="dark:text-slate-300 block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium neu-text mb-1.5">
               ชื่อ-นามสกุล <span className="text-red-500">*</span>
             </label>
             <input
@@ -228,7 +226,7 @@ export default function PatientFormModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="dark:text-slate-300 block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium neu-text mb-1.5">
                 อายุ (ปี)
               </label>
               <input
@@ -243,7 +241,7 @@ export default function PatientFormModal({
               )}
             </div>
             <div>
-              <label className="dark:text-slate-300 block text-sm font-medium text-slate-700 mb-1">
+              <label className="block text-sm font-medium neu-text mb-1.5">
                 เพศ
               </label>
               <select
@@ -261,7 +259,7 @@ export default function PatientFormModal({
           </div>
 
           <div>
-            <label className="dark:text-slate-300 block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium neu-text mb-1.5">
               หมายเลขห้อง/เตียง <span className="text-red-500">*</span>
             </label>
             <input
@@ -277,7 +275,7 @@ export default function PatientFormModal({
           </div>
 
           <div>
-            <label className="dark:text-slate-300 block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-sm font-medium neu-text mb-1.5">
               โรคประจำตัว
             </label>
             <input
@@ -290,26 +288,26 @@ export default function PatientFormModal({
           </div>
 
           {isEdit && (
-            <div className="dark:bg-slate-700/40 dark:border-slate-600 bg-slate-50 border border-slate-200 rounded-xl p-3">
-              <p className="dark:text-slate-400 text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+            <div className="neu-inset rounded-xl p-4">
+              <p className="text-[11px] font-bold neu-text-muted uppercase tracking-wide mb-2">
                 อุปกรณ์ที่ผูกไว้
               </p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
-                <span className="dark:text-slate-200 font-mono text-slate-700">
+                <span className="font-mono neu-text">
                   {patient?.deviceId || "—"}
                 </span>
-                <span className="dark:text-slate-400 text-slate-500">
+                <span className="neu-text-muted">
                   {patient?.deviceName || "ยังไม่ได้ผูกอุปกรณ์"}
                 </span>
               </div>
-              <p className="dark:text-slate-500 text-[11px] text-slate-400 mt-2">
+              <p className="text-[11px] neu-text-muted mt-2 opacity-80">
                 เปลี่ยนอุปกรณ์ได้ที่หน้าลงทะเบียนผู้ป่วย
               </p>
             </div>
           )}
 
           {submitError && (
-            <div className="dark:bg-amber-500/10 dark:border-amber-500/40 bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+            <div className="neu-inset rounded-xl p-3 flex items-start gap-2">
               <svg
                 className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400"
                 fill="none"
@@ -334,14 +332,14 @@ export default function PatientFormModal({
               type="button"
               onClick={onClose}
               disabled={isSaving}
-              className="flex-1 px-4 py-2.5 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+              className="neu-btn flex-1 px-4 py-3 text-sm font-medium disabled:opacity-50"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="neu-btn-accent flex-1 px-4 py-3 text-sm font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isSaving ? "กำลังบันทึก..." : "บันทึก"}
             </button>

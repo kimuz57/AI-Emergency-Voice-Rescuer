@@ -28,25 +28,25 @@ export default function DirectionCompass({
   const confidencePercent = Math.round(confidence * 100);
 
   return (
-    <div className="flex flex-col items-center gap-3 p-4 bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-200 dark:border-slate-600">
+    <div className="neu-inset flex flex-col items-center gap-3 p-4 rounded-2xl">
       {/* Compass Circle */}
       <div className="relative w-24 h-24">
         {/* Outer circle with cardinal directions */}
-        <div className="absolute inset-0 rounded-full border-2 border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+        <div className="neu-card-sm absolute inset-0 rounded-full">
           {/* North marker */}
-          <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[10px] font-bold neu-text-muted">
             N
           </div>
           {/* East marker */}
-          <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-bold neu-text-muted">
             E
           </div>
           {/* South marker */}
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold neu-text-muted">
             S
           </div>
           {/* West marker */}
-          <div className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+          <div className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] font-bold neu-text-muted">
             W
           </div>
 
@@ -79,29 +79,29 @@ export default function DirectionCompass({
       {/* Direction info */}
       <div className="text-center space-y-1">
         <div className="flex items-center justify-center gap-2">
-          <span className="text-lg font-bold text-slate-800 dark:text-slate-100">
+          <span className="text-lg font-bold neu-text">
             {Math.round(angle)}°
           </span>
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+          <span className="text-xs font-medium neu-text-muted uppercase tracking-wide">
             {directionLabel}
           </span>
         </div>
 
         {distance !== null && (
-          <div className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+          <div className="text-sm font-semibold neu-text-accent">
             ~{distance.toFixed(1)} เมตร
           </div>
         )}
 
         {/* Confidence bar */}
         <div className="flex items-center gap-2 mt-2">
-          <div className="flex-1 h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
+          <div className="neu-track flex-1 h-1.5">
             <div
               className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
               style={{ width: `${confidencePercent}%` }}
             />
           </div>
-          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tabular-nums">
+          <span className="text-[10px] font-bold neu-text-muted tabular-nums">
             {confidencePercent}%
           </span>
         </div>

@@ -188,13 +188,13 @@ function LoginFormContent() {
   };
 
   return (
-    <div className="relative min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4 md:p-8 overflow-hidden font-sans transition-colors duration-300">
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"></div>
+    <div className="neu-surface relative min-h-screen flex items-center justify-center p-4 md:p-8 overflow-hidden font-sans transition-colors duration-300">
+      {/* เอา blob สีเบลอออก — neumorphism ต้องการพื้นเรียบสีเดียว */}
       <div
         style={{ animationDelay: "2s" }}
       ></div>
 
-      <div className="relative z-10 w-full max-w-[900px] min-h-[600px] bg-white/80 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/50 dark:border-slate-600/50">
+      <div className="neu-card relative z-10 w-full max-w-[900px] min-h-[600px] overflow-hidden">
         
         {/* =================UP FORM================= */}
         <div
@@ -202,7 +202,7 @@ function LoginFormContent() {
           ${isLogin ? "opacity-0 z-10 md:translate-x-0 hidden md:flex" : "opacity-100 z-20 md:translate-x-full flex"}`}
         >
           <div className="text-center mb-4">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">
+            <h1 className="text-2xl font-bold neu-text mb-1">
               Emergency Voice Rescuer
             </h1>
             <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -223,7 +223,7 @@ function LoginFormContent() {
 
           <form onSubmit={handleStandardAuth} className="flex flex-col gap-3">
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+              <label className="text-xs font-semibold neu-text-muted ml-1">
                 ชื่อผู้ใช้งาน
               </label>
               <input
@@ -232,12 +232,12 @@ function LoginFormContent() {
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm"
+                className="neu-input w-full px-4 py-3 mt-1 dark:placeholder-slate-400 outline-none transition-all text-sm"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+              <label className="text-xs font-semibold neu-text-muted ml-1">
                 อีเมล
               </label>
               <input
@@ -246,12 +246,12 @@ function LoginFormContent() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm"
+                className="neu-input w-full px-4 py-3 mt-1 dark:placeholder-slate-400 outline-none transition-all text-sm"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+              <label className="text-xs font-semibold neu-text-muted ml-1">
                 รหัสผ่าน
               </label>
               <div className="relative mt-1">
@@ -261,13 +261,13 @@ function LoginFormContent() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm"
+                  className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
                 />
                 <button
                   type="button"
                   tabIndex={-1}
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 neu-text-muted hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
                 >
                   {showPassword ? "Hide" : "Show"}
                 </button>
@@ -275,7 +275,7 @@ function LoginFormContent() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+              <label className="text-xs font-semibold neu-text-muted ml-1">
                 ยืนยันรหัสผ่าน
               </label>
               <div className="relative mt-1">
@@ -285,7 +285,7 @@ function LoginFormContent() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm"
+                  className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
                 />
               </div>
               {errors.confirmPassword && (
@@ -303,14 +303,14 @@ function LoginFormContent() {
 
           <div className="flex items-center my-4">
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />
-            <span className="px-3 text-slate-400 text-xs">หรือ</span>
+            <span className="px-3 neu-text-muted text-xs">หรือ</span>
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />
           </div>
 
           <button
             type="button"
             onClick={() => signIn("google", { callbackUrl }, { prompt: "select_account" })}
-            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-all font-semibold shadow-sm text-sm"
+            className="neu-card-sm w-full flex items-center justify-center gap-3 py-3 neu-text hover:bg-slate-50 transition-all font-semibold text-sm"
           >
             <img src="/google-color.svg" alt="Google Logo" className="w-5 h-5" />
             ดำเนินการต่อด้วย Google
@@ -323,7 +323,7 @@ function LoginFormContent() {
           ${isLogin ? "opacity-100 z-20 md:translate-x-0 flex" : "opacity-0 z-10 md:translate-x-full hidden md:flex"}`}
         >
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-1">
+            <h1 className="text-2xl font-bold neu-text mb-1">
               Emergency Voice Rescuer
             </h1>
             <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -344,7 +344,7 @@ function LoginFormContent() {
 
           <div className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1">
+              <label className="text-xs font-semibold neu-text-muted ml-1">
                 อีเมล
               </label>
               <input
@@ -354,12 +354,12 @@ function LoginFormContent() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
-                className="w-full px-4 py-3 mt-1 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+                className="neu-input w-full px-4 py-3 mt-1 dark:placeholder-slate-400 outline-none transition-all text-sm"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 mb-1 block">
+              <label className="text-xs font-semibold neu-text-muted ml-1 mb-1 block">
                 รหัสผ่าน
               </label>
               <div className="relative">
@@ -370,7 +370,7 @@ function LoginFormContent() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
-                  className="w-full px-4 py-3 pr-12 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-slate-100 dark:placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+                  className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
                 />
               </div>
               {errors.password && (
@@ -394,14 +394,14 @@ function LoginFormContent() {
 
           <div className="flex items-center my-5">
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />
-            <span className="px-3 text-slate-400 text-xs">หรือ</span>
+            <span className="px-3 neu-text-muted text-xs">หรือ</span>
             <hr className="flex-grow border-slate-200 dark:border-slate-600" />
           </div>
 
           <button
             type="button"
             onClick={() => signIn("google", { callbackUrl }, { prompt: "select_account" })}
-            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 transition-all font-semibold shadow-sm text-sm"
+            className="neu-card-sm w-full flex items-center justify-center gap-3 py-3 neu-text hover:bg-slate-50 transition-all font-semibold text-sm"
           >
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />
             ดำเนินการต่อด้วย Google

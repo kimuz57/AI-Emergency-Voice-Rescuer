@@ -108,9 +108,9 @@ function AlertContent() {
   if (status === "error") {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <h1 className="text-xl font-bold text-slate-800 mb-2">เกิดข้อผิดพลาด</h1>
-          <p className="text-slate-500">{errorMsg}</p>
+        <div className="neu-card p-8 max-w-md w-full text-center">
+          <h1 className="text-xl font-bold neu-text mb-2">เกิดข้อผิดพลาด</h1>
+          <p className="neu-text-muted">{errorMsg}</p>
         </div>
       </div>
     );
@@ -122,16 +122,16 @@ function AlertContent() {
   if (status === "acknowledged") {
     return (
       <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-xl p-10 max-w-md w-full text-center animate-in fade-in zoom-in-95 duration-300">
+        <div className="neu-card p-10 max-w-md w-full text-center animate-in fade-in zoom-in-95 duration-300">
           <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-3xl">✅</span>
           </div>
           <h1 className="text-2xl font-extrabold text-emerald-700 mb-2">รับทราบแล้ว</h1>
-          <p className="text-slate-500 mb-6">ผู้ป่วยกำลังได้รับการช่วยเหลือ</p>
+          <p className="neu-text-muted mb-6">ผู้ป่วยกำลังได้รับการช่วยเหลือ</p>
           {deviceInfo?.patient_name && (
-            <p className="font-semibold text-slate-700 text-lg mb-4">{deviceInfo.patient_name} (ห้อง {deviceInfo.room_number})</p>
+            <p className="font-semibold neu-text text-lg mb-4">{deviceInfo.patient_name} (ห้อง {deviceInfo.room_number})</p>
           )}
-          <p className="text-sm text-slate-400">ปิดหน้าต่างนี้ได้ใน {countdown} วินาที...</p>
+          <p className="text-sm neu-text-muted">ปิดหน้าต่างนี้ได้ใน {countdown} วินาที...</p>
         </div>
       </div>
     );
@@ -144,7 +144,7 @@ function AlertContent() {
     <div className="min-h-screen bg-red-50 flex items-center justify-center p-6">
       <div className="fixed inset-0 alert-blink pointer-events-none" />
 
-      <div className="relative z-10 bg-white rounded-2xl shadow-2xl border-4 border-red-500 p-8 max-w-md w-full text-center animate-in fade-in zoom-in-95 duration-300">
+      <div className="neu-card relative z-10 border-red-500 p-8 max-w-md w-full text-center animate-in fade-in zoom-in-95 duration-300">
         
         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 alert-icon-pulse">
           <span className="text-4xl">🚨</span>
@@ -165,17 +165,17 @@ function AlertContent() {
           
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-red-100 pb-2">
-              <span className="text-sm text-slate-500">👤 ชื่อ-สกุล:</span>
-              <span className="font-bold text-slate-800 text-base">{deviceInfo?.patient_name || "กำลังโหลด..."}</span>
+              <span className="text-sm neu-text-muted">👤 ชื่อ-สกุล:</span>
+              <span className="font-bold neu-text text-base">{deviceInfo?.patient_name || "กำลังโหลด..."}</span>
             </div>
             
             <div className="flex items-center justify-between border-b border-red-100 pb-2">
-              <span className="text-sm text-slate-500">🚪 ห้องพัก:</span>
-              <span className="font-bold text-slate-800 text-base">{deviceInfo?.room_number || "-"}</span>
+              <span className="text-sm neu-text-muted">🚪 ห้องพัก:</span>
+              <span className="font-bold neu-text text-base">{deviceInfo?.room_number || "-"}</span>
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-500">🏥 โรคประจำตัว:</span>
+              <span className="text-sm neu-text-muted">🏥 โรคประจำตัว:</span>
               <span className="font-bold text-red-600 text-sm text-right max-w-[60%]">
                 {deviceInfo?.underlying_disease || "ไม่ระบุ"}
               </span>

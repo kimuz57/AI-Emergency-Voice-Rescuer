@@ -101,8 +101,8 @@ function QRGeneratorTab() {
   return (
     <div className="flex flex-col gap-6">
       {/* Input Section */}
-      <div className="dark:bg-slate-700/50 bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-sm border border-white/80 relative overflow-hidden">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2 mb-6">
+      <div className="neu-card p-6 md:p-8 relative overflow-hidden">
+        <h2 className="text-xl font-bold neu-text flex items-center gap-2 mb-6">
           <span className="text-emerald-500">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -125,7 +125,7 @@ function QRGeneratorTab() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* MAC Address Input */}
           <div>
-            <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+            <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
               MAC Address <span className="text-red-500">*</span>
             </label>
             <input
@@ -182,7 +182,7 @@ function QRGeneratorTab() {
 
           {/* Device Label */}
           <div>
-            <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+            <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
               ชื่อ / Label อุปกรณ์ (ไม่บังคับ)
             </label>
             <input
@@ -190,7 +190,7 @@ function QRGeneratorTab() {
               value={deviceLabel}
               onChange={(e) => setDeviceLabel(e.target.value)}
               placeholder="เช่น ห้อง 101A, ไมค์หัวเตียง"
-              className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition-all text-sm"
+              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm"
             />
           </div>
         </div>
@@ -248,8 +248,8 @@ function QRGeneratorTab() {
 
       {/* QR Code Preview */}
       {qrDataUrl && (
-        <div className="dark:bg-slate-700/50 bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-sm border border-white/80 flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="w-full text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+        <div className="neu-card p-6 md:p-8 flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <h2 className="w-full text-xl font-bold neu-text flex items-center gap-2">
             <span className="text-purple-500">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -275,7 +275,7 @@ function QRGeneratorTab() {
           </h2>
 
           <div className="relative group">
-            <div className="relative bg-white p-5 rounded-2xl shadow-xl border-2 border-emerald-100">
+            <div className="neu-card relative p-5">
               <img
                 src={qrDataUrl}
                 alt="QR Code"
@@ -286,15 +286,15 @@ function QRGeneratorTab() {
           </div>
 
           <div className="text-center">
-            <p className="font-mono text-xl font-bold text-slate-800 dark:text-white tracking-widest">
+            <p className="font-mono text-xl font-bold neu-text tracking-widest">
               {macInput}
             </p>
             {deviceLabel && (
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-sm neu-text-muted mt-1">
                 {deviceLabel}
               </p>
             )}
-            <p className="text-xs text-slate-400 mt-2 break-all max-w-xs">
+            <p className="text-xs neu-text-muted mt-2 break-all max-w-xs">
               🔗 {APP_URL}/register-patient?mac={macInput}
             </p>
           </div>
@@ -321,7 +321,7 @@ function QRGeneratorTab() {
             </button>
             <button
               onClick={handlePrint}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-white dark:bg-slate-700 border-2 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-white rounded-xl font-bold text-sm hover:border-emerald-400 hover:text-emerald-600 transition-all hover:-translate-y-0.5"
+              className="neu-card-sm flex items-center justify-center gap-2 px-6 py-3 neu-text font-bold text-sm hover:text-emerald-600 transition-all hover:-translate-y-0.5"
             >
               <svg
                 className="w-4 h-4"
@@ -438,8 +438,8 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
       onSubmit={handleSubmit}
       className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
     >
-      <div className="dark:bg-slate-700/50 bg-white/60 backdrop-blur-md p-6 md:p-8 rounded-2xl shadow-sm border border-white/80 flex flex-col gap-5 relative overflow-hidden">
-        <h2 className="dark:text-white text-xl font-bold text-slate-800 flex items-center gap-2 mb-2">
+      <div className="neu-card p-6 md:p-8 flex flex-col gap-5 relative overflow-hidden">
+        <h2 className="text-xl font-bold neu-text flex items-center gap-2 mb-2">
           <span className="text-purple-500">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -462,7 +462,7 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* MAC Address */}
           <div>
-            <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+            <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
               รหัสบอร์ด (MAC Address) <span className="text-red-500">*</span>
             </label>
             {scannedMAC ? (
@@ -498,14 +498,14 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
                 required
                 maxLength={17}
                 placeholder="เช่น AA:BB:CC:DD:EE:FF"
-                className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm text-slate-700 uppercase font-mono tracking-widest"
+                className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text uppercase font-mono tracking-widest"
               />
             )}
           </div>
 
           {/* IP Address */}
           <div>
-            <label className="dark:text-slate-300 block text-xs font-bold text-slate-600 mb-1 ml-1 uppercase tracking-wide">
+            <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
               IP Address (ถ้ามี)
             </label>
             <input
@@ -514,13 +514,13 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
               value={formData.ipAddress}
               onChange={handleChange}
               placeholder="เช่น 192.168.1.10"
-              className="dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border border-slate-200 focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none transition-all text-sm text-slate-700 font-mono"
+              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text font-mono"
             />
           </div>
         </div>
 
         {/* Note Information */}
-        <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-100 dark:bg-slate-800 dark:border-slate-700">
+        <div className="neu-card-sm mt-4 p-4 bg-blue-50">
           <p className="text-xs text-blue-700 dark:text-blue-400 flex items-start gap-2">
             <svg
               className="w-4 h-4 mt-0.5 flex-shrink-0"
@@ -620,7 +620,7 @@ function DevicesPageContent() {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3">
         <div className="w-8 h-8 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm neu-text-muted">
           กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...
         </p>
       </div>
@@ -633,10 +633,10 @@ function DevicesPageContent() {
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4 md:p-8 font-sans overflow-hidden">
       {/* 📦 Main Container */}
-      <div className="dark:bg-slate-800 relative z-10 w-full max-w-4xl bg-white/80 backdrop-blur-xl rounded-3xl shadow-2xl p-6 md:p-10 border border-white/60">
+      <div className="neu-card relative z-10 w-full max-w-4xl p-6 md:p-10">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="dark:bg-slate-700 inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-100 to-purple-100 mb-4 shadow-sm">
+          <div className="neu-card inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 mb-4">
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="w-8 h-8 text-blue-600 dark:text-blue-400"
@@ -663,7 +663,7 @@ function DevicesPageContent() {
           <h1 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-purple-600 bg-clip-text text-transparent">
             จัดการอุปกรณ์
           </h1>
-          <p className="text-slate-500 dark:text-slate-300 mt-2">
+          <p className="neu-text-muted mt-2">
             สร้าง QR Code หรือลงทะเบียนบอร์ด ESP32 ใหม่เข้าระบบ
           </p>
         </div>
@@ -768,7 +768,7 @@ export default function DeviceRegistrationPage() {
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
               />
             </svg>
-            <p className="text-slate-500 font-medium">กำลังโหลด...</p>
+            <p className="neu-text-muted font-medium">กำลังโหลด...</p>
           </div>
         </div>
       }

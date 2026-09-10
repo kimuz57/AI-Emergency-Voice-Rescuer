@@ -70,9 +70,9 @@ function ResetPasswordForm() {
 
   if (!token) {
     return (
-      <div className="w-full max-w-md bg-white dark:bg-slate-800/80 backdrop-blur-md rounded-3xl shadow-xl p-8 border border-slate-200 dark:border-slate-700 text-center">
+      <div className="neu-card w-full max-w-md p-8 text-center">
         <h1 className="text-xl font-bold text-red-500 mb-4">ลิงก์ไม่ถูกต้อง</h1>
-        <p className="text-slate-600 dark:text-slate-400 text-sm mb-6">{error}</p>
+        <p className="neu-text-muted text-sm mb-6">{error}</p>
         <Link
           href="/forgot-password"
           className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold shadow-md hover:bg-blue-700 transition-colors"
@@ -84,10 +84,10 @@ function ResetPasswordForm() {
   }
 
   return (
-    <div className="w-full max-w-md bg-white dark:bg-slate-800/80 backdrop-blur-md rounded-3xl shadow-xl p-8 border border-slate-200 dark:border-slate-700">
+    <div className="neu-card w-full max-w-md p-8">
       <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">ตั้งรหัสผ่านใหม่</h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm">
+        <h1 className="text-2xl font-bold neu-text mb-2">ตั้งรหัสผ่านใหม่</h1>
+        <p className="neu-text-muted text-sm">
           กรุณากรอกรหัสผ่านใหม่ของคุณ
         </p>
       </div>
@@ -97,7 +97,7 @@ function ResetPasswordForm() {
           <div className="mb-6 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
             {message}
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-sm">กำลังพากลับไปยังหน้าเข้าสู่ระบบ...</p>
+          <p className="neu-text-muted text-sm">กำลังพากลับไปยังหน้าเข้าสู่ระบบ...</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -108,7 +108,7 @@ function ResetPasswordForm() {
           )}
 
           <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 mb-1 block">
+            <label className="text-xs font-semibold neu-text-muted ml-1 mb-1 block">
               รหัสผ่านใหม่
             </label>
             <input
@@ -117,12 +117,12 @@ function ResetPasswordForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-3 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm"
             />
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 ml-1 mb-1 block">
+            <label className="text-xs font-semibold neu-text-muted ml-1 mb-1 block">
               ยืนยันรหัสผ่านใหม่
             </label>
             <input
@@ -131,7 +131,7 @@ function ResetPasswordForm() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-3 rounded-xl bg-slate-100/50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all text-sm"
+              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm"
             />
           </div>
 
@@ -151,7 +151,7 @@ function ResetPasswordForm() {
 export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-transparent flex flex-col items-center justify-center p-4 transition-colors">
-      <Suspense fallback={<div className="text-slate-500">Loading...</div>}>
+      <Suspense fallback={<div className="neu-text-muted">Loading...</div>}>
         <ResetPasswordForm />
       </Suspense>
     </div>

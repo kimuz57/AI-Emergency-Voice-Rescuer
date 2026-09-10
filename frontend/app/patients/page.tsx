@@ -127,20 +127,20 @@ export default function PatientsPage() {
   };
 
   return (
-    <div className="dark:bg-slate space-y-6">
+    <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 dark:bg-slate-800 rounded-2xl bg-slate-100 p-3 shadow-sm border border-slate-200">
-        <div className="dark:bg-slate-800 bg-slate-100 p-4 rounded-2xl shadow-sm border border-slate-200">
-          <h1 className="dark:text-white text-2xl font-bold text-slate-800">
+      <div className="neu-card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4">
+        <div>
+          <h1 className="text-2xl font-bold neu-text">
             จัดการข้อมูลผู้ป่วย
           </h1>
-          <p className="dark:text-slate-300 text-slate-500 text-sm mt-1">
+          <p className="neu-text-muted text-sm mt-1">
             ทะเบียนผู้ป่วยภายใต้การดูแลทั้งหมด {patients.length} ราย
           </p>
         </div>
         <a
           href="/register-patient"
-          className="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+          className="neu-btn-accent inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -161,37 +161,37 @@ export default function PatientsPage() {
       </div>
 
       {/* Table */}
-      <div className="dark:bg-slate-800 dark:text-white bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+      <div className="neu-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="dark:bg-slate-800 dark:text-white bg-slate-50 border-b border-slate-200">
-                <th className="dark:text-white text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+              <tr className="border-b border-[var(--neu-shadow-dark)]/30">
+                <th className="neu-text-muted text-left px-6 py-4 font-semibold uppercase tracking-wide text-xs">
                   ผู้ป่วย
                 </th>
-                <th className="dark:text-white text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+                <th className="neu-text-muted text-left px-6 py-4 font-semibold uppercase tracking-wide text-xs">
                   อายุ
                 </th>
-                <th className="dark:text-white text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+                <th className="neu-text-muted text-left px-6 py-4 font-semibold uppercase tracking-wide text-xs">
                   ห้องพัก
                 </th>
-                <th className="dark:text-white text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+                <th className="neu-text-muted text-left px-6 py-4 font-semibold uppercase tracking-wide text-xs">
                   โรคประจำตัว
                 </th>
-                <th className="dark:text-white text-left px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+                <th className="neu-text-muted text-left px-6 py-4 font-semibold uppercase tracking-wide text-xs">
                   Device ID
                 </th>
-                <th className="dark:text-white text-right px-6 py-4 text-slate-500 font-semibold uppercase tracking-wide text-xs">
+                <th className="neu-text-muted text-right px-6 py-4 font-semibold uppercase tracking-wide text-xs">
                   การดำเนินการ
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[var(--neu-shadow-dark)]/20">
               {isLoading ? (
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-6 py-8 text-center text-slate-500"
+                    className="px-6 py-8 text-center neu-text-muted"
                   >
                     กำลังโหลดข้อมูล...
                   </td>
@@ -200,7 +200,7 @@ export default function PatientsPage() {
                 <tr>
                   <td
                     colSpan={6}
-                    className="px-6 py-8 text-center text-slate-500"
+                    className="px-6 py-8 text-center neu-text-muted"
                   >
                     ยังไม่มีข้อมูลผู้ป่วยในระบบ
                   </td>
@@ -209,12 +209,12 @@ export default function PatientsPage() {
                 patients.map((p, i) => (
                   <tr
                     key={p.id}
-                    className="dark:bg-slate-800 dark:text-white hover:bg-slate-50 transition-colors"
+                    className="transition-colors"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div
-                          className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                          className="neu-card-sm w-9 h-9 !rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
                           style={{
                             backgroundColor:
                               avatarColors[i % avatarColors.length],
@@ -222,26 +222,26 @@ export default function PatientsPage() {
                         >
                           {p.avatar}
                         </div>
-                        <span className="font-medium text-slate-800">
+                        <span className="font-medium neu-text">
                           {p.name}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-600">{p.age} ปี</td>
+                    <td className="px-6 py-4 neu-text-muted">{p.age} ปี</td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                      <span className="neu-inset-sm inline-flex items-center px-3 py-1 rounded-full text-xs font-medium neu-text-accent">
                         {p.room}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-slate-600">{p.condition}</td>
-                    <td className="px-6 py-4 font-mono text-xs text-slate-500">
+                    <td className="px-6 py-4 neu-text-muted">{p.condition}</td>
+                    <td className="px-6 py-4 font-mono text-xs neu-text-muted">
                       {p.deviceId}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => setEditing(p)}
-                          className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          className="neu-icon-btn p-2.5"
                           title="แก้ไข"
                         >
                           <svg
@@ -261,7 +261,7 @@ export default function PatientsPage() {
                         </button>
                         <button
                           onClick={() => setDeleteConfirm(p.id)}
-                          className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="neu-icon-btn p-2.5 hover:!text-red-500"
                           title="ลบ"
                         >
                           <svg
@@ -305,8 +305,8 @@ export default function PatientsPage() {
       {/* Modal ยืนยันการลบ (Delete Confirm Modal) */}
       {deleteConfirm !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="dark:bg-slate-800 bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 text-center">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="neu-card w-full max-w-sm mx-4 p-6 text-center">
+            <div className="neu-inset w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="22"
@@ -322,22 +322,22 @@ export default function PatientsPage() {
                 <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
               </svg>
             </div>
-            <h3 className="dark:text-white text-base font-bold text-slate-800 mb-1">
+            <h3 className="text-base font-bold neu-text mb-1">
               ยืนยันการลบ
             </h3>
-            <p className="dark:text-slate-400 text-sm text-slate-500 mb-5">
+            <p className="text-sm neu-text-muted mb-5">
               ข้อมูลผู้ป่วยและอุปกรณ์จะถูกลบออกจากระบบ
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1 px-4 py-2.5 border border-slate-200 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                className="neu-btn flex-1 px-4 py-2.5 text-sm font-medium hover:bg-slate-700 transition-colors"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
-                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors"
+                className="neu-btn-accent flex-1 px-4 py-2.5 text-sm font-semibold !bg-red-600 hover:!bg-red-700 !text-white"
               >
                 ยืนยันลบ
               </button>

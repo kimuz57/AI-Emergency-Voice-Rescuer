@@ -72,14 +72,14 @@ function VerifyEmailContent() {
         )}
       </div>
 
-      <h2 className="text-2xl font-bold text-slate-800 dark:text-white mb-2">
+      <h2 className="text-2xl font-bold neu-text mb-2">
         {status === "loading"
           ? "กำลังตรวจสอบ..."
           : status === "success"
             ? "สำเร็จ!"
             : "เกิดข้อผิดพลาด"}
       </h2>
-      <p className="text-slate-500 dark:text-slate-400 mb-8">{message}</p>
+      <p className="neu-text-muted mb-8">{message}</p>
 
       {/* ปุ่มกลับไปหน้าล็อกอิน */}
       {status !== "loading" && (
@@ -97,7 +97,7 @@ function VerifyEmailContent() {
 export default function VerifyPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
-      <div className="max-w-md w-full bg-white dark:bg-slate-800 p-8 rounded-3xl shadow-xl border border-slate-100 dark:border-slate-700">
+      <div className="neu-card max-w-md w-full p-8">
         <div className="text-center mb-8">
           <h1 className="text-xl font-black text-indigo-600 uppercase tracking-wider">
             Emergency Voice Rescuer
@@ -107,7 +107,7 @@ export default function VerifyPage() {
         {/* 🟢 Next.js App Router บังคับให้ใช้ Suspense ครอบเวลาดึงค่าจาก URL */}
         <Suspense
           fallback={
-            <div className="text-center text-slate-500">กำลังโหลด...</div>
+            <div className="text-center neu-text-muted">กำลังโหลด...</div>
           }
         >
           <VerifyEmailContent />

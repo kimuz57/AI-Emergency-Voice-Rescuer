@@ -103,6 +103,39 @@ const MAIN_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: "/calendar",
+    label: "ปฏิทินเหตุการณ์",
+    icon: icon(
+      <>
+        <rect width="18" height="18" x="3" y="4" rx="2" />
+        <line x1="16" x2="16" y1="2" y2="6" />
+        <line x1="8" x2="8" y1="2" y2="6" />
+        <line x1="3" x2="21" y1="10" y2="10" />
+      </>,
+    ),
+  },
+  {
+    href: "/settings/notifications",
+    label: "ตั้งค่าการแจ้งเตือน",
+    icon: icon(
+      <>
+        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+        <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+      </>,
+    ),
+  },
+  {
+    href: "/help",
+    label: "ช่วยเหลือ / FAQ",
+    icon: icon(
+      <>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <line x1="12" x2="12.01" y1="17" y2="17" />
+      </>,
+    ),
+  },
+  {
     href: "/device",
     label: "จัดการอุปกรณ์รับเสียง",
     icon: icon(
@@ -192,24 +225,11 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
   // ด่านจริงคือ useAdminGuard ในแต่ละหน้า และ RequireAdmin ฝั่ง Go
   const isAdmin = user?.role?.toLowerCase() === "admin";
 
-  const linkClass = (href: string, admin = false) => {
-    const active =
-      href === "/" ? pathname === "/" : pathname?.startsWith(href) ?? false;
-    const base =
-      "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors";
-    if (active) {
-      return `${base} ${
-        admin
-          ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
-          : "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-      }`;
-    }
-    return `${base} text-gray-700 dark:text-slate-300 ${
-      admin
-        ? "hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-700 dark:hover:text-purple-400"
-        : "hover:bg-gray-50 dark:hover:bg-slate-700/60 hover:text-blue-600 dark:hover:text-blue-400"
-    }`;
-  };
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname?.startsWith(href) ?? false;
+
+  // หน้าที่กำลังอยู่ = ปุ่มจมลงไป (inset) ตามภาษา neumorphism
+  // สถานะทั้งหมดคุมอยู่ใน .neu-nav-item โดยอ่านจาก aria-current
 
   return (
     <>
@@ -229,31 +249,31 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
         id="app-sidebar"
         inert={!open}
         aria-label="เมนูหลัก"
-        className={`fixed top-0 left-0 z-[70] h-full w-[280px] max-w-[85vw] flex flex-col bg-white dark:bg-slate-800 border-r border-gray-100 dark:border-slate-700 shadow-2xl transition-transform duration-300 ease-out ${
+        className={`neu-surface fixed top-0 left-0 z-[70] h-full w-[280px] max-w-[85vw] flex flex-col shadow-[10px_0_24px_-10px_var(--neu-shadow-dark)] transition-transform duration-300 ease-out ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* หัวแผง: ข้อมูลผู้ใช้ */}
-        <div className="px-4 py-4 border-b border-gray-100 dark:border-slate-700 bg-blue-50/40 dark:bg-slate-700/40">
+        <div className="px-4 py-4">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-3 min-w-0">
               <img
                 src={user?.profileImage || fallbackAvatar(user?.name)}
                 referrerPolicy="no-referrer"
                 alt=""
-                className="w-11 h-11 rounded-full border border-gray-200 dark:border-slate-600 object-cover shadow-sm bg-white dark:bg-slate-700 shrink-0"
+                className="w-11 h-11 rounded-full object-cover shrink-0 neu-card-sm"
                 onError={(e) => {
                   e.currentTarget.src = fallbackAvatar(user?.name);
                 }}
               />
               <div className="min-w-0">
-                <p className="text-sm font-bold text-gray-800 dark:text-slate-100 truncate">
+                <p className="text-sm font-bold neu-text truncate">
                   {user?.name || "ผู้ใช้งานระบบ"}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-slate-400 truncate mb-1">
+                <p className="text-xs neu-text-muted truncate mb-1">
                   {user?.email || "ไม่มีข้อมูลอีเมล"}
                 </p>
-                <span className="dark:bg-slate-800 bg-blue-100 text-blue-700 dark:text-blue-300 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                <span className="neu-inset-sm neu-text-accent inline-block text-[10px] px-2.5 py-1 rounded-full font-bold">
                   {user?.role || "User"}
                 </span>
               </div>
@@ -264,7 +284,7 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
               type="button"
               onClick={onClose}
               aria-label="ปิดเมนู"
-              className="shrink-0 rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700 transition-colors"
+              className="neu-icon-btn shrink-0 p-2"
             >
               {icon(
                 <>
@@ -283,7 +303,8 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
               key={item.href}
               href={item.href}
               onClick={onClose}
-              className={linkClass(item.href)}
+              aria-current={isActive(item.href) ? "page" : undefined}
+              className="neu-nav-item"
             >
               {item.icon}
               {item.label}
@@ -291,9 +312,9 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
           ))}
 
           {isAdmin && (
-            <div className="pt-3 mt-2 border-t border-gray-100 dark:border-slate-700 space-y-1">
-              <p className="px-4 pt-1 pb-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                <span className="p-1 bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 rounded-md">
+            <div className="pt-4 mt-3 border-t border-[var(--neu-shadow-dark)]/40 space-y-1">
+              <p className="px-2 pt-1 pb-2 text-[11px] font-bold neu-text-muted uppercase tracking-widest flex items-center gap-2">
+                <span className="neu-inset-sm p-1.5 neu-text-accent rounded-lg">
                   {icon(
                     <>
                       <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -308,7 +329,8 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
                   key={item.href}
                   href={item.href}
                   onClick={onClose}
-                  className={linkClass(item.href, true)}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className="neu-nav-item"
                 >
                   {item.icon}
                   {item.label}
@@ -319,11 +341,11 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
         </nav>
 
         {/* ออกจากระบบ */}
-        <div className="border-t border-gray-100 dark:border-slate-700 p-3 bg-gray-50 dark:bg-slate-700/50">
+        <div className="p-3">
           <button
             type="button"
             onClick={onLogout}
-            className="flex items-center gap-3 w-full px-4 py-3 rounded-xl text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+            className="neu-btn flex items-center gap-3 w-full px-4 py-3 text-sm font-medium !text-red-500 hover:!text-red-600"
           >
             {icon(
               <>

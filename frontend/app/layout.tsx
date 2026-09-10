@@ -33,7 +33,9 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-50 transition-colors duration-300 overflow-x-hidden">
+      {/* สีพื้นกับสีตัวอักษรมาจากตัวแปร --neu-* ใน globals.css
+          ไม่ฮาร์ดโค้ด bg-slate-* ตรงนี้ ไม่งั้นจะทับพื้น neumorphic */}
+      <body className="neu-text transition-colors duration-300 overflow-x-hidden">
         <Providers>
           {children}
           {/* Floating Theme Toggle — ปรากฏทุกหน้า */}

@@ -245,7 +245,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className="fixed top-0 left-0 w-full z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-gray-100 dark:border-slate-700 px-6 py-4 flex justify-between items-center shadow-sm transition-colors duration-300">
+      <nav className="neu-bar fixed top-0 left-0 w-full z-50 px-6 py-3 flex justify-between items-center transition-colors duration-300">
         <div className="flex items-center gap-3">
           {/* ปุ่มเปิดเมนู Sidebar */}
           <button
@@ -254,7 +254,7 @@ export default function Navbar() {
             aria-label="เปิดเมนู"
             aria-expanded={isSidebarOpen}
             aria-controls="app-sidebar"
-            className="rounded-lg p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="neu-icon-btn p-2.5"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -288,10 +288,10 @@ export default function Navbar() {
                 style={{ animationDelay: "300ms" }}
               ></div>
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+            <span className="text-xl font-bold neu-text-accent">
               <a
                 href="/dashboard"
-                className="hover:text-blue-600 transition-colors cursor-pointer"
+                className="transition-opacity hover:opacity-75 cursor-pointer"
               >
                 Emergency Voice Rescuer
               </a>
@@ -304,7 +304,7 @@ export default function Navbar() {
           <button
             onClick={() => setIsSidebarOpen(true)}
             aria-label="เปิดเมนูผู้ใช้"
-            className="flex items-center gap-3 focus:outline-none transition-transform hover:scale-103"
+            className="neu-icon-btn flex items-center justify-center p-1.5"
           >
             <img
               src={
@@ -315,7 +315,7 @@ export default function Navbar() {
               }
               referrerPolicy="no-referrer"
               alt="Profile"
-              className="w-11 h-11 rounded-full border border-gray-200 dark:border-slate-600 object-cover shadow-sm bg-white dark:bg-slate-700"
+              className="w-9 h-9 rounded-full object-cover"
               onError={(e) => {
                 e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                   user?.name || "U",

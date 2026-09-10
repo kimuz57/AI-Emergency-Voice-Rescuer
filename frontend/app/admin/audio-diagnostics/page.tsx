@@ -115,7 +115,7 @@ export default function AudioDiagnosticsPage() {
     return (
       <div className="max-w-5xl mx-auto px-4 py-20 flex flex-col items-center gap-3">
         <div className="w-8 h-8 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="text-sm neu-text-muted">
           กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...
         </p>
       </div>
@@ -140,14 +140,14 @@ export default function AudioDiagnosticsPage() {
             <span className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[10px] font-bold uppercase tracking-widest">
               Admin
             </span>
-            <span className="text-[11px] text-slate-400 dark:text-slate-500">
+            <span className="text-[11px] neu-text-muted">
               เฉพาะผู้ดูแลระบบ
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-white">
+          <h1 className="text-2xl font-bold neu-text">
             วิเคราะห์สัญญาณเสียง
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-sm neu-text-muted mt-1">
             ระดับสัญญาณของไมโครโฟนทั้ง 4 ตัวในแต่ละเหตุการณ์
             ใช้ตรวจสอบว่าอุปกรณ์รับเสียงได้ครบและสมดุลหรือไม่
           </p>
@@ -155,15 +155,15 @@ export default function AudioDiagnosticsPage() {
 
         <Link
           href="/dashboard"
-          className="text-sm font-medium text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          className="text-sm font-medium neu-text-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
         >
           ← กลับหน้าแดชบอร์ด
         </Link>
       </div>
 
       {/* ---------- แถบควบคุมแหล่งข้อมูล ---------- */}
-      <div className="flex flex-wrap items-center gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-4">
-        <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300 cursor-pointer">
+      <div className="neu-card flex flex-wrap items-center gap-3 p-4">
+        <label className="flex items-center gap-2 text-sm neu-text-muted cursor-pointer">
           <input
             type="checkbox"
             checked={useMockData}
@@ -183,7 +183,7 @@ export default function AudioDiagnosticsPage() {
             type="button"
             onClick={fetchRows}
             disabled={isLoading}
-            className="ml-auto px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
+            className="ml-auto px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 neu-text-muted hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
           >
             {isLoading ? "กำลังโหลด..." : "โหลดใหม่"}
           </button>
@@ -231,12 +231,12 @@ export default function AudioDiagnosticsPage() {
 
       {/* ---------- รายการเหตุการณ์ ---------- */}
       {withLevels.length === 0 ? (
-        <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-12 text-center">
+        <div className="neu-card p-12 text-center">
           <p className="text-4xl mb-3">🎤</p>
-          <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+          <p className="text-sm font-semibold neu-text-muted">
             ยังไม่มีข้อมูลระดับสัญญาณให้แสดง
           </p>
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+          <p className="text-xs neu-text-muted mt-1">
             ติ๊ก &quot;ใช้ข้อมูลตัวอย่าง&quot;
             เพื่อดูหน้าตาของหน้านี้ระหว่างรอ Backend
           </p>
@@ -251,38 +251,38 @@ export default function AudioDiagnosticsPage() {
             return (
               <div
                 key={row.id}
-                className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-5 space-y-4"
+                className="neu-card p-5 space-y-4"
               >
                 {/* หัวการ์ด */}
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-bold text-slate-800 dark:text-white">
+                    <p className="font-bold neu-text">
                       {row.patient_name || "ไม่ทราบชื่อผู้ป่วย"}
-                      <span className="ml-2 text-xs font-medium text-slate-400 dark:text-slate-500">
+                      <span className="ml-2 text-xs font-medium neu-text-muted">
                         ห้อง {row.room_number || "—"}
                       </span>
                     </p>
-                    <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500 mt-0.5">
+                    <p className="text-[11px] font-mono neu-text-muted mt-0.5">
                       {row.device_mac || "—"} · {formatTime(row.created_at)}
                     </p>
                   </div>
 
                   <div className="flex items-center gap-2 text-[11px]">
-                    <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold tabular-nums">
+                    <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 neu-text-muted font-semibold tabular-nums">
                       ความมั่นใจ {Math.round((row.confidence || 0) * 100)}%
                     </span>
-                    <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold tabular-nums">
+                    <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 neu-text-muted font-semibold tabular-nums">
                       {(row.decibel_level || 0).toFixed(1)} dB
                     </span>
                   </div>
                 </div>
 
                 {/* แถบสัญญาณ 4 ไมค์ (โหมดเต็ม ไม่ต้องพึ่ง tooltip) */}
-                <div className="bg-slate-50 dark:bg-slate-700/40 border border-slate-200/60 dark:border-slate-600 rounded-xl p-4">
+                <div className="neu-card-sm p-4">
                   <MicLevelIndicator levels={levels} compact={false} />
                 </div>
 
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs neu-text-muted">
                   ไมค์ที่รับเสียงดังที่สุด:{" "}
                   <span className="font-bold text-emerald-600 dark:text-emerald-400">
                     {MIC_LABELS[maxIndex]} ({Math.round(maxLevel * 100)}%)
