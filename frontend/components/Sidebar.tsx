@@ -41,8 +41,8 @@ const icon = (paths: React.ReactNode) => (
   </svg>
 );
 
-// รายการเมนูชุดเดียวกับ dropdown เดิมที่อยู่ใต้รูปโปรไฟล์
-const NAV_ITEMS: NavItem[] = [
+// เมนูที่ทุก role เห็น (ชุดเดียวกับ dropdown เดิมที่อยู่ใต้รูปโปรไฟล์)
+const MAIN_ITEMS: NavItem[] = [
   {
     href: "/",
     label: "หน้าแรก",
@@ -115,6 +115,38 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+// เมนูเฉพาะ admin — ชุดเดียวกับกล่อง "ส่วนจัดการผู้ดูแลระบบ" ในหน้า /profile
+const ADMIN_ITEMS: NavItem[] = [
+  {
+    href: "/admin/patients",
+    label: "จัดการข้อมูลผู้ป่วย",
+    icon: icon(
+      <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />,
+    ),
+  },
+  {
+    href: "/admin/users",
+    label: "จัดการผู้ใช้งาน",
+    icon: icon(
+      <path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />,
+    ),
+  },
+  {
+    href: "/admin/register-device",
+    label: "ลงทะเบียนเพิ่มบอร์ด",
+    icon: icon(
+      <path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />,
+    ),
+  },
+  {
+    href: "/admin/audio-diagnostics",
+    label: "วิเคราะห์สัญญาณเสียง",
+    icon: icon(
+      <path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2z" />,
+    ),
+  },
+];
+
 const fallbackAvatar = (name?: string) =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(
     name || "U",
@@ -153,15 +185,30 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
     };
   }, [open, onClose]);
 
-  const linkClass = (href: string) => {
+  // เมนู admin โผล่เฉพาะตอน role เป็น admin
+  //
+  // นี่เป็นแค่การซ่อน/แสดงเมนู ไม่ใช่การกันสิทธิ์ — ถ้าดึงโปรไฟล์ไม่สำเร็จ
+  // Navbar จะ fallback เป็น role "User" เมนูก็จะไม่โผล่ (fail closed)
+  // ด่านจริงคือ useAdminGuard ในแต่ละหน้า และ RequireAdmin ฝั่ง Go
+  const isAdmin = user?.role?.toLowerCase() === "admin";
+
+  const linkClass = (href: string, admin = false) => {
     const active =
       href === "/" ? pathname === "/" : pathname?.startsWith(href) ?? false;
-    return [
-      "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors",
-      active
-        ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-        : "text-gray-700 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700/60 hover:text-blue-600 dark:hover:text-blue-400",
-    ].join(" ");
+    const base =
+      "flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors";
+    if (active) {
+      return `${base} ${
+        admin
+          ? "bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300"
+          : "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+      }`;
+    }
+    return `${base} text-gray-700 dark:text-slate-300 ${
+      admin
+        ? "hover:bg-purple-50 dark:hover:bg-purple-900/30 hover:text-purple-700 dark:hover:text-purple-400"
+        : "hover:bg-gray-50 dark:hover:bg-slate-700/60 hover:text-blue-600 dark:hover:text-blue-400"
+    }`;
   };
 
   return (
@@ -231,7 +278,7 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
 
         {/* รายการเมนู */}
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {NAV_ITEMS.map((item) => (
+          {MAIN_ITEMS.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -242,6 +289,33 @@ export default function Sidebar({ open, onClose, user, onLogout }: Props) {
               {item.label}
             </Link>
           ))}
+
+          {isAdmin && (
+            <div className="pt-3 mt-2 border-t border-gray-100 dark:border-slate-700 space-y-1">
+              <p className="px-4 pt-1 pb-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                <span className="p-1 bg-purple-100 dark:bg-purple-900/50 text-purple-600 dark:text-purple-400 rounded-md">
+                  {icon(
+                    <>
+                      <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </>,
+                  )}
+                </span>
+                ผู้ดูแลระบบ
+              </p>
+              {ADMIN_ITEMS.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={onClose}
+                  className={linkClass(item.href, true)}
+                >
+                  {item.icon}
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* ออกจากระบบ */}
