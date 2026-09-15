@@ -384,7 +384,7 @@ export default function DevicesPage() {
 
           <button
             onClick={fetchData}
-            className="neu-card-sm flex items-center gap-2 px-4 py-2 text-sm font-bold neu-text-muted hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            className="neu-btn flex items-center gap-2 px-4 py-2.5 text-sm font-bold neu-text-muted transition-colors"
           >
             <svg
               className={`w-4 h-4 ${isLoading ? "animate-spin text-blue-500" : ""}`}

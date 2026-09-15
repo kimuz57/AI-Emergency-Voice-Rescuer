@@ -163,7 +163,7 @@ export default function PatientsPage() {
       {/* Table */}
       <div className="neu-card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="neu-table w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--neu-shadow-dark)]/30">
                 <th className="neu-text-muted text-left px-6 py-4 font-semibold uppercase tracking-wide text-xs">
@@ -211,7 +211,7 @@ export default function PatientsPage() {
                     key={p.id}
                     className="transition-colors"
                   >
-                    <td className="px-6 py-4">
+                    <td data-label="ผู้ป่วย" className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div
                           className="neu-card-sm w-9 h-9 !rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
@@ -227,17 +227,17 @@ export default function PatientsPage() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 neu-text-muted">{p.age} ปี</td>
-                    <td className="px-6 py-4">
+                    <td data-label="อายุ" className="px-6 py-4 neu-text-muted">{p.age} ปี</td>
+                    <td data-label="ห้องพัก" className="px-6 py-4">
                       <span className="neu-inset-sm inline-flex items-center px-3 py-1 rounded-full text-xs font-medium neu-text-accent">
                         {p.room}
                       </span>
                     </td>
-                    <td className="px-6 py-4 neu-text-muted">{p.condition}</td>
-                    <td className="px-6 py-4 font-mono text-xs neu-text-muted">
+                    <td data-label="โรคประจำตัว" className="px-6 py-4 neu-text-muted">{p.condition}</td>
+                    <td data-label="Device ID" className="px-6 py-4 font-mono text-xs neu-text-muted">
                       {p.deviceId}
                     </td>
-                    <td className="px-6 py-4">
+                    <td data-label="การดำเนินการ" className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => setEditing(p)}

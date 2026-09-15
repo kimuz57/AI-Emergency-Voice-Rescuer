@@ -230,7 +230,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col items-center p-4 md:p-8 font-sans overflow-hidden">
+    <div className="relative min-h-screen flex flex-col items-center px-3 py-4 sm:p-6 md:p-8 font-sans overflow-hidden">
       {/* <PhoneReminder hasPhone={!!userData?.phone} /> */}
       {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
       {/* เอา blob สีเบลอออก — neumorphism ต้องการพื้นเรียบสีเดียว */}
@@ -346,7 +346,7 @@ export default function Dashboard() {
                   </div>
 
                   {/* Main content: 2 columns layout */}
-                  <div className="flex flex-col lg:flex-row gap-6 pl-4">
+                  <div className="flex flex-col md:flex-row gap-4 md:gap-6 pl-2 sm:pl-4">
                     {/* Left column: Direction Compass */}
                     {alert.coordinates && (
                       <div className="flex-shrink-0">

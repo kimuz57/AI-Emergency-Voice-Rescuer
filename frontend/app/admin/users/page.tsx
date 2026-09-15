@@ -133,7 +133,7 @@ export default function AdminUsers() {
       </div>
 
       <div className="overflow-x-auto shadow-md rounded-lg">
-        <table className="w-full text-sm text-left">
+        <table className="neu-table w-full text-sm text-left">
           <thead className="dark:bg-slate-800 bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-6 py-4 neu-text-muted font-semibold uppercase text-xs">ผู้ใช้งาน</th>
@@ -152,7 +152,7 @@ export default function AdminUsers() {
             ) : (
               users.map((u, i) => (
                 <tr key={u.id || u.ID} className="dark:bg-slate-800 hover:bg-slate-700 transition-colors">
-                  <td className="px-6 py-4">
+                  <td data-label="ผู้ใช้งาน" className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold"
                            style={{ backgroundColor: avatarColors[i % avatarColors.length] }}>
@@ -161,29 +161,29 @@ export default function AdminUsers() {
                       <span className="font-medium">{u.name}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 neu-text-muted">{u.email}</td>
-                  <td className="px-6 py-4">
+                  <td data-label="อีเมล" className="px-6 py-4 neu-text-muted">{u.email}</td>
+                  <td data-label="สถานะยืนยัน" className="px-6 py-4">
                     {u.is_verified ? (
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-200">ยืนยันแล้ว</span>
                     ) : (
                       <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 border border-red-200">ยังไม่ยืนยัน</span>
                     )}
                   </td>
-                  <td className="px-6 py-4">
+                  <td data-label="การเชื่อมต่อ" className="px-6 py-4">
                     <div className="flex gap-2">
                       {u.is_linked_line && <span className="px-2 py-0.5 bg-[#00B900]/10 text-[#00B900] rounded text-xs font-bold border border-[#00B900]/20">LINE</span>}
                       {u.is_telegram_connected && <span className="px-2 py-0.5 bg-[#0088cc]/10 text-[#0088cc] rounded text-xs font-bold border border-[#0088cc]/20">TG</span>}
                       {(!u.is_linked_line && !u.is_telegram_connected) && <span className="neu-text-muted text-xs">-</span>}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
+                  <td data-label="สิทธิ์ (Role)" className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
                       u.role === "admin" ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-blue-50 text-blue-700 border-blue-200"
                     }`}>
                       {u.role || "caregiver"}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
+                  <td data-label="จัดการ" className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button onClick={() => openEditPopup(u)} className="p-2 neu-text-muted hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="แก้ไขข้อมูล">
                         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>

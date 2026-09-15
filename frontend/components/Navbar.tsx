@@ -288,7 +288,7 @@ export default function Navbar() {
                 style={{ animationDelay: "300ms" }}
               ></div>
             </div>
-            <span className="text-xl font-bold neu-text-accent">
+            <span className="text-base sm:text-lg md:text-xl font-bold neu-text-accent whitespace-nowrap">
               <a
                 href="/dashboard"
                 className="transition-opacity hover:opacity-75 cursor-pointer"

@@ -765,3 +765,204 @@ body::before {
 .alert-icon-pulse {
   animation: alert-icon-pulse 1s ease-in-out infinite;
 }
+
+
+/* ============================================
+   Responsive / Mobile Layer
+   --------------------------------------------
+   จุดตัด: < 768px = มือถือ · 768-1023 = แท็บเล็ต · >= 1024 = คอม
+   ============================================ */
+
+/* ---------- ตารางบนมือถือ ----------
+   แปลงแต่ละแถวเป็นการ์ดแทนการเลื่อนซ้าย-ขวา
+   ทำด้วย CSS ล้วนโดยอ่านชื่อคอลัมน์จาก data-label ของแต่ละช่อง
+   เลยไม่ต้องเขียน markup สองชุด (กันปัญหาแก้ที่เดียวแล้วอีกที่ไม่ตาม) */
+@media (max-width: 767px) {
+  .neu-table thead {
+    /* ซ่อนจากสายตาแต่ยังอยู่ให้โปรแกรมอ่านหน้าจอ */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .neu-table,
+  .neu-table tbody,
+  .neu-table tr,
+  .neu-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .neu-table tr {
+    background: var(--neu-bg);
+    box-shadow: var(--neu-out-sm);
+    border-radius: 1rem;
+    border: none !important;
+    padding: 0.35rem 0;
+    margin-bottom: 0.875rem;
+  }
+
+  .neu-table tr:last-child {
+    margin-bottom: 0;
+  }
+
+  .neu-table td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.6rem 1rem;
+    text-align: right;
+    border: none !important;
+  }
+
+  .neu-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: var(--neu-muted);
+    text-align: left;
+  }
+
+  /* ช่องที่ไม่ได้ระบุ data-label เช่น แถว "กำลังโหลด" ให้กินเต็มความกว้าง */
+  .neu-table td:not([data-label]) {
+    justify-content: center;
+    text-align: center;
+  }
+  .neu-table td:not([data-label])::before {
+    content: none;
+  }
+
+  /* ปุ่มจัดการในแถว ให้ชิดขวาและกดง่าย */
+  .neu-table td[data-label] > div {
+    justify-content: flex-end;
+  }
+}
+
+/* ---------- ขนาดที่นิ้วกดได้ ----------
+   เกณฑ์ 44px ตามแนวทาง accessibility ของทั้ง iOS และ Android
+   บังคับเฉพาะจอที่ไม่ใช่คอม เพื่อไม่ให้ปุ่มบนเดสก์ท็อปบวมเกินจำเป็น */
+@media (max-width: 1023px) {
+  .neu-btn,
+  .neu-btn-accent {
+    min-height: 44px;
+  }
+
+  .neu-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .neu-nav-item {
+    min-height: 48px;
+  }
+
+  /* ปุ่มของ FullCalendar และปุ่ม/ลิงก์อื่นที่ไม่ได้ใช้คลาส .neu-*
+     ก็ต้องกดด้วยนิ้วได้เหมือนกัน */
+  .fc .fc-button {
+    min-height: 44px;
+    min-width: 44px;
+    padding-inline: 0.75rem;
+  }
+}
+
+/* ---------- ขนาดตัวอักษรขั้นต่ำบนจอสัมผัส ----------
+   ภาษาไทยมีวรรณยุกต์บน-ล่าง ตัวเล็กกว่านี้อ่านยากมากบนจอเล็ก
+   ครอบถึง 1023px เพื่อให้ครอบคลุมแท็บเล็ตด้วย ไม่ใช่แค่มือถือ */
+@media (max-width: 1023px) {
+  .text-\[9px\],
+  .text-\[10px\],
+  .text-\[11px\] {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+/* ---------- FullCalendar ให้เข้ากับธีม neumorphic ----------
+   ไลบรารีมาพร้อมปุ่มสีทึบของตัวเอง ต้องเขียนทับให้เป็นวัสดุเดียวกับที่เหลือ */
+.fc .fc-button-primary {
+  background: var(--neu-bg);
+  color: var(--neu-text);
+  border: none;
+  box-shadow: var(--neu-out-sm);
+  border-radius: 0.875rem;
+  font-weight: 600;
+  text-transform: none;
+  transition: box-shadow 0.15s ease, color 0.15s ease;
+}
+
+.fc .fc-button-primary:hover:not(:disabled) {
+  background: var(--neu-bg);
+  color: var(--neu-accent);
+}
+
+.fc .fc-button-primary:not(:disabled):active,
+.fc .fc-button-primary:not(:disabled).fc-button-active {
+  background: var(--neu-bg);
+  color: var(--neu-accent);
+  box-shadow: var(--neu-in-sm);
+}
+
+.fc .fc-button-primary:focus,
+.fc .fc-button-primary:focus-visible {
+  box-shadow: var(--neu-out-sm), 0 0 0 2px var(--neu-accent);
+  outline: none;
+}
+
+.fc .fc-button-primary:disabled {
+  background: var(--neu-bg);
+  color: var(--neu-muted);
+  opacity: 0.5;
+  box-shadow: var(--neu-out-sm);
+}
+
+/* กลุ่มปุ่มติดกัน ให้เว้นช่องไฟจะได้เห็นเงาของแต่ละปุ่ม */
+.fc .fc-button-group > .fc-button {
+  margin-inline: 2px;
+  border-radius: 0.875rem !important;
+}
+
+.fc .fc-toolbar-title {
+  color: var(--neu-text);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.fc-theme-standard .fc-scrollgrid,
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: color-mix(in srgb, var(--neu-shadow-dark) 35%, transparent);
+}
+
+.fc .fc-list-empty {
+  background: transparent;
+  color: var(--neu-muted);
+}
+
+/* แถบเครื่องมือบนจอแคบ ให้ขึ้นบรรทัดใหม่แทนการอัดแน่น */
+@media (max-width: 767px) {
+  .fc .fc-toolbar.fc-header-toolbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .fc .fc-toolbar-title {
+    font-size: 0.95rem;
+  }
+}
+
+/* ---------- ระยะขอบหน้าจอ ---------- */
+@media (max-width: 480px) {
+  .neu-card,
+  .neu-inset {
+    border-radius: 1.25rem;
+  }
+}

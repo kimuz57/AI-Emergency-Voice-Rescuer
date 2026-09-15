@@ -155,7 +155,7 @@ export default function AudioDiagnosticsPage() {
 
         <Link
           href="/dashboard"
-          className="text-sm font-medium neu-text-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+          className="text-sm font-medium neu-text-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors inline-flex items-center min-h-[44px]"
         >
           ← กลับหน้าแดชบอร์ด
         </Link>
@@ -173,7 +173,7 @@ export default function AudioDiagnosticsPage() {
               // สลับมาโหมดข้อมูลจริงเมื่อไหร่ ค่อยยิง API
               if (!next) fetchRows();
             }}
-            className="w-4 h-4 accent-indigo-600"
+            className="w-5 h-5 accent-indigo-600"
           />
           ใช้ข้อมูลตัวอย่าง (สำหรับพัฒนา UI)
         </label>

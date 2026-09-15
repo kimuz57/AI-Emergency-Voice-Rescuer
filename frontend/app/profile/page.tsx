@@ -233,7 +233,7 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="md:col-span-1 space-y-6">
           {/* ========================================== */}
           {/* 👤 ส่วนโปรไฟล์รูปภาพ (คอลัมน์ซ้าย) */}
@@ -269,7 +269,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="neu-btn-accent absolute bottom-0 right-0 p-2.5 !rounded-full transition-all border-0 dark:border-slate-800 flex items-center justify-center transform group-hover:scale-110"
+                className="neu-btn-accent absolute bottom-0 right-0 p-3 min-w-[44px] !rounded-full transition-all border-0 dark:border-slate-800 flex items-center justify-center transform group-hover:scale-110"
                 title="เปลี่ยนรูปโปรไฟล์"
               >
                 <svg
@@ -310,7 +310,7 @@ export default function ProfilePage() {
 
         </div>
 
-        <div className="md:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6">
           <div className="neu-card p-6 space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-bold neu-text">
@@ -318,7 +318,7 @@ export default function ProfilePage() {
               </h3>
               <button
                 onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-                className={`px-4 py-1.5 rounded-xl text-sm font-medium transition-all  ${
+                className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-medium transition-all  ${
                   isEditing
                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
                     : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
@@ -390,7 +390,7 @@ export default function ProfilePage() {
           </a>
 
           <div className="flex justify-end pt-2">
-            <button className="text-xs font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:underline transition-all">
+            <button className="text-xs font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:underline transition-all py-3 px-2">
               ⚠️ ต้องการลบบัญชีผู้ดูแลและล้างข้อมูลโครงข่าย IoT?
             </button>
           </div>

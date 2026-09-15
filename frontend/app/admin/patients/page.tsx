@@ -221,7 +221,7 @@ export default function AdminPatients() {
       </div>
 
       <div className="overflow-x-auto shadow-md rounded-lg">
-        <table className="w-full text-sm text-left">
+        <table className="neu-table w-full text-sm text-left">
           <thead className="dark:bg-slate-800 bg-slate-50 border-b border-slate-200">
             <tr>
               <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
@@ -272,7 +272,7 @@ export default function AdminPatients() {
                   key={p.ID}
                   className="dark:bg-slate-800 hover:bg-slate-700 transition-colors"
                 >
-                  <td className="px-6 py-4">
+                  <td data-label="ผู้ป่วย" className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold"
@@ -288,18 +288,18 @@ export default function AdminPatients() {
                       </span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 neu-text-muted">
+                  <td data-label="อายุ" className="px-6 py-4 neu-text-muted">
                     {p.Age} ปี
                   </td>
-                  <td className="px-6 py-4">
+                  <td data-label="ห้องพัก" className="px-6 py-4">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
                       {p.RoomNumber}
                     </span>
                   </td>
-                  <td className="px-6 py-4 neu-text-muted">
+                  <td data-label="โรคประจำตัว" className="px-6 py-4 neu-text-muted">
                     {p.MedicalCondition}
                   </td>
-                  <td className="px-6 py-4 neu-text-muted">
+                  <td data-label="ผู้ดูแล" className="px-6 py-4 neu-text-muted">
                     {p.Caregivers && p.Caregivers.length > 0 ? (
                       p.Caregivers.map((c: any) => c.name || c.Name).join(", ")
                     ) : (
@@ -308,7 +308,7 @@ export default function AdminPatients() {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 font-mono text-xs neu-text-muted">
+                  <td data-label="Device ID" className="px-6 py-4 font-mono text-xs neu-text-muted">
                     {p.DeviceAssignments && p.DeviceAssignments.length > 0 ? (
                       p.DeviceAssignments.map(
                         (d: any) =>
@@ -320,7 +320,7 @@ export default function AdminPatients() {
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4">
+                  <td data-label="การดำเนินการ" className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => openEditPopup(p)}

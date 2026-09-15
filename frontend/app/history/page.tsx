@@ -1,6 +1,6 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect, @typescript-eslint/no-explicit-any */
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useSyncExternalStore } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
@@ -53,6 +53,21 @@ type StatsResponse = {
   };
 };
 
+// อ่านว่าจอแคบไหมโดยไม่ใช้ effect — snapshot ฝั่ง server คืน false เสมอ
+// จึงไม่เกิด hydration mismatch และไม่ชนกฎ set-state-in-effect ของ React 19
+const MOBILE_QUERY = "(max-width: 767px)";
+const subscribeToWidth = (onChange: () => void) => {
+  const mq = window.matchMedia(MOBILE_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
+const useIsNarrow = () =>
+  useSyncExternalStore(
+    subscribeToWidth,
+    () => window.matchMedia(MOBILE_QUERY).matches,
+    () => false,
+  );
+
 export default function HistoryPage() {
   const [activeTab, setActiveTab] = useState<"calendar" | "analytics">(
     "calendar",
@@ -68,6 +83,8 @@ export default function HistoryPage() {
     useState<DetectionLogResponse | null>(null);
 
   const calendarRef = useRef<FullCalendar>(null);
+
+  const isNarrow = useIsNarrow();
 
   const handleDateJump = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newDate = e.target.value;
@@ -206,7 +223,7 @@ export default function HistoryPage() {
         <div className="neu-card-sm flex p-1 shrink-0 overflow-x-auto">
           <button
             onClick={() => setActiveTab("calendar")}
-            className={`whitespace-nowrap px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
+            className={`whitespace-nowrap px-5 py-3 min-h-[44px] text-sm font-semibold rounded-lg transition-all ${
               activeTab === "calendar"
                 ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -216,7 +233,7 @@ export default function HistoryPage() {
           </button>
           <button
             onClick={() => setActiveTab("analytics")}
-            className={`whitespace-nowrap px-5 py-2 text-sm font-semibold rounded-lg transition-all ${
+            className={`whitespace-nowrap px-5 py-3 min-h-[44px] text-sm font-semibold rounded-lg transition-all ${
               activeTab === "analytics"
                 ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
@@ -329,6 +346,9 @@ export default function HistoryPage() {
                 />
 
                 <FullCalendar
+                  /* key บังคับ mount ใหม่ตอนข้ามจุดตัด เพราะ initialView
+                     มีผลเฉพาะตอน mount ครั้งแรกเท่านั้น */
+                  key={isNarrow ? "cal-narrow" : "cal-wide"}
                   ref={calendarRef}
                   plugins={[
                     dayGridPlugin,
@@ -336,12 +356,19 @@ export default function HistoryPage() {
                     interactionPlugin,
                     listPlugin,
                   ]}
-                  initialView="dayGridMonth"
-                  headerToolbar={{
-                    left: "prev,next today",
-                    center: "title",
-                    right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
-                  }}
+                  /* ตารางเดือน 7 คอลัมน์บีบลงจอมือถือแล้วอ่านไม่ออก
+                     จอแคบจึงใช้มุมมองรายการ และเหลือปุ่มเท่าที่จำเป็น */
+                  initialView={isNarrow ? "listWeek" : "dayGridMonth"}
+                  headerToolbar={
+                    isNarrow
+                      ? { left: "prev,next", center: "title", right: "today" }
+                      : {
+                          left: "prev,next today",
+                          center: "title",
+                          right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
+                        }
+                  }
+                  noEventsContent="ไม่มีเหตุการณ์ในช่วงเวลานี้"
                   buttonText={{
                     today: "วันนี้",
                     month: "เดือน",

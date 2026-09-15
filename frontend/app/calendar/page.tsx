@@ -115,7 +115,7 @@ export default function CalendarPage() {
   const monthTotal = rows.length;
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold neu-text">ปฏิทินเหตุการณ์</h1>
@@ -169,8 +169,8 @@ export default function CalendarPage() {
       )}
 
       {/* ---------- ตารางปฏิทิน ---------- */}
-      <div className="neu-card p-4">
-        <div className="grid grid-cols-7 gap-2 mb-2">
+      <div className="neu-card p-2 sm:p-4">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
           {TH_DAYS.map((d) => (
             <div key={d} className="text-center text-[11px] font-bold neu-text-muted uppercase tracking-wide py-1">
               {d}
@@ -178,7 +178,7 @@ export default function CalendarPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {cells.map((day, i) => {
             if (day === null) return <div key={`pad-${i}`} />;
 

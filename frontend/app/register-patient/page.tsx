@@ -112,13 +112,13 @@ function RegistrationFormContent() {
   return (
     <div className="dark:bg-slate-800 relative min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8 font-sans overflow-hidden">
       {/* Background Glowing Orbs */}
-      <div className="absolute top-[-5%] left-[-10%] w-[500px] h-[500px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-40 animate-pulse pointer-events-none"></div>
+      <div className="hidden absolute top-[-5%] left-[-10%] w-[500px] h-[500px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-40 animate-pulse pointer-events-none"></div>
       <div
-        className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"
+        className="hidden absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"
         style={{ animationDelay: "2s" }}
       ></div>
       <div
-        className="absolute top-[40%] left-[20%] w-[300px] h-[300px] bg-emerald-300 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse pointer-events-none"
+        className="hidden absolute top-[40%] left-[20%] w-[300px] h-[300px] bg-emerald-300 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse pointer-events-none"
         style={{ animationDelay: "4s" }}
       ></div>
 
@@ -191,7 +191,7 @@ function RegistrationFormContent() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
                     อายุ (ปี)
