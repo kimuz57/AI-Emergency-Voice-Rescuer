@@ -92,9 +92,13 @@ func UpdateDevices(c *fiber.Ctx) error {
 	}
 	if payload.IsActive != nil {
 		updates["is_active"] = *payload.IsActive
+		InvalidateDeviceCache(device.MacAddress)
 	}
 	if payload.Status != nil {
 		updates["status"] = *payload.Status // 🌟 2. สั่งให้อัปเดต status ลงใน Database
+		if *payload.Status == "online" {
+			database.SetDeviceOnline(device.ID, 35*time.Second)
+		}
 	}
 
 	database.DB.Model(&device).Updates(updates)

@@ -1,9 +1,11 @@
 package controllers
 
 import (
+	"fmt"
 	"go_backend/database"
 	"go_backend/models"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
@@ -24,14 +26,11 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 			newDevice := models.Device{
 				MacAddress: strings.ToUpper(mac),
 				IpAddress:  ip,
-				Status:     "online", // เพิ่ม Status online
+				Status:     "online",
 				IsActive:   false,
 				IsVerified: true,
 			}
 			database.DB.Create(&newDevice)
-
-			// 🌟 [จุดที่ 1] แจ้งเตือนหน้าเว็บ (SSE) ว่ามี "อุปกรณ์ใหม่" เช็คอินเข้ามา
-			// ส่งข้อมูลไปครบๆ ฝั่ง React จะได้เอาไปต่อท้าย Array ทันท
 
 			return c.Status(fiber.StatusOK).JSON(fiber.Map{
 				"message":     "สร้างอุปกรณ์ใหม่และบันทึก IP สำเร็จ!",
@@ -47,9 +46,8 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 	database.DB.Model(&device).Updates(map[string]interface{}{
 		"ip_address":  ip,
 		"is_verified": true,
-		"status":      "online", // อัปเดตเมื่อ Check-in
+		"status":      "online",
 	})
-
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"message":     "อัปเดต IP Address สำเร็จ!",
@@ -61,7 +59,6 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 
 func CheckDeviceActivation(c *fiber.Ctx) error {
 	mac := c.Query("mac")
-
 	if mac == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":     "Missing 'mac' parameter",
@@ -69,32 +66,48 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 		})
 	}
 
+	// ── 1. เช็ค Redis ก่อน ──
+	var cached struct {
+		IsActive bool `json:"is_active"`
+	}
+	hit, _ := database.GetJSON(fmt.Sprintf("device:activation:%s", mac), &cached)
+	if hit {
+		return c.JSON(fiber.Map{
+			"is_active": cached.IsActive,
+			"source":    "cache",
+		})
+	}
+
+	// ── 2. Cache miss → query Postgres ──
 	var device models.Device
 	result := database.DB.Where("UPPER(mac_address) = UPPER(?)", mac).First(&device)
-
 	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return c.Status(fiber.StatusOK).JSON(fiber.Map{
-				"is_active": false,
-				"message":   "Device not found or not activated",
-			})
-		}
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error":     "Database error",
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"is_active": false,
 		})
 	}
 
-	if !device.IsVerified {
-		return c.Status(fiber.StatusOK).JSON(fiber.Map{
-			"is_active":   false,
-			"is_verified": false,
-			"message":     "Device not verified",
-		})
+	// ── 3. เก็บลง Redis ──
+	ttl := 10 * time.Second
+	if device.IsActive {
+		ttl = 1 * time.Hour
 	}
+	database.SetJSON(fmt.Sprintf("device:activation:%s", mac), fiber.Map{"is_active": device.IsActive}, ttl)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"is_active":   device.IsActive,
 		"is_verified": device.IsVerified,
+		"source":      "db",
 	})
+}
+
+// InvalidateDeviceCache ลบ cache ของ device นั้นออก
+// เรียกตอนที่ admin เปลี่ยน is_active ใน UpdateDevices
+func InvalidateDeviceCache(mac string) {
+	key := fmt.Sprintf("device:activation:%s", mac)
+	if err := database.Del(key); err != nil {
+		fmt.Printf("⚠️ [Redis] ลบ cache MAC %s ไม่สำเร็จ: %v\n", mac, err)
+	} else {
+		fmt.Printf("🗑️ [Redis] ล้าง cache MAC %s แล้ว\n", mac)
+	}
 }
