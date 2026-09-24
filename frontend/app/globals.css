@@ -849,7 +849,8 @@ body::before {
    บังคับเฉพาะจอที่ไม่ใช่คอม เพื่อไม่ให้ปุ่มบนเดสก์ท็อปบวมเกินจำเป็น */
 @media (max-width: 1023px) {
   .neu-btn,
-  .neu-btn-accent {
+  .neu-btn-accent,
+  .neu-chip {
     min-height: 44px;
   }
 
