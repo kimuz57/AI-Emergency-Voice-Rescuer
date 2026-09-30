@@ -79,8 +79,15 @@ func DeleteSession(userID uint) error {
 
 // SetDeviceOnline บันทึกสถานะ online ของ device พร้อม TTL สั้น
 // ESP32 ต้อง heartbeat มาทุก ๆ interval มิฉะนั้น key จะหมดอายุ = offline
+// SetDeviceOnline บันทึกสถานะ online ของ device ลง Redis โดยใช้ deviceID (uint)
 func SetDeviceOnline(deviceID uint, ttl time.Duration) error {
 	return RDB.Set(Ctx, KeyDeviceStatus(deviceID), "online", ttl).Err()
+}
+
+// (Optional) หากมีส่วนอื่นในระบบใช้ MAC Address สามารถสร้างฟังก์ชันนี้เพิ่มได้
+func SetDeviceOnlineByMAC(macAddress string, ttl time.Duration) error {
+	key := fmt.Sprintf("device:online:%s", macAddress)
+	return RDB.Set(Ctx, key, "online", ttl).Err()
 }
 
 // IsDeviceOnline ตรวจสอบว่า device ยัง online อยู่ไหม
