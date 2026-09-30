@@ -1,5 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect, @next/next/no-img-element */
+/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect */
 import { useCallback, useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import Link from "next/link";
@@ -244,16 +244,15 @@ export default function Navbar() {
     // การปิดเมนูย้ายไปอยู่ใน Sidebar แล้ว (ฉากหลัง + Esc + เปลี่ยนหน้า)
   }, []);
 
-  const displayName = user?.name || "ผู้ใช้งานระบบ";
-  const displayRole = user?.role || "User";
 
   return (
     <>
-      {/* แถบบนแบบ Tabler — จอคอมเริ่มหลัง sidebar (--sidebar-w) จอเล็กเต็มความกว้าง */}
-      <header className="fixed top-0 right-0 left-0 lg:left-[var(--sidebar-w)] z-30 h-[var(--topbar-h)] bg-[var(--tb-surface)] border-b border-[var(--tb-border)] transition-[left] duration-200 ease-out motion-reduce:transition-none">
+      {/* แถบบนมีเฉพาะจอเล็ก (ปุ่มเปิดลิ้นชักเมนู + โลโก้)
+          จอคอมไม่มีแถบนี้ — sidebar แสดงตลอดและมีโลโก้กับโปรไฟล์ผู้ใช้อยู่แล้ว
+          เดิมมีโปรไฟล์มุมขวาบนซ้ำกับมุมซ้ายล่างของ sidebar เลยเอาออก */}
+      <header className="lg:hidden fixed top-0 right-0 left-0 z-30 h-[var(--topbar-h)] bg-[var(--tb-surface)] border-b border-[var(--tb-border)]">
         <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-3">
-          {/* จอเล็ก: ปุ่มเปิดลิ้นชักเมนู + โลโก้ (จอคอมมีโลโก้ใน sidebar แล้ว) */}
-          <div className="flex items-center gap-2 min-w-0 lg:hidden">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               type="button"
               onClick={() => setIsSidebarOpen(true)}
@@ -288,37 +287,6 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* ผู้ใช้ที่ล็อกอินอยู่ — กดแล้วไปหน้าข้อมูลส่วนตัว */}
-          <Link
-            href="/profile"
-            className="ml-auto flex items-center gap-3 min-w-0 h-12 px-1.5 sm:pr-3 rounded-[var(--tb-radius)] transition-colors duration-150 hover:bg-[var(--tb-surface-2)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
-          >
-            <img
-              src={
-                user?.profileImage ||
-                "https://ui-avatars.com/api/?name=" +
-                  (user?.name || "U") +
-                  "&background=EBF4FF&color=1E3A8A"
-              }
-              referrerPolicy="no-referrer"
-              alt=""
-              className="w-9 h-9 shrink-0 rounded-full object-cover border border-[var(--tb-border)]"
-              onError={(e) => {
-                e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                  user?.name || "U",
-                )}&background=EBF4FF&color=1E3A8A`;
-              }}
-            />
-            {/* จอเล็กซ่อนชื่อ แต่ยังให้โปรแกรมอ่านหน้าจออ่านได้ */}
-            <span className="sr-only sm:not-sr-only sm:flex sm:flex-col sm:min-w-0 text-left">
-              <span className="block max-w-[180px] truncate text-sm font-semibold leading-5 text-[var(--tb-text)]">
-                {displayName}
-              </span>
-              <span className="block max-w-[180px] truncate text-xs leading-4 text-[var(--tb-muted)]">
-                {displayRole}
-              </span>
-            </span>
-          </Link>
         </div>
       </header>
 

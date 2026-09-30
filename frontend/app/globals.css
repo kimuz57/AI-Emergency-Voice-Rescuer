@@ -77,6 +77,8 @@
   /* ขนาด shell — .app-shell อ่านค่านี้ไปดัน content หลบ sidebar กับแถบบน */
   --sidebar-w: 0px;
   --topbar-h: 64px;
+  /* ระยะเว้นบนของ content: จอเล็กเว้นให้แถบบน, จอคอมไม่มีแถบบนจึงเป็น 0 */
+  --shell-top: var(--topbar-h);
 
   /* ---- ตัวแปรชุดเดิม (--neu-*) ยังมีโค้ดในหน้าต่างๆ อ้างถึงแบบ inline
      เลยชี้ไปที่ค่าใหม่แทน ห้ามลบจนกว่าจะไม่มีใครใช้แล้ว ---- */
@@ -96,7 +98,7 @@
 
 /* จอคอม: sidebar ติดซ้ายตลอด — ย่อเหลือแถบไอคอนด้วย <html data-sidebar="collapsed"> */
 @media (min-width: 1024px) {
-  :root { --sidebar-w: 256px; }
+  :root { --sidebar-w: 256px; --shell-top: 0px; }
   html[data-sidebar="collapsed"] { --sidebar-w: 72px; }
 }
 
@@ -376,13 +378,14 @@ select.neu-input option {
    จอคอม (>= 1024px): sidebar ติดซ้ายตลอด กว้าง --sidebar-w
      (256px ปกติ / 72px ตอนย่อ — สลับด้วย <html data-sidebar="collapsed">)
    จอเล็กกว่านั้น: sidebar ซ่อน เปิดเป็นลิ้นชักจากปุ่มเมนูบนแถบบน
+   แถบบน (Navbar) มีเฉพาะจอเล็ก จอคอมไม่มี — โปรไฟล์ผู้ใช้อยู่มุมซ้ายล่างของ sidebar
    ทุก layout ที่มี Navbar ห่อ content ด้วย .app-shell
    ============================================ */
 .app-shell {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  padding-top: var(--topbar-h);
+  padding-top: var(--shell-top);
   padding-left: var(--sidebar-w);
   transition: padding-left 0.2s ease;
 }
