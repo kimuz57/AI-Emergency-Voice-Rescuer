@@ -232,85 +232,173 @@ export default function DevicesPage() {
 
   const isAdmin = user?.role?.toLowerCase() === "admin";
 
-  const renderDeviceCard = (device: DeviceData, index: number) => (
-    <div
-      key={device.id || index}
-      className="neu-card group p-5 dark:hover:border-blue-500/50 transition-all duration-300 relative overflow-hidden"
-    >
-      <div className="absolute top-5 right-5 flex items-center gap-2">
-        {device.is_active ? (
-          <span className="px-2 py-1 bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 text-[10px] font-bold rounded-md uppercase tracking-wide">
-            Activated
-          </span>
-        ) : (
-          <span className="px-2 py-1 bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-400 text-[10px] font-bold rounded-md uppercase tracking-wide">
-            Not Active
-          </span>
-        )}
-        <div className="flex items-center gap-1.5 ml-1">
-          {device.status?.toLowerCase() === "online" ? (
-            <>
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-              </span>
-              <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
-                Online
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="h-3 w-3 rounded-full bg-slate-300 dark:bg-slate-600"></span>
-              <span className="text-[11px] font-bold neu-text-muted uppercase tracking-wide">
-                Offline
-              </span>
-            </>
-          )}
-        </div>
-      </div>
+  // ==========================================
+  // 🔎 ค้นหา + ตัวกรอง
+  // ==========================================
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<
+    "all" | "online" | "offline" | "inactive" | "unassigned"
+  >("all");
 
-      <div className="mb-4">
-        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-5 h-5 text-blue-600 dark:text-blue-400"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
-            <rect x="9" y="9" width="6" height="6"></rect>
-            <line x1="9" y1="1" x2="9" y2="4"></line>
-            <line x1="15" y1="1" x2="15" y2="4"></line>
-            <line x1="9" y1="20" x2="9" y2="23"></line>
-            <line x1="15" y1="20" x2="15" y2="23"></line>
-            <line x1="20" y1="9" x2="23" y2="9"></line>
-            <line x1="20" y1="14" x2="23" y2="14"></line>
-            <line x1="1" y1="9" x2="4" y2="9"></line>
-            <line x1="1" y1="14" x2="4" y2="14"></line>
-          </svg>
+  const isOnline = (d: DeviceData) => d.status?.toLowerCase() === "online";
+
+  // สรุปภาพรวม — เปิดหน้ามาต้องรู้ทันทีว่ามีอะไรผิดปกติไหม ไม่ต้องไล่นับการ์ดเอง
+  const stats = {
+    total: devices.length,
+    online: devices.filter((d) => d.is_active && isOnline(d)).length,
+    offline: devices.filter((d) => d.is_active && !isOnline(d)).length,
+    inactive: devices.filter((d) => !d.is_active).length,
+    unassigned: devices.filter((d) => !d.patient_name).length,
+  };
+
+  const matchesQuery = (d: DeviceData) => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return [d.mac_address, d.patient_name, d.device_name]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(q));
+  };
+
+  const matchesFilter = (d: DeviceData) => {
+    if (filter === "online") return d.is_active && isOnline(d);
+    if (filter === "offline") return d.is_active && !isOnline(d);
+    if (filter === "inactive") return !d.is_active;
+    if (filter === "unassigned") return !d.patient_name;
+    return true;
+  };
+
+  const visible = devices.filter((d) => matchesQuery(d) && matchesFilter(d));
+
+  // จัดกลุ่มตาม "สุขภาพของอุปกรณ์" ไม่ใช่ตามแฟล็ก is_active เฉยๆ
+  // เพราะบอร์ดที่เปิดใช้งานแล้วแต่ออฟไลน์ = ผู้ป่วยรายนั้นไม่มีใครเฝ้าอยู่
+  // ต้องเห็นก่อนเป็นอันดับแรก
+  const groups = [
+    {
+      key: "needsAttention",
+      title: "ต้องตรวจสอบ — เปิดใช้งานแล้วแต่ออฟไลน์",
+      hint: "ผู้ป่วยที่ผูกกับบอร์ดเหล่านี้ไม่มีระบบเฝ้าอยู่ในขณะนี้",
+      dot: "bg-rose-500",
+      items: visible.filter((d) => d.is_active && !isOnline(d)),
+    },
+    {
+      key: "healthy",
+      title: "ทำงานปกติ",
+      hint: "",
+      dot: "bg-emerald-500",
+      items: visible.filter((d) => d.is_active && isOnline(d)),
+    },
+    {
+      key: "inactive",
+      title: "ยังไม่เปิดใช้งาน",
+      hint: "บอร์ดที่ลงทะเบียนไว้แล้วแต่ยังไม่ได้เริ่มใช้งาน",
+      dot: "bg-amber-400",
+      items: visible.filter((d) => !d.is_active),
+    },
+  ];
+
+  const FILTERS: { key: typeof filter; label: string; count: number }[] = [
+    { key: "all", label: "ทั้งหมด", count: stats.total },
+    { key: "online", label: "ออนไลน์", count: stats.online },
+    { key: "offline", label: "ออฟไลน์", count: stats.offline },
+    { key: "inactive", label: "ยังไม่เปิดใช้งาน", count: stats.inactive },
+    { key: "unassigned", label: "ยังไม่ผูกผู้ป่วย", count: stats.unassigned },
+  ];
+
+  const renderDeviceCard = (device: DeviceData, index: number) => {
+    const online = isOnline(device);
+    // บอร์ดที่เปิดใช้งานแล้วแต่ติดต่อไม่ได้ ต้องเด่นกว่าใบอื่น
+    const alarming = device.is_active && !online;
+
+    return (
+      <div
+        key={device.id || index}
+        className={`neu-card p-5 relative overflow-hidden transition-transform hover:-translate-y-0.5 ${
+          alarming ? "ring-2 ring-rose-400/60" : ""
+        }`}
+      >
+        {/* แถบบน: สถานะการเชื่อมต่อ + สถานะการเปิดใช้งาน */}
+        <div className="flex items-start justify-between gap-2 mb-4">
+          <div className="flex items-center gap-1.5">
+            {online ? (
+              <>
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wide">
+                  ออนไลน์
+                </span>
+              </>
+            ) : (
+              <>
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    alarming ? "bg-rose-500" : "bg-slate-400 dark:bg-slate-500"
+                  }`}
+                ></span>
+                <span
+                  className={`text-[11px] font-bold uppercase tracking-wide ${
+                    alarming
+                      ? "text-rose-600 dark:text-rose-400"
+                      : "neu-text-muted"
+                  }`}
+                >
+                  ออฟไลน์
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            {device.is_verified && (
+              <span
+                className="neu-inset-sm px-2 py-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 rounded-md"
+                title="บอร์ดผ่านการยืนยันตัวตนกับระบบแล้ว"
+              >
+                ยืนยันแล้ว
+              </span>
+            )}
+            <span
+              className={`neu-inset-sm px-2 py-1 text-[10px] font-bold rounded-md ${
+                device.is_active
+                  ? "neu-text-accent"
+                  : "text-amber-600 dark:text-amber-400"
+              }`}
+            >
+              {device.is_active ? "เปิดใช้งาน" : "ยังไม่เปิด"}
+            </span>
+          </div>
         </div>
-        <h4 className="text-[10px] font-bold neu-text-muted uppercase tracking-widest mb-1">
-          MAC ADDRESS
-        </h4>
-        <p className="font-mono font-bold text-lg neu-text">
+
+        {/* ชื่อจุดติดตั้ง — ข้อมูลที่ API ส่งมาอยู่แล้วแต่หน้าเดิมไม่เคยแสดง */}
+        <p className="text-[10px] font-bold neu-text-muted uppercase tracking-widest mb-1">
+          จุดติดตั้ง
+        </p>
+        <p className="font-bold neu-text mb-3">
+          {device.device_name || (
+            <span className="neu-text-muted font-medium">ยังไม่ได้ตั้งชื่อ</span>
+          )}
+        </p>
+
+        <p className="text-[10px] font-bold neu-text-muted uppercase tracking-widest mb-1">
+          MAC Address
+        </p>
+        <p className="font-mono font-bold neu-text break-all">
           {device.mac_address}
         </p>
 
         <button
           onClick={() => handleOpenWifiQr(device)}
-          className="flex items-center gap-1.5 px-2 py-1 mt-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 rounded-md transition-colors w-fit"
-          title="สร้าง QR สแกนต่อ WiFi บอร์ด"
+          className="neu-btn flex items-center gap-1.5 px-3 py-2 mt-3 w-fit"
+          title="สร้าง QR สำหรับสแกนต่อ WiFi ของบอร์ด"
         >
           <svg
-            className="w-3.5 h-3.5"
+            className="w-4 h-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={2}
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -318,67 +406,84 @@ export default function DevicesPage() {
               d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5V16M4.5 4.5h3v3h-3v-3zm9 0h3v3h-3v-3zm-9 9h3v3h-3v-3z"
             />
           </svg>
-          <span className="text-[10px] font-bold tracking-wide">WIFI QR</span>
+          <span className="text-[11px] font-bold tracking-wide">
+            QR ตั้งค่า WiFi
+          </span>
         </button>
-      </div>
 
-      <div className="pt-4 border-t border-slate-100 dark:border-slate-700">
-        <h4 className="text-[10px] font-bold neu-text-muted uppercase tracking-widest mb-2">
-          ผู้ป่วยที่ผูกกับบอร์ดนี้
-        </h4>
-        {device.patient_name ? (
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/50 flex items-center justify-center text-purple-600 dark:text-purple-400 font-bold text-xs">
-              {device.patient_name.charAt(0)}
+        <div className="mt-4 pt-4 border-t border-[var(--neu-shadow-dark)]/30">
+          <p className="text-[10px] font-bold neu-text-muted uppercase tracking-widest mb-2">
+            ผู้ป่วยที่ผูกกับบอร์ดนี้
+          </p>
+          {device.patient_name ? (
+            <div className="flex items-center gap-2">
+              <span className="neu-inset-sm w-7 h-7 !rounded-full flex items-center justify-center neu-text-accent font-bold text-xs shrink-0">
+                {device.patient_name.charAt(0)}
+              </span>
+              <p className="font-medium neu-text text-sm truncate">
+                {device.patient_name}
+              </p>
             </div>
-            <p className="font-medium neu-text text-sm truncate">
-              {device.patient_name}
-            </p>
-          </div>
-        ) : (
-          <div className="neu-card-sm px-3 py-2 flex items-center gap-2">
-            <svg
-              className="w-4 h-4 text-amber-500"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          ) : (
+            <div className="neu-inset-sm px-3 py-2 flex items-center gap-2">
+              <svg
+                className="w-4 h-4 text-amber-500 shrink-0"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
                 strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-            <span className="text-xs font-semibold neu-text-muted">
-              ยังไม่ถูกผูกกับผู้ป่วย (รอการลงทะเบียน)
-            </span>
-          </div>
-        )}
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+              <span className="text-xs font-semibold neu-text-muted">
+                ยังไม่ได้ผูกกับผู้ป่วย
+              </span>
+            </div>
+          )}
+        </div>
       </div>
+    );
+  };
+
+  const statTile = (
+    label: string,
+    value: number,
+    tone: string,
+    hint?: string,
+  ) => (
+    <div className="neu-card p-4 text-center" title={hint}>
+      <p className={`text-2xl font-extrabold ${tone}`}>{value}</p>
+      <p className="text-[11px] font-bold neu-text-muted mt-1">{label}</p>
     </div>
   );
 
   return (
-    <div className="relative min-h-screen p-6 md:p-10 font-sans">
+    <div className="relative min-h-screen px-3 py-5 sm:p-6 md:p-10 font-sans">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+        {/* ---------- หัวข้อ ---------- */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-extrabold bg-gradient-to-r from-blue-700 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent flex items-center gap-3">
+            <h1 className="text-2xl md:text-3xl font-extrabold neu-text flex items-center gap-3">
               จัดการอุปกรณ์รับเสียง
-              {/* 🟢 แสดงจุดไฟเขียวเล็กๆ ว่าเชื่อมต่อ Real-time อยู่ */}
               {isLive && (
                 <span
-                  className="relative flex h-3 w-3 mt-1"
-                  title="เชื่อมต่อข้อมูลแบบ Real-time"
+                  className="relative flex h-3 w-3"
+                  title="กำลังรับข้อมูลสถานะแบบเรียลไทม์"
                 >
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                 </span>
               )}
             </h1>
-            <p className="neu-text-muted mt-1 flex items-center gap-2">
-              แสดงสถานะอุปกรณ์ที่ผูกกับผู้ป่วย
+            <p className="neu-text-muted mt-1 text-sm">
+              {isLive
+                ? "สถานะอัปเดตอัตโนมัติเมื่อบอร์ดมีการเปลี่ยนแปลง"
+                : "แสดงสถานะอุปกรณ์ที่ผูกกับผู้ป่วย"}
             </p>
           </div>
 
@@ -392,6 +497,7 @@ export default function DevicesPage() {
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -410,20 +516,21 @@ export default function DevicesPage() {
                 key={skeleton}
                 className="neu-card p-6 h-32 animate-pulse flex flex-col justify-between"
               >
-                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/3"></div>
-                <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-2/3"></div>
-                <div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-1/2"></div>
+                <div className="neu-inset-sm h-4 w-1/3"></div>
+                <div className="neu-inset-sm h-6 w-2/3"></div>
+                <div className="neu-inset-sm h-4 w-1/2"></div>
               </div>
             ))}
           </div>
         ) : error ? (
-          <div className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-2xl p-8 text-center">
+          <div className="neu-card p-8 text-center">
             <svg
-              className="w-12 h-12 text-red-500 mx-auto mb-3"
+              className="w-12 h-12 text-rose-500 mx-auto mb-3"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth={2}
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -431,20 +538,25 @@ export default function DevicesPage() {
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <h3 className="text-lg font-bold text-red-800 dark:text-red-400">
-              เกิดข้อผิดพลาด
-            </h3>
-            <p className="text-red-600 dark:text-red-300 mt-1">{error}</p>
+            <h3 className="text-lg font-bold neu-text">เกิดข้อผิดพลาด</h3>
+            <p className="text-rose-600 dark:text-rose-400 mt-1">{error}</p>
+            <button
+              onClick={fetchData}
+              className="neu-btn px-5 py-2.5 mt-5 text-sm font-semibold"
+            >
+              ลองใหม่อีกครั้ง
+            </button>
           </div>
         ) : devices.length === 0 ? (
           <div className="neu-card p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="neu-inset w-16 h-16 !rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
                 className="w-8 h-8 neu-text-muted"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
                 strokeWidth={2}
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -453,9 +565,7 @@ export default function DevicesPage() {
                 />
               </svg>
             </div>
-            <h3 className="text-xl font-bold neu-text">
-              ยังไม่มีอุปกรณ์ในระบบ
-            </h3>
+            <h3 className="text-xl font-bold neu-text">ยังไม่มีอุปกรณ์ในระบบ</h3>
             <p className="neu-text-muted mt-2">
               {isAdmin
                 ? "ยังไม่มีการลงทะเบียนอุปกรณ์ใดๆ ในระบบ"
@@ -463,45 +573,126 @@ export default function DevicesPage() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-10">
-            {/* Activated Devices */}
-            <div>
-              <h2 className="text-xl font-bold neu-text mb-4 flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-blue-500 shadow-sm"></span>
-                อุปกรณ์ที่เปิดใช้งาน (Activated)
-              </h2>
-              {devices.filter((d) => d.is_active).length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {devices.filter((d) => d.is_active).map(renderDeviceCard)}
-                </div>
-              ) : (
-                <div className="neu-card-sm p-6 text-center">
-                  <p className="neu-text-muted text-sm">
-                    ไม่มีอุปกรณ์ที่เปิดใช้งานในขณะนี้
-                  </p>
-                </div>
+          <>
+            {/* ---------- สรุปภาพรวม ---------- */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5">
+              {statTile("ทั้งหมด", stats.total, "neu-text")}
+              {statTile(
+                "ออนไลน์",
+                stats.online,
+                "text-emerald-600 dark:text-emerald-400",
+              )}
+              {statTile(
+                "ออฟไลน์",
+                stats.offline,
+                stats.offline > 0
+                  ? "text-rose-600 dark:text-rose-400"
+                  : "neu-text-muted",
+                "บอร์ดที่เปิดใช้งานแล้วแต่ติดต่อไม่ได้",
+              )}
+              {statTile(
+                "ยังไม่เปิดใช้งาน",
+                stats.inactive,
+                "text-amber-600 dark:text-amber-400",
               )}
             </div>
 
-            {/* Not Activated Devices */}
-            <div>
-              <h2 className="text-xl font-bold neu-text mb-4 flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-amber-400 shadow-sm"></span>
-                อุปกรณ์ที่ยังไม่เปิดใช้งาน (Not Activated)
-              </h2>
-              {devices.filter((d) => !d.is_active).length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {devices.filter((d) => !d.is_active).map(renderDeviceCard)}
-                </div>
-              ) : (
-                <div className="neu-card-sm p-6 text-center">
-                  <p className="neu-text-muted text-sm">
-                    ไม่มีอุปกรณ์ที่ยังไม่เปิดใช้งาน
-                  </p>
-                </div>
-              )}
+            {/* ---------- แถบเตือนเมื่อมีบอร์ดหลุด ---------- */}
+            {stats.offline > 0 && (
+              <div className="neu-card p-4 mb-5 flex items-start gap-3">
+                <svg
+                  className="w-5 h-5 shrink-0 mt-0.5 text-rose-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"
+                  />
+                </svg>
+                <p className="text-sm neu-text">
+                  <span className="font-bold text-rose-600 dark:text-rose-400">
+                    มี {stats.offline} บอร์ดที่เปิดใช้งานแล้วแต่ติดต่อไม่ได้
+                  </span>{" "}
+                  <span className="neu-text-muted">
+                    ผู้ป่วยที่ผูกกับบอร์ดเหล่านี้จะไม่ได้รับการเฝ้าระวัง
+                    กรุณาตรวจสอบไฟเลี้ยงและสัญญาณ WiFi
+                  </span>
+                </p>
+              </div>
+            )}
+
+            {/* ---------- ค้นหา + ตัวกรอง ---------- */}
+            <div className="neu-card p-4 mb-6 space-y-3">
+              <label className="sr-only" htmlFor="device-search">
+                ค้นหาอุปกรณ์
+              </label>
+              <input
+                id="device-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="ค้นหาจาก MAC Address, ชื่อจุดติดตั้ง หรือชื่อผู้ป่วย"
+                className="neu-input w-full px-4 py-3 text-sm"
+              />
+
+              <div className="flex flex-wrap gap-2">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setFilter(f.key)}
+                    aria-pressed={filter === f.key}
+                    className={`neu-chip inline-flex items-center px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                      filter === f.key
+                        ? "neu-inset-sm neu-text-accent"
+                        : "neu-card-sm neu-text-muted"
+                    }`}
+                  >
+                    {f.label} ({f.count})
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+
+            {/* ---------- รายการอุปกรณ์ ---------- */}
+            {visible.length === 0 ? (
+              <div className="neu-card p-10 text-center">
+                <p className="neu-text font-semibold">ไม่พบอุปกรณ์ที่ตรงกับเงื่อนไข</p>
+                <p className="neu-text-muted text-sm mt-1">
+                  ลองแก้คำค้นหา หรือเลือกตัวกรองอื่น
+                </p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-8">
+                {groups
+                  .filter((g) => g.items.length > 0)
+                  .map((g) => (
+                    <div key={g.key}>
+                      <h2 className="text-lg font-bold neu-text mb-1 flex items-center gap-2">
+                        <span className={`w-3 h-3 rounded-full ${g.dot}`}></span>
+                        {g.title}
+                        <span className="neu-text-muted font-medium text-sm">
+                          ({g.items.length})
+                        </span>
+                      </h2>
+                      {g.hint && (
+                        <p className="neu-text-muted text-xs mb-3 ml-5">
+                          {g.hint}
+                        </p>
+                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+                        {g.items.map(renderDeviceCard)}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </>
         )}
       </div>
 
