@@ -39,7 +39,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-transparent flex flex-col items-center justify-center p-4 transition-colors">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors">
       <div className="neu-card w-full max-w-md p-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold neu-text mb-2">ลืมรหัสผ่าน?</h1>

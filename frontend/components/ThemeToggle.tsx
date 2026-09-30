@@ -9,7 +9,7 @@ export default function ThemeToggle() {
 
   useEffect(() => setMounted(true), []);
 
-  if (!mounted) return <div className="w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-indigo-200 dark:border-slate-700 opacity-50" />;
+  if (!mounted) return <div className="neu-icon-btn w-11 h-11" />;
 
   const isDark = theme === "dark";
 
@@ -27,7 +27,7 @@ export default function ThemeToggle() {
         "relative p-2.5 rounded-full transition-all hover:scale-110 active:scale-95 " +
         (isDark
           ? "bg-slate-800 text-yellow-300 border border-yellow-400/40"
-          : "bg-white text-indigo-500 border border-indigo-300/60")
+          : "neu-icon-btn neu-text-accent")
       }
     >
       {/* Pulse ring */}

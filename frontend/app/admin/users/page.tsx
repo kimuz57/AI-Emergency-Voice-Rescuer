@@ -134,7 +134,7 @@ export default function AdminUsers() {
 
       <div className="overflow-x-auto shadow-md rounded-lg">
         <table className="neu-table w-full text-sm text-left">
-          <thead className="dark:bg-slate-800 bg-slate-50 border-b border-slate-200">
+          <thead className="border-b border-[var(--neu-shadow-dark)]/30">
             <tr>
               <th className="px-6 py-4 neu-text-muted font-semibold uppercase text-xs">ผู้ใช้งาน</th>
               <th className="px-6 py-4 neu-text-muted font-semibold uppercase text-xs">อีเมล</th>
@@ -151,7 +151,7 @@ export default function AdminUsers() {
               <tr><td colSpan={6} className="px-6 py-8 text-center neu-text-muted">ยังไม่มีผู้ใช้งานในระบบ</td></tr>
             ) : (
               users.map((u, i) => (
-                <tr key={u.id || u.ID} className="dark:bg-slate-800 hover:bg-slate-700 transition-colors">
+                <tr key={u.id || u.ID} className="transition-colors">
                   <td data-label="ผู้ใช้งาน" className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold"
@@ -278,7 +278,7 @@ export default function AdminUsers() {
               </div>
 
               <div className="flex gap-3">
-                <button onClick={() => setEditUser(null)} className="flex-1 px-4 py-2.5 border border-slate-200 neu-text-muted rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">ยกเลิก</button>
+                <button onClick={() => setEditUser(null)} className="neu-btn flex-1 px-4 py-3 text-sm font-medium">ยกเลิก</button>
                 <button onClick={handleUpdateUser} className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm">บันทึกข้อมูล</button>
               </div>
             </div>
@@ -295,7 +295,7 @@ export default function AdminUsers() {
               <h3 className="text-base font-bold neu-text mb-1">ยืนยันการลบผู้ใช้งาน</h3>
               <p className="text-sm neu-text-muted mb-5">หากลบแล้วจะไม่สามารถกู้คืนบัญชีนี้ได้</p>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2.5 border border-slate-200 neu-text-muted rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">ยกเลิก</button>
+                <button onClick={() => setDeleteConfirm(null)} className="neu-btn flex-1 px-4 py-3 text-sm font-medium">ยกเลิก</button>
                 <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors">ยืนยันลบ</button>
               </div>
             </div>

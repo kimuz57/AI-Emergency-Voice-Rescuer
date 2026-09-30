@@ -96,7 +96,7 @@ function VerifyEmailContent() {
 
 export default function VerifyPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="neu-card max-w-md w-full p-8">
         <div className="text-center mb-8">
           <h1 className="text-xl font-black text-indigo-600 uppercase tracking-wider">

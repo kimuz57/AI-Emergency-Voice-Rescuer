@@ -243,7 +243,7 @@ export default function ProfilePage() {
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className={`neu-card w-28 h-28 !rounded-full flex items-center justify-center neu-text text-4xl font-bold overflow-hidden cursor-pointer transition-all hover:brightness-95 border-4 border-slate-100 dark:border-slate-700 ${
-                  isUploading ? "animate-pulse bg-slate-200" : "bg-white"
+                  isUploading ? "animate-pulse" : ""
                 }`}
               >
                 {previewImage ? (
@@ -321,7 +321,7 @@ export default function ProfilePage() {
                 className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-medium transition-all  ${
                   isEditing
                     ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                    : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:hover:bg-slate-600"
+                    : "neu-btn"
                 }`}
               >
                 {isEditing ? "บันทึกข้อมูล" : "แก้ไขข้อมูล"}
@@ -341,7 +341,7 @@ export default function ProfilePage() {
                     onChange={(e) =>
                       setProfile({ ...profile, name: e.target.value })
                     }
-                    className="neu-input w-full px-4 py-2.5 transition-all text-sm neu-text disabled:bg-slate-50 disabled:text-slate-500 dark:disabled:bg-slate-900/50 dark:disabled:text-slate-400"
+                    className="neu-input w-full px-4 py-2.5 transition-all text-sm neu-text"
                   />
                 </div>
               </div>
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                   onChange={(e) =>
                     setProfile({ ...profile, phone: e.target.value })
                   }
-                  className="neu-input w-full px-4 py-2.5 transition-all text-sm font-mono neu-text disabled:bg-slate-50 disabled:text-slate-500 dark:disabled:bg-slate-900/50 dark:disabled:text-slate-400"
+                  className="neu-input w-full px-4 py-2.5 transition-all text-sm font-mono neu-text"
                 />
               </div>
             </div>
@@ -447,7 +447,7 @@ export default function ProfilePage() {
                   setTempImage(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
-                className="px-4 py-2 rounded-lg neu-text bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
+                className="neu-btn px-4 py-2.5 neu-text transition-colors"
               >
                 ยกเลิก
               </button>

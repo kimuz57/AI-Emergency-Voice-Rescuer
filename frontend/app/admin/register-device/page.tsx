@@ -134,7 +134,7 @@ function QRGeneratorTab() {
               onChange={handleMacChange}
               placeholder="เช่น AA:BB:CC:DD:EE:FF"
               maxLength={17}
-              className={`dark:bg-slate-800 dark:text-white w-full px-4 py-3 rounded-xl bg-slate-50/50 border outline-none transition-all text-sm font-mono uppercase tracking-widest ${
+              className={`neu-input w-full px-4 py-3 outline-none transition-all text-sm font-mono uppercase tracking-widest ${
                 error
                   ? "border-red-400 focus:ring-2 focus:ring-red-200"
                   : isValidMAC(macInput)
@@ -199,7 +199,7 @@ function QRGeneratorTab() {
           <button
             onClick={generateQR}
             disabled={isGenerating || !macInput}
-            className="flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            className="flex items-center gap-2 px-8 py-3.5 neu-btn-accent rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
           >
             {isGenerating ? (
               <>
@@ -302,7 +302,7 @@ function QRGeneratorTab() {
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             <button
               onClick={handleDownload}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5"
+              className="flex items-center justify-center gap-2 px-6 py-3 neu-btn-accent rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5"
             >
               <svg
                 className="w-4 h-4"
@@ -660,7 +660,7 @@ function DevicesPageContent() {
               <circle cx="8" cy="16" r="1" fill="currentColor" stroke="none" />
             </svg>
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl md:text-4xl font-extrabold neu-text">
             จัดการอุปกรณ์
           </h1>
           <p className="neu-text-muted mt-2">
@@ -669,14 +669,14 @@ function DevicesPageContent() {
         </div>
 
         {/* ===== TABS ===== */}
-        <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-700/60 rounded-2xl mb-8">
+        <div className="neu-inset flex gap-1 p-1.5 rounded-2xl mb-8">
           {/* Tab: QR Code */}
           <button
             id="tab-qr"
             onClick={() => setActiveTab("qr")}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === "qr"
-                ? "bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-md"
+                ? "neu-card-sm neu-text-accent"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >
@@ -702,7 +702,7 @@ function DevicesPageContent() {
             onClick={() => setActiveTab("register")}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
               activeTab === "register"
-                ? "bg-white dark:bg-slate-600 text-purple-600 dark:text-purple-400 shadow-md"
+                ? "neu-card-sm neu-text-accent"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >

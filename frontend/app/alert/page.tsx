@@ -99,7 +99,7 @@ function AlertContent() {
   // ==========================================
   if (status === "loading") {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="w-16 h-16 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
       </div>
     );
@@ -107,7 +107,7 @@ function AlertContent() {
 
   if (status === "error") {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
+      <div className="min-h-screen flex items-center justify-center p-6">
         <div className="neu-card p-8 max-w-md w-full text-center">
           <h1 className="text-xl font-bold neu-text mb-2">เกิดข้อผิดพลาด</h1>
           <p className="neu-text-muted">{errorMsg}</p>
@@ -216,7 +216,7 @@ function AlertContent() {
 
 export default function AlertPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
+    <Suspense fallback={<div className="min-h-screen" />}>
       <AlertContent />
     </Suspense>
   );

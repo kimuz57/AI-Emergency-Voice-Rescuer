@@ -61,7 +61,7 @@ export default function PhoneReminder({ hasPhone }: { hasPhone: boolean }) {
           <div className="flex gap-2">
             <button 
               onClick={handleClose}
-              className="flex-1 px-3 py-2 border border-slate-200 dark:border-slate-600 neu-text-muted rounded-lg text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              className="neu-btn flex-1 px-3 py-2.5 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               ภายหลัง
             </button>

@@ -1,7 +1,5 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from "react";
-import ThemeToggle from "@/components/ThemeToggle";
 export default function LandingPage() {
   return (
     <div className="relative min-h-screen overflow-hidden font-sans transition-colors duration-300">

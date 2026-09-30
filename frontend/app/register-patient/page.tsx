@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect */
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import CustomAudioPlayer from "@/components/CustomAudioPlayer";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 

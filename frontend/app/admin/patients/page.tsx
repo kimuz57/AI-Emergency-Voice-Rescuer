@@ -205,7 +205,7 @@ export default function AdminPatients() {
         cg.email.toLowerCase().includes(caregiverSearch.toLowerCase())),
   );
   if (isLoading) {
-    return <div className="min-h-screen bg-slate-50 dark:bg-slate-900"></div>;
+    return <div className="min-h-screen"></div>;
   }
   return (
     <div className="p-6">
@@ -222,7 +222,7 @@ export default function AdminPatients() {
 
       <div className="overflow-x-auto shadow-md rounded-lg">
         <table className="neu-table w-full text-sm text-left">
-          <thead className="dark:bg-slate-800 bg-slate-50 border-b border-slate-200">
+          <thead className="border-b border-[var(--neu-shadow-dark)]/30">
             <tr>
               <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
                 ผู้ป่วย
@@ -270,7 +270,7 @@ export default function AdminPatients() {
               patients.map((p: any, i) => (
                 <tr
                   key={p.ID}
-                  className="dark:bg-slate-800 hover:bg-slate-700 transition-colors"
+                  className="transition-colors"
                 >
                   <td data-label="ผู้ป่วย" className="px-6 py-4">
                     <div className="flex items-center gap-3">
@@ -457,7 +457,7 @@ export default function AdminPatients() {
 
                   <div className="neu-card-sm overflow-hidden flex flex-col">
                     {/* ช่องพิมพ์ค้นหา */}
-                    <div className="p-2 border-b border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800">
+                    <div className="neu-inset-sm p-2 mb-2">
                       <div className="relative">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
@@ -526,7 +526,7 @@ export default function AdminPatients() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setEditPatient(null)}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 neu-text-muted rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  className="neu-btn flex-1 px-4 py-3 text-sm font-medium"
                 >
                   ยกเลิก
                 </button>
@@ -570,7 +570,7 @@ export default function AdminPatients() {
               <div className="flex gap-3">
                 <button
                   onClick={() => setDeleteConfirm(null)}
-                  className="flex-1 px-4 py-2.5 border border-slate-200 neu-text-muted rounded-xl text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                  className="neu-btn flex-1 px-4 py-3 text-sm font-medium"
                 >
                   ยกเลิก
                 </button>

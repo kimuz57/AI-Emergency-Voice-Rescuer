@@ -17,7 +17,7 @@ import {
   AreaChart,
   Area,
 } from "recharts";
-import CustomAudioPlayer from "@/components/CustomAudioPlayer";
+import WaveformAudioPlayer from "@/components/WaveformAudioPlayer";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -225,7 +225,7 @@ export default function HistoryPage() {
             onClick={() => setActiveTab("calendar")}
             className={`whitespace-nowrap px-5 py-3 min-h-[44px] text-sm font-semibold rounded-lg transition-all ${
               activeTab === "calendar"
-                ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                ? "neu-card-sm neu-text-accent"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >
@@ -235,7 +235,7 @@ export default function HistoryPage() {
             onClick={() => setActiveTab("analytics")}
             className={`whitespace-nowrap px-5 py-3 min-h-[44px] text-sm font-semibold rounded-lg transition-all ${
               activeTab === "analytics"
-                ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                ? "neu-card-sm neu-text-accent"
                 : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
             }`}
           >
@@ -277,7 +277,7 @@ export default function HistoryPage() {
                 <div className="neu-card-sm flex items-center gap-2 p-2 px-3 w-full sm:w-auto">
                   <label
                     htmlFor="jumpDate"
-                    className="text-sm font-semibold text-indigo-600 dark:text-indigo-400 whitespace-nowrap"
+                    className="text-sm font-semibold neu-text-accent whitespace-nowrap"
                   >
                     📅 ค้นหาวันที่:
                   </label>
@@ -285,7 +285,7 @@ export default function HistoryPage() {
                     type="date"
                     id="jumpDate"
                     onChange={handleDateJump}
-                    className="bg-transparent text-sm outline-none neu-text cursor-pointer w-full"
+                    className="bg-transparent text-sm outline-none neu-text cursor-pointer w-full min-h-[44px] py-2"
                   />
                 </div>
               </div>
@@ -677,12 +677,12 @@ export default function HistoryPage() {
                 </div>
               </div>
 
-              <div className="bg-indigo-50/50 dark:bg-indigo-900/10 rounded-2xl p-4 border border-indigo-100 dark:border-indigo-800/30">
-                <p className="text-xs text-indigo-500 dark:text-indigo-400 font-semibold mb-3 flex items-center gap-2 uppercase tracking-wide">
-                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span>{" "}
+              <div className="neu-inset rounded-2xl p-4">
+                <p className="text-xs neu-text-muted font-semibold mb-3 flex items-center gap-2 uppercase tracking-wide">
+                  <span className="w-2 h-2 rounded-full bg-[var(--neu-accent)]"></span>{" "}
                   ไฟล์เสียงบันทึกเหตุการณ์
                 </p>
-                <CustomAudioPlayer
+                <WaveformAudioPlayer
                   src={`${API_BASE_URL}${selectedEvent.audio_url}`}
                 />
               </div>

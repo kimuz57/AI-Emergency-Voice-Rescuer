@@ -76,7 +76,7 @@ function CallbackContent() {
       <p className="text-slate-500">{status}</p>
 
       {code && (
-        <div className="mt-4 p-4 bg-slate-100 rounded-lg text-xs font-mono text-slate-600 break-all max-w-lg text-center">
+        <div className="neu-inset-sm mt-4 p-4 text-xs font-mono neu-text-muted break-all max-w-lg text-center">
           Code: {code}
         </div>
       )}
@@ -93,7 +93,7 @@ function CallbackContent() {
 
 export default function LineCallbackPage() {
   return (
-    <div className="min-h-screen bg-slate-50 p-6 flex flex-col">
+    <div className="min-h-screen p-6 flex flex-col">
       <Suspense
         fallback={
           <div className="text-center mt-20">กำลังโหลดหน้าต่างเชื่อมต่อ...</div>
