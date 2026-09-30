@@ -34,7 +34,7 @@ export default function PhoneReminder({ hasPhone }: { hasPhone: boolean }) {
   const handleAddNow = () => {
     localStorage.setItem("phone_reminder_timestamp", new Date().getTime().toString());
     setIsVisible(false);
-    router.push("/profile"); // 🟢 เตะไปหน้า Profile
+    router.push("/profile"); // เตะไปหน้า Profile
   };
 
   if (!isVisible) return null;

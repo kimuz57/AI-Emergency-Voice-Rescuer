@@ -44,7 +44,7 @@ export default function AdminUsers() {
         setIsLoading(false);
       })
       .catch((err) => {
-        console.error("❌ ดึงข้อมูลล้มเหลว:", err);
+        console.error("ดึงข้อมูลล้มเหลว:", err);
         setUsers([]);
         setIsLoading(false);
       });

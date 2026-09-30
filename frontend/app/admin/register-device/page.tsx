@@ -295,7 +295,7 @@ function QRGeneratorTab() {
               </p>
             )}
             <p className="text-xs neu-text-muted mt-2 break-all max-w-xs">
-              🔗 {APP_URL}/register-patient?mac={macInput}
+              {APP_URL}/register-patient?mac={macInput}
             </p>
           </div>
 
@@ -408,26 +408,26 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
           mac_address: formData.macAddress,
           ip_address: formData.ipAddress,
           status: "offline", // ค่าเริ่มต้น
-          is_verified: true, // 🌟 บังคับตั้งค่าให้ Verify เลยตามที่รีเควส
-          is_active: false, // 🌟 บังคับตั้งค่าให้ยังไม่ทำงานตามที่รีเควส
+          is_verified: true, // บังคับตั้งค่าให้ Verify เลยตามที่รีเควส
+          is_active: false, // บังคับตั้งค่าให้ยังไม่ทำงานตามที่รีเควส
         }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        alert("🎉 ลงทะเบียนบอร์ดสำเร็จ!");
+        alert("ลงทะเบียนบอร์ดสำเร็จ!");
         setFormData({
           macAddress: scannedMAC, // คง MAC ไว้ถ้าสแกนมา
           ipAddress: "",
         });
       } else {
         alert(
-          "❌ เกิดข้อผิดพลาด: " + (data.error || "ไม่สามารถลงทะเบียนบอร์ดได้"),
+          "เกิดข้อผิดพลาด: " + (data.error || "ไม่สามารถลงทะเบียนบอร์ดได้"),
         );
       }
     } catch {
-      alert("❌ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ Backend ได้");
+      alert("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ Backend ได้");
     } finally {
       setIsSubmitting(false);
     }

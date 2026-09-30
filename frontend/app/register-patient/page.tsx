@@ -72,7 +72,7 @@ function RegistrationFormContent() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        credentials: "include", // 🌟 ส่ง Cookie/Session ไปด้วยเพื่อให้ Backend รู้ว่า Account ไหนเป็นคนทำรายการ
+        credentials: "include", // ส่ง Cookie/Session ไปด้วยเพื่อให้ Backend รู้ว่า Account ไหนเป็นคนทำรายการ
         body: JSON.stringify({
           patientName: formData.patientName,
           age: parseInt(formData.age) || 0,
@@ -88,7 +88,7 @@ function RegistrationFormContent() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("🎉 " + data.message);
+        alert(data.message);
         setFormData({
           patientName: "",
           age: "",
@@ -99,10 +99,10 @@ function RegistrationFormContent() {
           deviceName: "ไมค์หัวเตียง",
         });
       } else {
-        alert("❌ เกิดข้อผิดพลาด: " + data.error);
+        alert("เกิดข้อผิดพลาด: " + data.error);
       }
     } catch {
-      alert("❌ ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ Backend ได้");
+      alert("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ Backend ได้");
     } finally {
       setIsSubmitting(false);
     }

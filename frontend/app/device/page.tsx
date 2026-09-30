@@ -193,7 +193,7 @@ export default function DevicesPage() {
 
     eventSource.onopen = () => {
       setIsLive(true);
-      console.log("🟢 SSE Connected: Ready for real-time device updates");
+      console.log("SSE Connected: Ready for real-time device updates");
     };
 
     eventSource.onmessage = (event) => {
@@ -221,7 +221,7 @@ export default function DevicesPage() {
     };
 
     eventSource.onerror = (err) => {
-      console.error("🔴 SSE Connection Error:", err);
+      console.error("SSE Connection Error:", err);
       setIsLive(false);
     };
 

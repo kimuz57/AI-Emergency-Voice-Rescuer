@@ -2,7 +2,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect, @next/next/no-img-element */
 import { useCallback, useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
-import Sidebar from "@/components/Sidebar";
+import Link from "next/link";
+import Sidebar, { BrandMark, BrandName } from "@/components/Sidebar";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 // กำหนดโครงสร้างข้อมูล User
@@ -18,18 +19,18 @@ export default function Navbar() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
 
-  // 🟢 1. เปลี่ยนจากฟิกค่า เป็นการตั้ง State เริ่มต้นเป็นค่าว่าง
+  // 1. เปลี่ยนจากฟิกค่า เป็นการตั้ง State เริ่มต้นเป็นค่าว่าง
   const [user, setUser] = useState<UserProfile | null>(null);
 
-  // 🟢 2. ฟังก์ชันยิงไปดึงโปรไฟล์จริงจาก Go Backend
+  // 2. ฟังก์ชันยิงไปดึงโปรไฟล์จริงจาก Go Backend
   const fetchUserProfile = async () => {
     try {
-      // 🟢 1. ดึง URL หลังบ้านจากหน้าต่าง .env (หากไม่มีให้เลือกใช้ localhost:8080 เป็นตัวสำรอง)
+      // 1. ดึง URL หลังบ้านจากหน้าต่าง .env (หากไม่มีให้เลือกใช้ localhost:8080 เป็นตัวสำรอง)
 
       let targetEmail = localStorage.getItem("userEmail");
-      console.log("👉 [1] ค่าที่อ่านได้จาก localStorage คือ:", targetEmail);
+      console.log("[1] ค่าที่อ่านได้จาก localStorage คือ:", targetEmail);
 
-      // 🟢 2. เรียกดึงข้อมูล Session (พร้อม timeout + error handling)
+      // 2. เรียกดึงข้อมูล Session (พร้อม timeout + error handling)
       let session = null;
       try {
         const sessionRes = await Promise.race([
@@ -43,7 +44,7 @@ export default function Navbar() {
           session = await sessionRes.json();
         }
       } catch (sessionError) {
-        console.log("⚠️ [Session] ไม่สามารถดึง session ได้:", sessionError);
+        console.log("[Session] ไม่สามารถดึง session ได้:", sessionError);
         // ไม่ throw ต่อ เพราะไม่ critical
       }
 
@@ -54,15 +55,15 @@ export default function Navbar() {
         targetEmail === "undefined"
       ) {
         console.log(
-          "👉 [2] ไม่มีใน localStorage! กำลังพยายามดึงจาก Google NextAuth...",
+          "[2] ไม่มีใน localStorage! กำลังพยายามดึงจาก Google NextAuth...",
         );
-        console.log("👉 [3] ข้อมูล Session จาก Google คือ:", session);
+        console.log("[3] ข้อมูล Session จาก Google คือ:", session);
 
         if (session?.user?.email) {
           targetEmail = session.user.email;
           localStorage.setItem("userEmail", targetEmail || ""); // เซฟกลับลง localStorage เผื่อใช้รอบหน้า
           console.log(
-            "👉 [4] เจออีเมลจาก Google แล้ว! เซฟลงเครื่องเรียบร้อย:",
+            "[4] เจออีเมลจาก Google แล้ว! เซฟลงเครื่องเรียบร้อย:",
             targetEmail,
           );
         }
@@ -75,14 +76,14 @@ export default function Navbar() {
         targetEmail === "undefined"
       ) {
         console.log(
-          "❌ [5] สรุปคือหาอีเมลไม่เจอเลยสักทาง! ระบบหยุดดึงข้อมูลโปรไฟล์",
+          "[5] สรุปคือหาอีเมลไม่เจอเลยสักทาง! ระบบหยุดดึงข้อมูลโปรไฟล์",
         );
         return;
       }
 
-      // 🟢 3. ได้อีเมลชัวร์ๆ แล้ว ยิง API ไปถาม Go Backend (พร้อม timeout + error handling)
+      // 3. ได้อีเมลชัวร์ๆ แล้ว ยิง API ไปถาม Go Backend (พร้อม timeout + error handling)
       console.log(
-        "✅ [6] ได้อีเมลแล้ว กำลังยิงไปถาม Go Backend ด้วยอีเมล:",
+        "[6] ได้อีเมลแล้ว กำลังยิงไปถาม Go Backend ด้วยอีเมล:",
         targetEmail,
       );
 
@@ -101,9 +102,9 @@ export default function Navbar() {
 
         if (res.ok) {
           const data = await res.json();
-          console.log("✅ [7] ข้อมูลที่ Go Backend ตอบกลับมาคือ:", data);
+          console.log("[7] ข้อมูลที่ Go Backend ตอบกลับมาคือ:", data);
 
-          // 🟢 4. ทริคเด็ดเรื่องรูปภาพ
+          // 4. ทริคเด็ดเรื่องรูปภาพ
           const sessionEmail = session?.user?.email?.toLowerCase();
           const isSameSessionUser =
             sessionEmail && sessionEmail === targetEmail.toLowerCase();
@@ -121,8 +122,8 @@ export default function Navbar() {
 
           setUser(data); // อัปเดต State ขึ้นหน้าเว็บ
         } else {
-          console.log("❌ [8] Go Backend ตอบกลับ status:", res.status);
-          // 🆕 ไม่มี Backend → ใช้ข้อมูล fallback
+          console.log("[8] Go Backend ตอบกลับ status:", res.status);
+          // ไม่มี Backend → ใช้ข้อมูล fallback
           setUser({
             name: targetEmail?.split('@')[0] || "ผู้ใช้งาน",
             email: targetEmail || "ไม่มีข้อมูล",
@@ -131,8 +132,8 @@ export default function Navbar() {
           });
         }
       } catch (backendError) {
-        console.log("⚠️ [Backend] ไม่สามารถเชื่อมต่อ Backend ได้:", backendError);
-        // 🆕 Backend ไม่ตอบ → ใช้ข้อมูล fallback จาก session หรือ email
+        console.log("[Backend] ไม่สามารถเชื่อมต่อ Backend ได้:", backendError);
+        // Backend ไม่ตอบ → ใช้ข้อมูล fallback จาก session หรือ email
         setUser({
           name: session?.user?.name || targetEmail?.split('@')[0] || "ผู้ใช้งาน",
           email: targetEmail || session?.user?.email || "ไม่มีข้อมูล",
@@ -141,8 +142,8 @@ export default function Navbar() {
         });
       }
     } catch (error) {
-      console.error("💥 ล้มเหลวในการดึงข้อมูลโปรไฟล์:", error);
-      // 🆕 ใช้ fallback data เพื่อไม่ให้ Next.js dev overlay ขึ้น
+      console.error("ล้มเหลวในการดึงข้อมูลโปรไฟล์:", error);
+      // ใช้ fallback data เพื่อไม่ให้ Next.js dev overlay ขึ้น
       const email = localStorage.getItem("userEmail") || "ไม่มีข้อมูล";
       setUser({
         name: email.split('@')[0] || "ผู้ใช้งาน",
@@ -153,10 +154,10 @@ export default function Navbar() {
     }
   };
 
-  // 🟢 ฟังก์ชันสำหรับ ส่งคำสั่ง Logout ไปหลังบ้าน และล้างข้อมูลหน้าบ้าน
+  // ฟังก์ชันสำหรับ ส่งคำสั่ง Logout ไปหลังบ้าน และล้างข้อมูลหน้าบ้าน
   const handleLogout = async () => {
     try {
-      console.log("⏳ 1. กำลังสั่งลบคุกกี้...");
+      console.log("1. กำลังสั่งลบคุกกี้...");
 
       // 1. ยิงไปลบคุกกี้ที่ Go Backend (ไม่ critical ถ้า fail)
       try {
@@ -169,15 +170,15 @@ export default function Navbar() {
             setTimeout(() => reject(new Error('Logout timeout')), 3000)
           )
         ]);
-        console.log("✅ 2. Backend logout สำเร็จ");
+        console.log("2. Backend logout สำเร็จ");
       } catch (backendError) {
-        console.log("⚠️ Backend logout ไม่สำเร็จ (ข้าม):", backendError);
+        console.log("Backend logout ไม่สำเร็จ (ข้าม):", backendError);
       }
 
       try {
         await fetch("/api/logout", { method: "POST" });
       } catch (nextAuthError) {
-        console.log("⚠️ NextAuth logout ไม่สำเร็จ (ข้าม):", nextAuthError);
+        console.log("NextAuth logout ไม่สำเร็จ (ข้าม):", nextAuthError);
       }
 
       // 2. ล้างข้อมูลหน้าบ้าน (สำคัญที่สุด)
@@ -185,11 +186,11 @@ export default function Navbar() {
       localStorage.removeItem("userEmail");
       localStorage.removeItem("userRole"); // ของเก่าที่อาจค้างจาก build ก่อนหน้า
 
-      // 3. 🌟 เรียก signOut ของ NextAuth
+      // 3. เรียก signOut ของ NextAuth
       await signOut({ callbackUrl: "/" });
     } catch (error) {
-      console.error("❌ ล้มเหลว:", error);
-      // 🆕 แม้ error ก็ยังล้าง localStorage และ redirect
+      console.error("ล้มเหลว:", error);
+      // แม้ error ก็ยังล้าง localStorage และ redirect
       localStorage.removeItem("token");
       localStorage.removeItem("userEmail");
       localStorage.removeItem("userRole");
@@ -229,11 +230,11 @@ export default function Navbar() {
       console.log("ลงทะเบียนสำเร็จ:", data);
       alert("ลงทะเบียนสำเร็จเรียบร้อย!");
     } catch (error) {
-      // 🟢 แปลงประเภทตัวแปรให้ปลอดภัยก่อนดึงค่า .message
+      // แปลงประเภทตัวแปรให้ปลอดภัยก่อนดึงค่า .message
       const errorMessage =
         error instanceof Error ? error.message : String(error);
 
-      console.error("❌ Error registering patient:", errorMessage);
+      console.error("Error registering patient:", errorMessage);
       alert(`เกิดข้อผิดพลาด: ${errorMessage}`);
     }
   };
@@ -243,68 +244,54 @@ export default function Navbar() {
     // การปิดเมนูย้ายไปอยู่ใน Sidebar แล้ว (ฉากหลัง + Esc + เปลี่ยนหน้า)
   }, []);
 
+  const displayName = user?.name || "ผู้ใช้งานระบบ";
+  const displayRole = user?.role || "User";
+
   return (
     <>
-      <nav className="neu-bar fixed top-0 left-0 w-full z-50 px-6 py-3 flex justify-between items-center transition-colors duration-300">
-        <div className="flex items-center gap-3">
-          {/* ปุ่มเปิดเมนู Sidebar */}
-          <button
-            type="button"
-            onClick={() => setIsSidebarOpen(true)}
-            aria-label="เปิดเมนู"
-            aria-expanded={isSidebarOpen}
-            aria-controls="app-sidebar"
-            className="neu-icon-btn p-2.5"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-6 h-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+      {/* แถบบนแบบ Tabler — จอคอมเริ่มหลัง sidebar (--sidebar-w) จอเล็กเต็มความกว้าง */}
+      <header className="fixed top-0 right-0 left-0 lg:left-[var(--sidebar-w)] z-30 h-[var(--topbar-h)] bg-[var(--tb-surface)] border-b border-[var(--tb-border)] transition-[left] duration-200 ease-out motion-reduce:transition-none">
+        <div className="h-full px-4 sm:px-6 flex items-center justify-between gap-3">
+          {/* จอเล็ก: ปุ่มเปิดลิ้นชักเมนู + โลโก้ (จอคอมมีโลโก้ใน sidebar แล้ว) */}
+          <div className="flex items-center gap-2 min-w-0 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setIsSidebarOpen(true)}
+              aria-label="เปิดเมนู"
+              aria-expanded={isSidebarOpen}
+              aria-controls="app-sidebar"
+              className="inline-flex w-10 h-10 shrink-0 items-center justify-center rounded-[var(--tb-radius)] text-[var(--tb-text)] transition-colors duration-150 hover:bg-[var(--tb-surface-2)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
             >
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-
-          <div className="flex items-center gap-2">
-            <div className="hidden sm:flex items-end gap-1 h-6">
-              <div
-                className="w-1.5 h-3 bg-blue-600 rounded-full animate-bounce"
-                style={{ animationDelay: "0ms" }}
-              ></div>
-              <div
-                className="w-1.5 h-6 bg-indigo-500 rounded-full animate-bounce"
-                style={{ animationDelay: "150ms" }}
-              ></div>
-              <div
-                className="w-1.5 h-4 bg-purple-500 rounded-full animate-bounce"
-                style={{ animationDelay: "300ms" }}
-              ></div>
-            </div>
-            <span className="text-base sm:text-lg md:text-xl font-bold neu-text-accent whitespace-nowrap">
-              <a
-                href="/dashboard"
-                className="transition-opacity hover:opacity-75 cursor-pointer"
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
               >
-                Emergency Voice Rescuer
-              </a>
-            </span>
-          </div>
-        </div>
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
 
-        <div className="flex items-center gap-4">
-          {/* รูปโปรไฟล์ยังกดได้ แต่ตอนนี้เปิด Sidebar แทน dropdown เดิม */}
-          <button
-            onClick={() => setIsSidebarOpen(true)}
-            aria-label="เปิดเมนูผู้ใช้"
-            className="neu-icon-btn flex items-center justify-center p-1.5"
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2.5 min-w-0 rounded-[var(--tb-radius)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
+            >
+              <BrandMark />
+              <BrandName />
+            </Link>
+          </div>
+
+          {/* ผู้ใช้ที่ล็อกอินอยู่ — กดแล้วไปหน้าข้อมูลส่วนตัว */}
+          <Link
+            href="/profile"
+            className="ml-auto flex items-center gap-3 min-w-0 h-12 px-1.5 sm:pr-3 rounded-[var(--tb-radius)] transition-colors duration-150 hover:bg-[var(--tb-surface-2)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
           >
             <img
               src={
@@ -314,17 +301,26 @@ export default function Navbar() {
                   "&background=EBF4FF&color=1E3A8A"
               }
               referrerPolicy="no-referrer"
-              alt="Profile"
-              className="w-9 h-9 rounded-full object-cover"
+              alt=""
+              className="w-9 h-9 shrink-0 rounded-full object-cover border border-[var(--tb-border)]"
               onError={(e) => {
                 e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(
                   user?.name || "U",
                 )}&background=EBF4FF&color=1E3A8A`;
               }}
             />
-          </button>
+            {/* จอเล็กซ่อนชื่อ แต่ยังให้โปรแกรมอ่านหน้าจออ่านได้ */}
+            <span className="sr-only sm:not-sr-only sm:flex sm:flex-col sm:min-w-0 text-left">
+              <span className="block max-w-[180px] truncate text-sm font-semibold leading-5 text-[var(--tb-text)]">
+                {displayName}
+              </span>
+              <span className="block max-w-[180px] truncate text-xs leading-4 text-[var(--tb-muted)]">
+                {displayRole}
+              </span>
+            </span>
+          </Link>
         </div>
-      </nav>
+      </header>
 
       <Sidebar
         open={isSidebarOpen}

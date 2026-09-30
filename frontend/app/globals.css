@@ -17,7 +17,7 @@
   --color-glass-border: rgba(255, 255, 255, 0.4);
   --color-glass-inner: rgba(255, 255, 255, 0.3);
 
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-inter), var(--font-thai), ui-sans-serif, system-ui, sans-serif;
 
   --radius-glass: 24px;
   --radius-glass-lg: 32px;
@@ -25,220 +25,303 @@
 }
 
 /* ============================================
-   Neumorphism Design System
+   Design System — Tabler-style (Minimal & Modern)
    --------------------------------------------
-   ทุกพื้นผิวใช้สีพื้นเดียวกัน ต่างกันแค่ทิศทางของเงา
-   นูน (extruded) = เงาออกนอก / จม (inset) = เงาเข้าใน
+   การ์ดขาว ขอบบาง 1px เงาอ่อนมาก ปุ่มหลักสีน้ำเงิน วางบนพื้นหลังรูปภาพ
+   ชื่อคลาสยังเป็น .neu-* ตามเดิม (ใช้อยู่หลายร้อยจุดทั่วเว็บ) แต่หน้าตาข้างใน
+   เปลี่ยนเป็นสไตล์ Tabler ทั้งหมดแล้ว — ไม่มีเงานูน/จมแบบ neumorphism อีก
    คลาสเดียวใช้ได้ทั้งสองธีม เพราะอ่านค่าจากตัวแปรด้านล่าง
+
+   ระยะห่างใช้หลัก 2px: ทุกค่า padding / margin / gap หาร 2 ลงตัว
+   ปุ่มที่วางติดกันห่างกันอย่างน้อย 8–12px
    ============================================ */
 :root {
-  --neu-bg: #E0E5EC;
-  --neu-shadow-dark: #A3B1C6;
-  --neu-shadow-light: #FFFFFF;
-  --neu-text: #2D3748;
-  --neu-muted: #718096;
-  --neu-accent: #6366F1;
-  --neu-accent-contrast: #FFFFFF;
+  /* พื้นผิว */
+  --tb-surface: #ffffff;          /* การ์ด แถบบน sidebar */
+  --tb-surface-2: #f6f8fb;        /* พื้นรอง: หัวตาราง กล่องย่อย hover */
+  --tb-surface-3: #eef1f6;        /* hover ของพื้นรอง / ราง progress */
+  --tb-border: #dce1e7;
+  --tb-border-strong: #b9c2cf;    /* ขอบช่องกรอก */
 
-  --neu-out: 9px 9px 16px var(--neu-shadow-dark),
-             -9px -9px 16px var(--neu-shadow-light);
-  --neu-out-sm: 5px 5px 10px var(--neu-shadow-dark),
-                -5px -5px 10px var(--neu-shadow-light);
-  --neu-in: inset 6px 6px 10px var(--neu-shadow-dark),
-            inset -6px -6px 10px var(--neu-shadow-light);
-  --neu-in-sm: inset 3px 3px 6px var(--neu-shadow-dark),
-               inset -3px -3px 6px var(--neu-shadow-light);
+  /* ตัวอักษร (อัตราส่วนความต่างบนพื้นขาว) */
+  --tb-text: #182433;             /* 15.6:1 */
+  --tb-muted: #5b6776;            /* 5.8:1 */
+  --tb-placeholder: #7a8595;      /* ใช้กับ placeholder เท่านั้น */
+
+  /* สีหลัก */
+  --tb-primary: #066fd1;          /* ตัวขาวบนนี้ 5.0:1 */
+  --tb-primary-hover: #0560b5;
+  --tb-primary-text: #0559a8;     /* ตัวอักษรสีหลักบนพื้นขาว */
+  --tb-primary-contrast: #ffffff;
+  --tb-primary-tint: rgba(6, 111, 209, 0.08);
+  --tb-primary-ring: rgba(6, 111, 209, 0.25);
+
+  /* สีสถานะ — *-text ใช้เป็นตัวอักษรได้ ผ่าน AA บนพื้นขาว */
+  --tb-success: #2fb344;
+  --tb-success-text: #1b7a2e;
+  --tb-success-tint: rgba(47, 179, 68, 0.1);
+  --tb-danger: #d63939;
+  --tb-danger-text: #b42323;
+  --tb-danger-tint: rgba(214, 57, 57, 0.08);
+  --tb-warning: #f76707;
+  --tb-warning-text: #a3470a;
+  --tb-warning-tint: rgba(247, 103, 7, 0.1);
+
+  --tb-shadow-xs: 0 1px 1px rgba(24, 36, 51, 0.04);
+  --tb-shadow-card: 0 1px 2px rgba(24, 36, 51, 0.04), 0 2px 6px rgba(24, 36, 51, 0.04);
+  --tb-shadow-pop: 0 8px 24px rgba(24, 36, 51, 0.12);
+
+  --tb-radius: 8px;
+  --tb-radius-lg: 12px;
+
+  /* ขนาด shell — .app-shell อ่านค่านี้ไปดัน content หลบ sidebar กับแถบบน */
+  --sidebar-w: 0px;
+  --topbar-h: 64px;
+
+  /* ---- ตัวแปรชุดเดิม (--neu-*) ยังมีโค้ดในหน้าต่างๆ อ้างถึงแบบ inline
+     เลยชี้ไปที่ค่าใหม่แทน ห้ามลบจนกว่าจะไม่มีใครใช้แล้ว ---- */
+  --neu-bg: var(--tb-surface-2);
+  --neu-shadow-dark: #c9d1dc;
+  --neu-shadow-light: rgba(255, 255, 255, 0);
+  --neu-text: var(--tb-text);
+  --neu-muted: var(--tb-muted);
+  --neu-accent: var(--tb-primary);
+  --neu-accent-contrast: var(--tb-primary-contrast);
+
+  --neu-out: var(--tb-shadow-card);
+  --neu-out-sm: var(--tb-shadow-xs);
+  --neu-in: inset 0 1px 2px rgba(24, 36, 51, 0.06);
+  --neu-in-sm: inset 0 1px 1px rgba(24, 36, 51, 0.04);
+}
+
+/* จอคอม: sidebar ติดซ้ายตลอด — ย่อเหลือแถบไอคอนด้วย <html data-sidebar="collapsed"> */
+@media (min-width: 1024px) {
+  :root { --sidebar-w: 256px; }
+  html[data-sidebar="collapsed"] { --sidebar-w: 72px; }
 }
 
 html.dark {
-  --neu-bg: #2A2D35;
-  --neu-shadow-dark: #1C1E24;
-  --neu-shadow-light: #383C46;
-  --neu-text: #E2E8F0;
-  --neu-muted: #94A3B8;
-  --neu-accent: #818CF8;
-  --neu-accent-contrast: #1C1E24;
+  --tb-surface: #182433;
+  --tb-surface-2: #151f2c;
+  --tb-surface-3: #1f2e41;
+  --tb-border: #263447;
+  --tb-border-strong: #3a4a60;
+
+  --tb-text: #e6ebf1;
+  --tb-muted: #a3b0c2;
+  --tb-placeholder: #7d8ba0;
+
+  --tb-primary: #1c7ed6;
+  --tb-primary-hover: #3b8fe0;
+  --tb-primary-text: #74b4f5;
+  --tb-primary-contrast: #ffffff;
+  --tb-primary-tint: rgba(116, 180, 245, 0.12);
+  --tb-primary-ring: rgba(116, 180, 245, 0.35);
+
+  --tb-success-text: #6fd784;
+  --tb-success-tint: rgba(47, 179, 68, 0.16);
+  --tb-danger-text: #f28b8b;
+  --tb-danger-tint: rgba(214, 57, 57, 0.16);
+  --tb-warning-text: #fbae72;
+  --tb-warning-tint: rgba(247, 103, 7, 0.16);
+
+  --tb-shadow-xs: 0 1px 1px rgba(0, 0, 0, 0.2);
+  --tb-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.2);
+  --tb-shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.45);
+
+  --neu-shadow-dark: #0b1119;
 }
 
 /* ---------- พื้นผิว ---------- */
-/* พื้นเปล่าสีเดียวกับวัสดุหลัก ใช้กับ layout wrapper */
+/* wrapper ที่ต้องโปร่งให้เห็นพื้นหลังรูปภาพ */
 .neu-surface {
-  background: var(--neu-bg);
+  background: transparent;
 }
 
-/* แถบบน/ล่างที่ต้องดูลอยจากพื้นเล็กน้อย — ใช้เงาข้างเดียวไม่ใช่เงารอบตัว
-   เพราะแถบกินเต็มความกว้าง ถ้าใส่เงารอบตัวจะเห็นขอบซ้าย-ขวาแปลกๆ */
+/* แถบบน/ล่าง */
 .neu-bar {
-  background: var(--neu-bg);
-  box-shadow: 0 6px 14px -6px var(--neu-shadow-dark);
+  background: var(--tb-surface);
+  border-bottom: 1px solid var(--tb-border);
+  box-shadow: var(--tb-shadow-xs);
 }
 
 .neu-bar-top {
-  background: var(--neu-bg);
-  box-shadow: 0 -6px 14px -6px var(--neu-shadow-dark);
+  background: var(--tb-surface);
+  border-top: 1px solid var(--tb-border);
 }
 
 .neu-card {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-out);
-  border-radius: 1.5rem;
-  border: none;
+  background: var(--tb-surface);
+  box-shadow: var(--tb-shadow-card);
+  border-radius: var(--tb-radius-lg);
+  border: 1px solid var(--tb-border);
 }
 
 .neu-card-sm {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-out-sm);
-  border-radius: 1rem;
-  border: none;
+  background: var(--tb-surface);
+  box-shadow: var(--tb-shadow-xs);
+  border-radius: var(--tb-radius);
+  border: 1px solid var(--tb-border);
 }
 
+/* เดิมคือพื้น "จม" — ตอนนี้เป็นพื้นรองสีเทาอ่อนมีขอบ */
 .neu-inset {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-in);
-  border-radius: 1rem;
-  border: none;
+  background: var(--tb-surface-2);
+  box-shadow: none;
+  border-radius: var(--tb-radius);
+  border: 1px solid var(--tb-border);
 }
 
 .neu-inset-sm {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-in-sm);
-  border-radius: 0.75rem;
-  border: none;
+  background: var(--tb-surface-2);
+  box-shadow: none;
+  border-radius: var(--tb-radius);
+  border: 1px solid var(--tb-border);
 }
 
-/* ---------- ช่องกรอกข้อมูล (จม) ---------- */
+/* ---------- ช่องกรอกข้อมูล ---------- */
 .neu-input {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-in);
-  border-radius: 1rem;
-  border: none;
-  color: var(--neu-text);
+  background: var(--tb-surface);
+  box-shadow: var(--tb-shadow-xs);
+  border-radius: var(--tb-radius);
+  border: 1px solid var(--tb-border-strong);
+  color: var(--tb-text);
   outline: none;
-  transition: box-shadow 0.2s ease;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
 }
 
 .neu-input::placeholder {
-  color: var(--neu-muted);
-  opacity: 0.8;
+  color: var(--tb-placeholder);
+  opacity: 1;
 }
 
 .neu-input:focus {
-  box-shadow: var(--neu-in), 0 0 0 2px var(--neu-accent);
+  border-color: var(--tb-primary);
+  box-shadow: 0 0 0 3px var(--tb-primary-ring);
 }
 
 .neu-input:disabled {
-  opacity: 0.55;
+  background: var(--tb-surface-2);
+  color: var(--tb-muted);
   cursor: not-allowed;
 }
 
-/* select ต้องบังคับสีพื้นเอง ไม่งั้นเบราว์เซอร์ใส่พื้นขาวให้ */
+/* select ต้องบังคับสีพื้นเอง ไม่งั้นเบราว์เซอร์ใส่พื้นขาวให้ในธีมมืด */
 select.neu-input option {
-  background: var(--neu-bg);
-  color: var(--neu-text);
+  background: var(--tb-surface);
+  color: var(--tb-text);
 }
 
 /* ---------- ปุ่ม ---------- */
+/* ปุ่มรอง: พื้นขาว ขอบบาง */
 .neu-btn {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-out-sm);
-  border-radius: 1rem;
-  border: none;
-  color: var(--neu-text);
+  background: var(--tb-surface);
+  box-shadow: var(--tb-shadow-xs);
+  border-radius: var(--tb-radius);
+  border: 1px solid var(--tb-border);
+  color: var(--tb-text);
   cursor: pointer;
-  transition: box-shadow 0.15s ease, transform 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .neu-btn:hover:not(:disabled) {
-  color: var(--neu-accent);
+  background: var(--tb-surface-2);
+  border-color: var(--tb-border-strong);
 }
 
-/* กดแล้วยุบลงไป — เป็นสัญญาณสัมผัสหลักของ neumorphism */
 .neu-btn:active:not(:disabled),
 .neu-btn[data-pressed="true"] {
-  box-shadow: var(--neu-in-sm);
+  background: var(--tb-surface-3);
 }
 
 .neu-btn:focus-visible {
-  box-shadow: var(--neu-out-sm), 0 0 0 2px var(--neu-accent);
+  box-shadow: 0 0 0 3px var(--tb-primary-ring);
   outline: none;
 }
 
 .neu-btn:disabled {
-  opacity: 0.5;
+  opacity: 0.6;
   cursor: not-allowed;
-  box-shadow: var(--neu-out-sm);
 }
 
-/* สถานะถูกเลือก/กำลังอยู่หน้านี้ = จมค้างไว้ */
+/* สถานะถูกเลือก/กำลังอยู่หน้านี้ */
 .neu-active {
-  box-shadow: var(--neu-in-sm);
-  color: var(--neu-accent);
+  background: var(--tb-primary-tint);
+  border-color: color-mix(in srgb, var(--tb-primary) 35%, transparent);
+  color: var(--tb-primary-text);
 }
 
-/* ปุ่มหลักที่ต้องเด่น — ยังเป็นทรง neumorphic แต่เติมสี accent */
+/* ปุ่มหลัก */
 .neu-btn-accent {
-  background: var(--neu-accent);
-  color: var(--neu-accent-contrast);
-  box-shadow: var(--neu-out-sm);
-  border-radius: 1rem;
-  border: none;
+  background: var(--tb-primary);
+  color: var(--tb-primary-contrast);
+  box-shadow: var(--tb-shadow-xs);
+  border-radius: var(--tb-radius);
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: box-shadow 0.15s ease, filter 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .neu-btn-accent:hover:not(:disabled) {
-  filter: brightness(1.08);
+  background: var(--tb-primary-hover);
 }
 
 .neu-btn-accent:active:not(:disabled) {
-  box-shadow: var(--neu-in-sm);
+  background: var(--tb-primary-hover);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.neu-btn-accent:focus-visible {
+  box-shadow: 0 0 0 3px var(--tb-primary-ring);
+  outline: none;
 }
 
 .neu-btn-accent:disabled {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: not-allowed;
 }
 
 /* ปุ่มไอคอนกลม */
 .neu-icon-btn {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-out-sm);
+  background: var(--tb-surface);
+  box-shadow: var(--tb-shadow-xs);
   border-radius: 9999px;
-  border: none;
-  color: var(--neu-muted);
+  border: 1px solid var(--tb-border);
+  color: var(--tb-text);
   cursor: pointer;
-  transition: box-shadow 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .neu-icon-btn:hover:not(:disabled) {
-  color: var(--neu-accent);
+  background: var(--tb-surface-2);
+  color: var(--tb-primary-text);
 }
 
 .neu-icon-btn:active:not(:disabled) {
-  box-shadow: var(--neu-in-sm);
+  background: var(--tb-surface-3);
 }
 
-/* ---------- สวิตช์เปิด/ปิด ----------
-   รางเป็นร่องจม ลูกบิดเป็นปุ่มนูน — เปิดแล้วรางเปลี่ยนเป็นสี accent */
+/* ---------- สวิตช์เปิด/ปิด ---------- */
 .neu-switch {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-in-sm);
+  background: var(--tb-surface-3);
+  box-shadow: inset 0 0 0 1px var(--tb-border-strong);
   border-radius: 9999px;
   transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .neu-switch::after {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-out-sm);
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(24, 36, 51, 0.3);
   border: none;
 }
 
 .peer:checked ~ .neu-switch {
-  background: var(--neu-accent);
+  background: var(--tb-primary);
+  box-shadow: none;
 }
 
 .peer:checked ~ .neu-switch::after {
-  background: var(--neu-accent-contrast);
+  background: #ffffff;
 }
 
 /* ---------- รายการเมนู ----------
@@ -249,48 +332,59 @@ select.neu-input option {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 1rem;
-  font-size: 0.875rem;
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--tb-radius);
+  font-size: 0.9375rem;
   font-weight: 500;
-  color: var(--neu-muted);
-  transition: box-shadow 0.2s ease, color 0.2s ease;
+  color: var(--tb-text);
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .neu-nav-item:hover {
-  color: var(--neu-accent);
-  box-shadow: var(--neu-out-sm);
+  background: var(--tb-surface-2);
 }
 
 .neu-nav-item[aria-current="page"] {
-  color: var(--neu-accent);
-  box-shadow: var(--neu-in-sm);
+  background: var(--tb-primary-tint);
+  color: var(--tb-primary-text);
+  font-weight: 600;
 }
 
 /* ---------- ข้อความ ---------- */
-.neu-text { color: var(--neu-text); }
-.neu-text-muted { color: var(--neu-muted); }
-.neu-text-accent { color: var(--neu-accent); }
+.neu-text { color: var(--tb-text); }
+.neu-text-muted { color: var(--tb-muted); }
+.neu-text-accent { color: var(--tb-primary-text); }
 
 /* ---------- อื่นๆ ---------- */
 .neu-divider {
   height: 1px;
   border: none;
-  background: linear-gradient(
-    to right,
-    transparent,
-    var(--neu-shadow-dark),
-    transparent
-  );
-  opacity: 0.6;
+  background: var(--tb-border);
 }
 
-/* แถบ/หลอดที่ต้องดูจม เช่น progress, waveform, level meter */
+/* แถบ/หลอด เช่น progress, waveform, level meter */
 .neu-track {
-  background: var(--neu-bg);
-  box-shadow: var(--neu-in-sm);
+  background: var(--tb-surface-3);
+  box-shadow: none;
   border-radius: 9999px;
   overflow: hidden;
+}
+
+/* ============================================
+   App Shell — sidebar ซ้าย + แถบบน
+   --------------------------------------------
+   จอคอม (>= 1024px): sidebar ติดซ้ายตลอด กว้าง --sidebar-w
+     (256px ปกติ / 72px ตอนย่อ — สลับด้วย <html data-sidebar="collapsed">)
+   จอเล็กกว่านั้น: sidebar ซ่อน เปิดเป็นลิ้นชักจากปุ่มเมนูบนแถบบน
+   ทุก layout ที่มี Navbar ห่อ content ด้วย .app-shell
+   ============================================ */
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--topbar-h);
+  padding-left: var(--sidebar-w);
+  transition: padding-left 0.2s ease;
 }
 
 
@@ -304,8 +398,8 @@ body {
   min-height: 100vh;
   position: relative;
   overflow-x: hidden;
-  background-color: var(--neu-bg);
-  color: var(--neu-text);
+  background-color: var(--tb-surface-2);
+  color: var(--tb-text);
 }
 
 
@@ -688,23 +782,41 @@ input[type="password"]::-webkit-credentials-auto-fill-button {
   }
 }
 /* ============================================
-   Epic Background Animation (Elderly Theme)
+   Background — ภาพประกอบผู้สูงอายุ (กลับมาจากเวอร์ชันก่อน neumorphism)
+   --------------------------------------------
+   สว่าง = สวนตอนกลางวัน · มืด = หมู่บ้านตอนกลางคืน
+   ทับด้วยชั้นสีอ่อน/เข้มให้ตัวอักษรที่วางบนพื้นหลังโดยตรง (หัวข้อหน้า) ยังอ่านออก
+   ภาพขยับช้าๆ 40 วินาที แต่หยุดนิ่งถ้าผู้ใช้ตั้งค่าลดการเคลื่อนไหว
    ============================================ */
-/* Neumorphism ต้องการพื้นเรียบสีเดียวกับการ์ด ไม่งั้นการ์ดจะดูลอยอยู่บนรูป
-   แทนที่จะดูเหมือนถูกปั๊มนูนขึ้นมาจากผืนเดียวกัน — ภาพพื้นหลังเดิมเลยถูกถอดออก */
 body::before {
   content: "";
   position: fixed;
-  inset: 0;
+  top: -10%; left: -10%;
+  width: 120%; height: 120%;
   z-index: -1;
-  background-color: var(--neu-bg);
+  background-image:
+    linear-gradient(to bottom, rgba(246, 248, 251, 0.55), rgba(246, 248, 251, 0.78)),
+    url('/bg-elderly-light.jpg');
+  background-size: cover;
+  background-position: center;
+  animation: epic-bg-anim 40s ease-in-out infinite alternate;
   pointer-events: none;
+}
+
+html.dark body::before {
+  background-image:
+    linear-gradient(to bottom, rgba(21, 31, 44, 0.6), rgba(21, 31, 44, 0.86)),
+    url('/bg-elderly-dark.jpg');
 }
 
 @keyframes epic-bg-anim {
   0% { transform: scale(1) translate(0, 0); }
   50% { transform: scale(1.05) translate(-1%, -1%); }
   100% { transform: scale(1.1) translate(1%, 1%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
 }
 
 /* ============================================
@@ -797,12 +909,12 @@ body::before {
   }
 
   .neu-table tr {
-    background: var(--neu-bg);
-    box-shadow: var(--neu-out-sm);
-    border-radius: 1rem;
-    border: none !important;
-    padding: 0.35rem 0;
-    margin-bottom: 0.875rem;
+    background: var(--tb-surface);
+    box-shadow: var(--tb-shadow-xs);
+    border-radius: var(--tb-radius-lg);
+    border: 1px solid var(--tb-border) !important;
+    padding: 6px 0;
+    margin-bottom: 12px;
   }
 
   .neu-table tr:last-child {
@@ -887,52 +999,58 @@ body::before {
   }
 }
 
-/* ---------- FullCalendar ให้เข้ากับธีม neumorphic ----------
-   ไลบรารีมาพร้อมปุ่มสีทึบของตัวเอง ต้องเขียนทับให้เป็นวัสดุเดียวกับที่เหลือ */
+/* ---------- FullCalendar ให้เข้ากับธีม ----------
+   ไลบรารีมาพร้อมปุ่มสีทึบของตัวเอง ต้องเขียนทับให้เป็นปุ่มแบบเดียวกับที่เหลือ */
 .fc .fc-button-primary {
-  background: var(--neu-bg);
-  color: var(--neu-text);
-  border: none;
-  box-shadow: var(--neu-out-sm);
-  border-radius: 0.875rem;
+  background: var(--tb-surface);
+  color: var(--tb-text);
+  border: 1px solid var(--tb-border);
+  box-shadow: var(--tb-shadow-xs);
+  border-radius: var(--tb-radius);
   font-weight: 600;
   text-transform: none;
-  transition: box-shadow 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease;
 }
 
 .fc .fc-button-primary:hover:not(:disabled) {
-  background: var(--neu-bg);
-  color: var(--neu-accent);
+  background: var(--tb-surface-2);
+  border-color: var(--tb-border-strong);
+  color: var(--tb-text);
 }
 
 .fc .fc-button-primary:not(:disabled):active,
 .fc .fc-button-primary:not(:disabled).fc-button-active {
-  background: var(--neu-bg);
-  color: var(--neu-accent);
-  box-shadow: var(--neu-in-sm);
+  background: var(--tb-primary-tint);
+  border-color: color-mix(in srgb, var(--tb-primary) 35%, transparent);
+  color: var(--tb-primary-text);
+  box-shadow: none;
 }
 
 .fc .fc-button-primary:focus,
 .fc .fc-button-primary:focus-visible {
-  box-shadow: var(--neu-out-sm), 0 0 0 2px var(--neu-accent);
+  box-shadow: 0 0 0 3px var(--tb-primary-ring);
   outline: none;
 }
 
 .fc .fc-button-primary:disabled {
-  background: var(--neu-bg);
-  color: var(--neu-muted);
-  opacity: 0.5;
-  box-shadow: var(--neu-out-sm);
+  background: var(--tb-surface);
+  color: var(--tb-muted);
+  opacity: 0.6;
+  box-shadow: none;
 }
 
-/* กลุ่มปุ่มติดกัน ให้เว้นช่องไฟจะได้เห็นเงาของแต่ละปุ่ม */
+/* กลุ่มปุ่มติดกัน — เว้นช่อง 6px ให้ปุ่มไม่ชนกัน */
+.fc .fc-button-group {
+  gap: 6px;
+}
+
 .fc .fc-button-group > .fc-button {
-  margin-inline: 2px;
-  border-radius: 0.875rem !important;
+  margin: 0;
+  border-radius: var(--tb-radius) !important;
 }
 
 .fc .fc-toolbar-title {
-  color: var(--neu-text);
+  color: var(--tb-text);
   font-size: 1.05rem;
   font-weight: 700;
 }
@@ -940,7 +1058,7 @@ body::before {
 .fc-theme-standard .fc-scrollgrid,
 .fc-theme-standard td,
 .fc-theme-standard th {
-  border-color: color-mix(in srgb, var(--neu-shadow-dark) 35%, transparent);
+  border-color: var(--tb-border);
 }
 
 .fc .fc-list-empty {

@@ -390,8 +390,13 @@ export default function ProfilePage() {
           </a>
 
           <div className="flex justify-end pt-2">
-            <button className="text-xs font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:underline transition-all py-3 px-2">
-              ⚠️ ต้องการลบบัญชีผู้ดูแลและล้างข้อมูลโครงข่าย IoT?
+            <button className="text-xs font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:underline transition-all py-3 px-2 inline-flex items-center gap-1.5">
+              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+                <path d="M12 9v4" />
+                <path d="M12 17h.01" />
+              </svg>
+              ต้องการลบบัญชีผู้ดูแลและล้างข้อมูลโครงข่าย IoT?
             </button>
           </div>
         </div>

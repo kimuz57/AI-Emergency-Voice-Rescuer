@@ -3,7 +3,7 @@ import Swal from 'sweetalert2';
 export const useAlert = () => {
   const showEmergencyAlert = (patientName, roomNumber) => {
     return Swal.fire({
-      title: '🚨 เหตุฉุกเฉิน!',
+      title: 'เหตุฉุกเฉิน!',
       html: `พบเสียงผิดปกติจากผู้ป่วย: <strong>${patientName}</strong><br>ห้อง: <strong>${roomNumber}</strong>`,
       icon: 'warning',
       confirmButtonText: 'รับทราบ',

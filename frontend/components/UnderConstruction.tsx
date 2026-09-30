@@ -12,7 +12,7 @@ export default function UnderConstruction({ pageName = "หน้านี้" }
 
   useEffect(() => {
     Swal.fire({
-      title: '🚧 อยู่ระหว่างการพัฒนา',
+      title: 'อยู่ระหว่างการพัฒนา',
       text: `${pageName} กำลังปรับปรุงเพื่อประสบการณ์ที่ดีขึ้นครับ`,
       icon: 'info',
       confirmButtonText: 'กลับไปหน้าหลัก',

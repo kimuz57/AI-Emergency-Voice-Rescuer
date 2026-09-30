@@ -27,83 +27,96 @@ export default function DirectionCompass({
   const directionLabel = getDirectionLabel(angle);
   const confidencePercent = Math.round(confidence * 100);
 
+  // ไม่มีกรอบของตัวเอง — หน้าที่เรียกใช้เป็นคนห่อด้วยกล่องย่อย (เช่นการ์ดแจ้งเตือนใน dashboard)
   return (
-    <div className="neu-inset flex flex-col items-center gap-3 p-4 rounded-2xl">
-      {/* Compass Circle */}
-      <div className="relative w-24 h-24">
-        {/* Outer circle with cardinal directions */}
-        <div className="neu-card-sm absolute inset-0 rounded-full">
-          {/* North marker */}
-          <div className="absolute top-1 left-1/2 -translate-x-1/2 text-[10px] font-bold neu-text-muted">
-            N
-          </div>
-          {/* East marker */}
-          <div className="absolute right-1 top-1/2 -translate-y-1/2 text-[10px] font-bold neu-text-muted">
-            E
-          </div>
-          {/* South marker */}
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-bold neu-text-muted">
-            S
-          </div>
-          {/* West marker */}
-          <div className="absolute left-1 top-1/2 -translate-y-1/2 text-[10px] font-bold neu-text-muted">
-            W
-          </div>
+    <div className="flex items-center gap-4">
+      {/* หน้าปัดเข็มทิศ */}
+      <div
+        className="relative w-24 h-24 shrink-0 rounded-full bg-[var(--tb-surface)] border border-[var(--tb-border)] shadow-[var(--tb-shadow-xs)]"
+        aria-hidden="true"
+      >
+        {/* วงในบางๆ ช่วยให้กะทิศด้วยตาได้ง่ายขึ้น */}
+        <div className="absolute inset-5 rounded-full border border-dashed border-[var(--tb-border)]" />
 
-          {/* Center dot */}
-          <div className="absolute top-1/2 left-1/2 w-2 h-2 -translate-x-1/2 -translate-y-1/2 bg-slate-400 dark:bg-slate-500 rounded-full" />
+        {/* อักษรทิศหลัก */}
+        <span className="absolute top-1 left-1/2 -translate-x-1/2 text-xs font-semibold leading-none text-[var(--tb-muted)]">
+          N
+        </span>
+        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-xs font-semibold leading-none text-[var(--tb-muted)]">
+          E
+        </span>
+        <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-xs font-semibold leading-none text-[var(--tb-muted)]">
+          S
+        </span>
+        <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-xs font-semibold leading-none text-[var(--tb-muted)]">
+          W
+        </span>
 
-          {/* Rotating needle (arrow) */}
-          <div
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 transition-transform duration-500 ease-out"
-            style={{ transform: `translate(-50%, -50%) rotate(${angle}deg)` }}
-          >
-            {/* Arrow shaft */}
-            <div className="relative w-1 h-10 bg-gradient-to-b from-red-500 to-red-600 rounded-full -translate-x-1/2 shadow-lg">
-              {/* Arrow head */}
-              <div
-                className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-0 h-0"
-                style={{
-                  borderLeft: '4px solid transparent',
-                  borderRight: '4px solid transparent',
-                  borderBottom: '6px solid rgb(239, 68, 68)',
-                }}
-              />
-              {/* Arrow tail */}
-              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-red-400 rounded-full" />
-            </div>
+        {/* เข็มหมุนตามมุม — หัวลูกศรชี้ทิศของเสียง */}
+        <div
+          className="absolute top-1/2 left-1/2 transition-transform duration-500 ease-out"
+          style={{ transform: `translate(-50%, -50%) rotate(${angle}deg)` }}
+        >
+          {/* ก้านเข็ม */}
+          <div className="relative w-1 h-10 rounded-full bg-[var(--tb-danger)]">
+            {/* หัวลูกศร */}
+            <div
+              className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-0 h-0"
+              style={{
+                borderLeft: '4px solid transparent',
+                borderRight: '4px solid transparent',
+                borderBottom: '6px solid var(--tb-danger)',
+              }}
+            />
+            {/* หางเข็ม */}
+            <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 rounded-full bg-[var(--tb-border-strong)]" />
           </div>
         </div>
+
+        {/* จุดหมุนกลาง (วางทับเข็ม) */}
+        <div className="absolute top-1/2 left-1/2 w-2.5 h-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--tb-surface)] border-2 border-[var(--tb-danger)]" />
       </div>
 
-      {/* Direction info */}
-      <div className="text-center space-y-1">
-        <div className="flex items-center justify-center gap-2">
-          <span className="text-lg font-bold neu-text">
+      {/* ข้อมูลทิศทาง */}
+      <div className="flex-1 min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <span className="text-lg font-bold tabular-nums text-[var(--tb-text)]">
             {Math.round(angle)}°
           </span>
-          <span className="text-xs font-medium neu-text-muted uppercase tracking-wide">
+          <span className="text-sm font-medium text-[var(--tb-muted)]">
             {directionLabel}
           </span>
         </div>
 
         {distance !== null && (
-          <div className="text-sm font-semibold neu-text-accent">
+          <div className="mt-0.5 text-sm font-semibold text-[var(--tb-primary-text)]">
             ~{distance.toFixed(1)} เมตร
           </div>
         )}
 
-        {/* Confidence bar */}
-        <div className="flex items-center gap-2 mt-2">
-          <div className="neu-track flex-1 h-1.5">
+        {/* แถบความมั่นใจ */}
+        <div className="mt-3">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="text-xs font-medium text-[var(--tb-muted)]">
+              ความมั่นใจ
+            </span>
+            <span className="text-xs font-semibold tabular-nums text-[var(--tb-text)]">
+              {confidencePercent}%
+            </span>
+          </div>
+          <div
+            className="h-1.5 w-full rounded-full overflow-hidden bg-[var(--tb-surface-3)] shadow-[inset_0_0_0_1px_var(--tb-border)]"
+            role="progressbar"
+            aria-label="ความมั่นใจของทิศทาง"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={confidencePercent}
+          >
             <div
-              className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
+              className="h-full rounded-full bg-[var(--tb-success)] transition-all duration-500"
               style={{ width: `${confidencePercent}%` }}
             />
           </div>
-          <span className="text-[10px] font-bold neu-text-muted tabular-nums">
-            {confidencePercent}%
-          </span>
         </div>
       </div>
     </div>
