@@ -1,138 +1,17 @@
 "use client";
-/* eslint-disable @next/next/no-img-element, @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars, @next/next/no-img-element, @typescript-eslint/no-explicit-any */
 import React, { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import PasswordToggle from "@/components/PasswordToggle";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-// คลาสของหน้า auth ใช้ Tailwind + ตัวแปร --tb-* ตรงๆ ไม่ใช้ .neu-*
-// เพราะ .neu-* เป็น CSS นอก layer จะทับ utility (hover:, focus:) ที่ใส่คู่กัน
-const cardClass =
-  "w-full rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] p-6 shadow-[var(--tb-shadow-card)] sm:p-8";
-const labelClass = "mb-1.5 block text-sm font-medium text-[var(--tb-text)]";
-const inputClass =
-  "block h-11 w-full rounded-[var(--tb-radius)] border border-[var(--tb-border-strong)] bg-[var(--tb-surface)] px-3.5 text-base text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[var(--tb-placeholder)] focus:border-[var(--tb-primary)] focus:ring-4 focus:ring-[var(--tb-primary-ring)] aria-[invalid=true]:border-[var(--tb-danger)] sm:text-sm";
-const primaryBtnClass =
-  "inline-flex h-11 w-full items-center justify-center gap-2 rounded-[var(--tb-radius)] bg-[var(--tb-primary)] px-4 text-sm font-semibold text-[var(--tb-primary-contrast)] shadow-[var(--tb-shadow-xs)] transition-colors duration-150 hover:bg-[var(--tb-primary-hover)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
-const secondaryBtnClass =
-  "inline-flex h-11 w-full items-center justify-center gap-3 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] px-4 text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] transition-colors duration-150 hover:bg-[var(--tb-surface-2)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
-const fieldErrorClass = "mt-1.5 text-sm text-[var(--tb-danger-text)]";
-
-const iconProps = {
-  xmlns: "http://www.w3.org/2000/svg",
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.75,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
-
-function EyeIcon() {
-  return (
-    <svg {...iconProps} className="h-5 w-5">
-      <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function EyeOffIcon() {
-  return (
-    <svg {...iconProps} className="h-5 w-5">
-      <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
-      <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
-      <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
-      <path d="m2 2 20 20" />
-    </svg>
-  );
-}
-
-// โลโก้: ไทล์สีน้ำเงิน + แท่งเสียงสามแท่ง (นิ่ง ไม่เด้ง)
-function BrandLink() {
-  return (
-    <div className="mb-6 flex justify-center">
-      <Link
-        href="/"
-        className="inline-flex items-center gap-3 rounded-[var(--tb-radius)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
-      >
-        <span
-          aria-hidden="true"
-          className="flex h-10 w-10 shrink-0 items-end justify-center gap-1 rounded-[var(--tb-radius)] bg-[var(--tb-primary)] pb-2.5 shadow-[var(--tb-shadow-xs)]"
-        >
-          <span className="h-2.5 w-1.5 rounded-full bg-[var(--tb-primary-contrast)]" />
-          <span className="h-5 w-1.5 rounded-full bg-[var(--tb-primary-contrast)]" />
-          <span className="h-3.5 w-1.5 rounded-full bg-[var(--tb-primary-contrast)]" />
-        </span>
-        <span className="text-lg font-bold text-[var(--tb-text)]">Emergency Voice Rescuer</span>
-      </Link>
-    </div>
-  );
-}
-
-// กล่องแจ้งผลในการ์ด — แดง = ผิดพลาด (role alert), เขียว = สำเร็จ (role status)
-function FormAlert({ tone, children }: { tone: "danger" | "success"; children: React.ReactNode }) {
-  const isDanger = tone === "danger";
-  return (
-    <div
-      role={isDanger ? "alert" : "status"}
-      className={`flex items-start gap-2.5 rounded-[var(--tb-radius)] border px-3.5 py-3 text-sm font-medium ${
-        isDanger
-          ? "border-[var(--tb-danger)]/25 bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)]"
-          : "border-[var(--tb-success)]/25 bg-[var(--tb-success-tint)] text-[var(--tb-success-text)]"
-      }`}
-    >
-      <svg {...iconProps} className="h-5 w-5 shrink-0">
-        <circle cx="12" cy="12" r="10" />
-        {isDanger ? (
-          <>
-            <line x1="12" x2="12" y1="8" y2="12" />
-            <line x1="12" x2="12.01" y1="16" y2="16" />
-          </>
-        ) : (
-          <path d="m9 12 2 2 4-4" />
-        )}
-      </svg>
-      <span className="min-w-0">{children}</span>
-    </div>
-  );
-}
-
-type PasswordFieldProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "id" | "type" | "className"> & {
-  id: string;
-  visible: boolean;
-  onToggleVisible: () => void;
-};
-
-// ช่องรหัสผ่าน + ปุ่มรูปตาแสดง/ซ่อนที่ขอบขวา (ใช้ซ้ำ 3 ช่องในหน้านี้)
-// ตอนซ่อนอยู่แสดงรูปตา กดแล้วเห็นรหัส ตอนเห็นอยู่แสดงรูปตาขีดฆ่า
-// ชื่อปุ่มคงที่ "แสดงรหัสผ่าน" + aria-pressed — ถ้าสลับชื่อเป็น "ซ่อนรหัสผ่าน" คู่กับ pressed=true
-// โปรแกรมอ่านหน้าจอจะอ่านว่า "ซ่อนรหัสผ่าน กดอยู่" ทั้งที่รหัสกำลังแสดงอยู่
-function PasswordField({ id, visible, onToggleVisible, ...inputProps }: PasswordFieldProps) {
-  return (
-    <div className="relative">
-      <input {...inputProps} id={id} type={visible ? "text" : "password"} className={`${inputClass} pr-11`} />
-      <button
-        type="button"
-        onClick={onToggleVisible}
-        aria-label="แสดงรหัสผ่าน"
-        aria-pressed={visible}
-        aria-controls={id}
-        className="absolute right-0.5 top-0.5 inline-flex h-10 w-10 items-center justify-center rounded-[var(--tb-radius)] text-[var(--tb-muted)] transition-colors duration-150 hover:text-[var(--tb-text)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
-      >
-        {visible ? <EyeOffIcon /> : <EyeIcon />}
-      </button>
-    </div>
-  );
-}
 
 function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
+  
   // ดึงค่า callbackUrl ถ้าไม่มีให้ดีดไป /dashboard เป็นค่าเริ่มต้น
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
@@ -196,7 +75,7 @@ function LoginFormContent() {
           setSuccessMsg(
             "สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบกล่องข้อความในอีเมลของคุณเพื่อยืนยันบัญชี",
           );
-          setIsLogin(true);
+          setIsLogin(true); 
           setName("");
           setPassword("");
           setConfirmPassword("");
@@ -310,221 +189,279 @@ function LoginFormContent() {
   };
 
   return (
-    <main className="neu-surface relative flex min-h-screen flex-col items-center justify-center px-4 py-10">
-      <div className="w-full max-w-md">
-        <BrandLink />
+    <div className="neu-surface relative min-h-screen flex items-center justify-center p-4 md:p-8 overflow-hidden font-sans transition-colors duration-300">
+      {/* เอา blob สีเบลอออก — neumorphism ต้องการพื้นเรียบสีเดียว */}
+      <div
+        style={{ animationDelay: "2s" }}
+      ></div>
 
-        <div className={cardClass}>
-          {/* key ตามโหมด → เนื้อหาในการ์ดถูก mount ใหม่ตอนสลับ จึงค่อยๆ จางเข้า (ปิดถ้าผู้ใช้ลดการเคลื่อนไหว) */}
-          <div
-            key={isLogin ? "login" : "register"}
-            className="motion-safe:transition-opacity motion-safe:duration-200 motion-safe:starting:opacity-0"
-          >
-            <div className="mb-6 text-center">
-              <h1 className="text-xl font-bold text-[var(--tb-text)]">
-                {isLogin ? "เข้าสู่ระบบบัญชีของคุณ" : "สร้างบัญชีใหม่"}
-              </h1>
-              <p className="mt-1.5 text-sm text-[var(--tb-muted)]">
-                {isLogin
-                  ? "เข้าสู่ระบบเพื่อเฝ้าระวังคนที่คุณรักต่อได้เลย"
-                  : "สมัครสมาชิกเพื่อเริ่มใช้งาน Emergency Voice Rescuer"}
-              </p>
+      <div className="neu-card relative z-10 w-full max-w-[900px] min-h-[600px] overflow-hidden">
+        
+        {/* =================UP FORM================= */}
+        <div
+          className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
+          ${isLogin ? "opacity-0 z-10 md:translate-x-0 hidden md:flex" : "opacity-100 z-20 md:translate-x-full flex"}`}
+        >
+          <div className="text-center mb-4">
+            <h1 className="text-2xl font-bold neu-text mb-1">
+              Emergency Voice Rescuer
+            </h1>
+            <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              สร้างบัญชีใหม่
+            </h2>
+          </div>
+
+          {errors.general && (
+            <div className="mb-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center font-medium">
+              {errors.general}
+            </div>
+          )}
+          {successMsg && (
+            <div className="mb-3 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 text-center font-medium">
+              {successMsg}
+            </div>
+          )}
+
+          <form onSubmit={handleStandardAuth} className="flex flex-col gap-3">
+            <div>
+              <label className="text-xs font-semibold neu-text-muted ml-1">
+                ชื่อผู้ใช้งาน
+              </label>
+              <input
+                type="text"
+                placeholder="กรอกชื่อของคุณ"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="neu-input w-full px-4 py-3 mt-1 dark:placeholder-slate-400 outline-none transition-all text-sm"
+              />
             </div>
 
-            {(errors.general || successMsg) && (
-              <div className="mb-5 flex flex-col gap-3">
-                {errors.general && <FormAlert tone="danger">{errors.general}</FormAlert>}
-                {successMsg && <FormAlert tone="success">{successMsg}</FormAlert>}
+            <div>
+              <label className="text-xs font-semibold neu-text-muted ml-1">
+                อีเมล
+              </label>
+              <input
+                type="email"
+                placeholder="Email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="neu-input w-full px-4 py-3 mt-1 dark:placeholder-slate-400 outline-none transition-all text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold neu-text-muted ml-1">
+                รหัสผ่าน
+              </label>
+              <div className="relative mt-1">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
+                />
+                <PasswordToggle
+                  visible={showPassword}
+                  onToggle={() => setShowPassword(!showPassword)}
+                />
               </div>
-            )}
+            </div>
 
-            {isLogin ? (
-              // =================IN FORM=================
-              // ไม่ใช่ <form> ตามเดิม: กด Enter เรียก handleStandardAuth ผ่าน onKeyDown ของแต่ละช่อง
-              <div className="flex flex-col gap-4">
-                <div>
-                  <label htmlFor="login-email" className={labelClass}>
-                    อีเมล
-                  </label>
-                  <input
-                    id="login-email"
-                    type="email"
-                    placeholder="name@example.com"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <div className="mb-1.5 flex items-center justify-between gap-3">
-                    <label htmlFor="login-password" className="text-sm font-medium text-[var(--tb-text)]">
-                      รหัสผ่าน
-                    </label>
-                    {/* min-h-10 + margin ติดลบ: ขยายพื้นที่กดให้สูง 40px โดยไม่ดันแถว label */}
-                    <Link
-                      href="/forgot-password"
-                      className="-my-2.5 inline-flex min-h-10 items-center rounded-[var(--tb-radius)] text-sm font-medium text-[var(--tb-primary-text)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
-                    >
-                      ลืมรหัสผ่านใช่ไหม?
-                    </Link>
-                  </div>
-                  <PasswordField
-                    id="login-password"
-                    visible={showLoginPassword}
-                    onToggleVisible={() => setShowLoginPassword(!showLoginPassword)}
-                    placeholder="กรอกรหัสผ่าน"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
-                    aria-invalid={errors.password ? true : undefined}
-                    aria-describedby={errors.password ? "login-password-error" : undefined}
-                  />
-                  {errors.password && (
-                    <p id="login-password-error" role="alert" className={fieldErrorClass}>
-                      {errors.password}
-                    </p>
-                  )}
-                </div>
-
-                <button type="button" onClick={handleStandardAuth} className={`${primaryBtnClass} mt-2`}>
-                  เข้าสู่ระบบ
-                </button>
+            <div>
+              <label className="text-xs font-semibold neu-text-muted ml-1">
+                ยืนยันรหัสผ่าน
+              </label>
+              <div className="relative mt-1">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="Confirm Password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
+                />
+                <PasswordToggle
+                  visible={showConfirmPassword}
+                  onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+                />
               </div>
-            ) : (
-              // =================UP FORM=================
-              <form onSubmit={handleStandardAuth} className="flex flex-col gap-4">
-                <div>
-                  <label htmlFor="register-name" className={labelClass}>
-                    ชื่อผู้ใช้งาน
-                  </label>
-                  <input
-                    id="register-name"
-                    type="text"
-                    placeholder="กรอกชื่อของคุณ"
-                    autoComplete="name"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
+              {errors.confirmPassword && (
+                <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.confirmPassword}</span>
+              )}
+            </div>
 
-                <div>
-                  <label htmlFor="register-email" className={labelClass}>
-                    อีเมล
-                  </label>
-                  <input
-                    id="register-email"
-                    type="email"
-                    placeholder="name@example.com"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    aria-invalid={errors.email ? true : undefined}
-                    aria-describedby={errors.email ? "register-email-error" : undefined}
-                    className={inputClass}
-                  />
-                  {errors.email && (
-                    <p id="register-email-error" role="alert" className={fieldErrorClass}>
-                      {errors.email}
-                    </p>
-                  )}
-                </div>
+            <button
+              type="submit"
+              className="w-full py-3 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5"
+            >
+              สมัครสมาชิก
+            </button>
+          </form>
 
-                <div>
-                  <label htmlFor="register-password" className={labelClass}>
-                    รหัสผ่าน
-                  </label>
-                  <PasswordField
-                    id="register-password"
-                    visible={showPassword}
-                    onToggleVisible={() => setShowPassword(!showPassword)}
-                    placeholder="กรอกรหัสผ่าน"
-                    autoComplete="new-password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
+          <div className="flex items-center my-4">
+            <hr className="flex-grow border-slate-200 dark:border-slate-600" />
+            <span className="px-3 neu-text-muted text-xs">หรือ</span>
+            <hr className="flex-grow border-slate-200 dark:border-slate-600" />
+          </div>
 
-                <div>
-                  <label htmlFor="register-confirm-password" className={labelClass}>
-                    ยืนยันรหัสผ่าน
-                  </label>
-                  <PasswordField
-                    id="register-confirm-password"
-                    visible={showConfirmPassword}
-                    onToggleVisible={() => setShowConfirmPassword(!showConfirmPassword)}
-                    placeholder="กรอกรหัสผ่านอีกครั้ง"
-                    autoComplete="new-password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    aria-invalid={errors.confirmPassword ? true : undefined}
-                    aria-describedby={errors.confirmPassword ? "register-confirm-password-error" : undefined}
-                  />
-                  {errors.confirmPassword && (
-                    <p id="register-confirm-password-error" role="alert" className={fieldErrorClass}>
-                      {errors.confirmPassword}
-                    </p>
-                  )}
-                </div>
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl }, { prompt: "select_account" })}
+            className="neu-card-sm w-full flex items-center justify-center gap-3 py-3 neu-text hover:bg-slate-50 transition-all font-semibold text-sm"
+          >
+            <img src="/google-color.svg" alt="Google Logo" className="w-5 h-5" />
+            ดำเนินการต่อด้วย Google
+          </button>
+        </div>
 
-                <button type="submit" className={`${primaryBtnClass} mt-2`}>
-                  สมัครสมาชิก
-                </button>
-              </form>
-            )}
+        {/* =================IN FORM================= */}
+        <div
+          className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
+          ${isLogin ? "opacity-100 z-20 md:translate-x-0 flex" : "opacity-0 z-10 md:translate-x-full hidden md:flex"}`}
+        >
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold neu-text mb-1">
+              Emergency Voice Rescuer
+            </h1>
+            <h2 className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              เข้าสู่ระบบ
+            </h2>
+          </div>
 
-            <div className="my-6 flex items-center gap-3">
-              <span aria-hidden="true" className="h-px flex-1 bg-[var(--tb-border)]" />
-              <span className="text-sm text-[var(--tb-muted)]">หรือ</span>
-              <span aria-hidden="true" className="h-px flex-1 bg-[var(--tb-border)]" />
+          {errors.general && (
+            <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg border border-red-100 text-center font-medium">
+              {errors.general}
+            </div>
+          )}
+          {successMsg && (
+            <div className="mb-4 p-3 bg-green-50 text-green-700 text-sm rounded-lg border border-green-200 text-center font-medium">
+              {successMsg}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-4">
+            <div>
+              <label className="text-xs font-semibold neu-text-muted ml-1">
+                อีเมล
+              </label>
+              <input
+                type="email"
+                placeholder="Email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
+                className="neu-input w-full px-4 py-3 mt-1 dark:placeholder-slate-400 outline-none transition-all text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold neu-text-muted ml-1 mb-1 block">
+                รหัสผ่าน
+              </label>
+              <div className="relative">
+                <input
+                  type={showLoginPassword ? "text" : "password"}
+                  placeholder="Password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
+                  className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
+                />
+                <PasswordToggle
+                  visible={showLoginPassword}
+                  onToggle={() => setShowLoginPassword(!showLoginPassword)}
+                />
+              </div>
+              {errors.password && (
+                <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.password}</span>
+              )}
+              <div className="flex justify-end mt-2">
+                <Link href="/forgot-password" className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors">
+                  ลืมรหัสผ่านใช่ไหม?
+                </Link>
+              </div>
             </div>
 
             <button
               type="button"
-              onClick={() => signIn("google", { callbackUrl }, { prompt: "select_account" })}
-              className={secondaryBtnClass}
+              onClick={handleStandardAuth}
+              className="w-full py-3 mt-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition-all hover:-translate-y-0.5"
             >
-              <img src="/google-color.svg" alt="" aria-hidden="true" className="h-5 w-5" />
-              ดำเนินการต่อด้วย Google
+              เข้าสู่ระบบ
             </button>
+          </div>
+
+          <div className="flex items-center my-5">
+            <hr className="flex-grow border-slate-200 dark:border-slate-600" />
+            <span className="px-3 neu-text-muted text-xs">หรือ</span>
+            <hr className="flex-grow border-slate-200 dark:border-slate-600" />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => signIn("google", { callbackUrl }, { prompt: "select_account" })}
+            className="neu-card-sm w-full flex items-center justify-center gap-3 py-3 neu-text hover:bg-slate-50 transition-all font-semibold text-sm"
+          >
+            <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />
+            ดำเนินการต่อด้วย Google
+          </button>
+        </div>
+
+        {/* =================OVERLAY================= */}
+        <div
+          className={`hidden md:block absolute top-0 left-1/2 w-1/2 h-full overflow-hidden transition-transform duration-700 ease-in-out z-50 
+          ${isLogin ? "translate-x-0" : "-translate-x-full"}`}
+        >
+          <div
+            className={`relative -left-full w-[200%] h-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white transition-transform duration-700 ease-in-out 
+            ${isLogin ? "translate-x-0" : "translate-x-1/2"}`}
+          >
+            <div
+              className={`absolute top-0 left-0 w-1/2 h-full flex flex-col justify-center items-center px-12 text-center transition-transform duration-700 ease-in-out 
+              ${isLogin ? "-translate-x-[20%]" : "translate-x-0"}`}
+            >
+              <h2 className="text-4xl font-extrabold mb-4 drop-shadow-md">Welcome Back!</h2>
+              <p className="mb-8 text-indigo-100">มีบัญชีอยู่แล้วใช่ไหม? <br />เข้าสู่ระบบเพื่อเฝ้าระวังคนที่คุณรักต่อได้เลย</p>
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="relative z-50 px-10 py-3 rounded-full border-2 border-white/50 hover:bg-white hover:text-indigo-600 transition-all font-bold tracking-wide"
+              >
+                เข้าสู่ระบบ
+              </button>
+            </div>
+
+            <div
+              className={`absolute top-0 right-0 w-1/2 h-full flex flex-col justify-center items-center px-12 text-center transition-transform duration-700 ease-in-out 
+              ${isLogin ? "translate-x-0" : "translate-x-[20%]"}`}
+            >
+              <h2 className="text-4xl font-extrabold mb-4 drop-shadow-md">Hello, Guardian!</h2>
+              <p className="mb-8 text-indigo-100">เพิ่งเคยเข้ามาครั้งแรกหรือเปล่า? <br />สมัครสมาชิกเพื่อเริ่มใช้งาน Emergency Voice Rescuer</p>
+              <button
+                type="button"
+                onClick={toggleMode}
+                className="relative z-50 px-10 py-3 rounded-full border-2 border-white/50 hover:bg-white hover:text-indigo-600 transition-all font-bold tracking-wide"
+              >
+                สมัครสมาชิก
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* สลับโหมดเข้าสู่ระบบ / สมัครสมาชิก — ตัวอักษรเข้มเต็มเพราะวางบนภาพพื้นหลังโดยตรง */}
-        <p className="mt-6 flex flex-wrap items-center justify-center gap-x-1 text-sm text-[var(--tb-text)]">
-          <span>{isLogin ? "ยังไม่มีบัญชี?" : "มีบัญชีแล้ว?"}</span>
-          <button
-            type="button"
-            onClick={toggleMode}
-            className="inline-flex h-10 items-center rounded-[var(--tb-radius)] px-1.5 font-semibold text-[var(--tb-primary-text)] underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
-          >
-            {isLogin ? "สมัครสมาชิก" : "เข้าสู่ระบบ"}
-          </button>
-        </p>
       </div>
-    </main>
+    </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center text-sm text-[var(--tb-muted)]">
-          Loading...
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
       <LoginFormContent />
     </Suspense>
   );
