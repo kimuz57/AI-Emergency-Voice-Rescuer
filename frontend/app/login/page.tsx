@@ -195,11 +195,13 @@ function LoginFormContent() {
         style={{ animationDelay: "2s" }}
       ></div>
 
-      <div className="neu-card relative z-10 w-full max-w-[900px] min-h-[600px] overflow-hidden">
+      {/* จอมือถือ: ฟอร์มไม่ใช้ absolute การ์ดเลยสูงตามเนื้อหา — เดิมการ์ดสูงตายตัว 600px
+          ฟอร์มสมัครสมาชิกยาวกว่านั้น หัวการ์ดกับลิงก์ด้านล่างจึงถูกตัดและเลื่อนไปดูไม่ได้ */}
+      <div className="neu-card relative z-10 w-full max-w-[900px] md:min-h-[600px] overflow-hidden">
         
         {/* =================UP FORM================= */}
         <div
-          className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
+          className={`relative md:absolute md:top-0 md:left-0 w-full md:w-1/2 md:h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
           ${isLogin ? "opacity-0 z-10 md:translate-x-0 hidden md:flex" : "opacity-100 z-20 md:translate-x-full flex"}`}
         >
           <div className="text-center mb-4">
@@ -316,11 +318,22 @@ function LoginFormContent() {
             <img src="/google-color.svg" alt="Google Logo" className="w-5 h-5" />
             ดำเนินการต่อด้วย Google
           </button>
+          {/* จอมือถือไม่มีแผงไล่สีด้านข้าง (แผงนั้นซ่อนไว้ด้วย hidden md:block) จึงต้องมีปุ่มสลับโหมดตรงนี้แทน */}
+          <p className="md:hidden mt-6 text-center text-sm neu-text-muted">
+            มีบัญชีอยู่แล้วใช่ไหม?{" "}
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="inline-flex items-center min-h-11 px-1 font-bold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              เข้าสู่ระบบ
+            </button>
+          </p>
         </div>
 
         {/* =================IN FORM================= */}
         <div
-          className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
+          className={`relative md:absolute md:top-0 md:left-0 w-full md:w-1/2 md:h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
           ${isLogin ? "opacity-100 z-20 md:translate-x-0 flex" : "opacity-0 z-10 md:translate-x-full hidden md:flex"}`}
         >
           <div className="text-center mb-6">
@@ -411,6 +424,17 @@ function LoginFormContent() {
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />
             ดำเนินการต่อด้วย Google
           </button>
+          {/* จอมือถือไม่มีแผงไล่สีด้านข้าง (แผงนั้นซ่อนไว้ด้วย hidden md:block) จึงต้องมีปุ่มสลับโหมดตรงนี้แทน */}
+          <p className="md:hidden mt-6 text-center text-sm neu-text-muted">
+            ยังไม่มีบัญชีใช่ไหม?{" "}
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="inline-flex items-center min-h-11 px-1 font-bold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              สมัครสมาชิก
+            </button>
+          </p>
         </div>
 
         {/* =================OVERLAY================= */}
