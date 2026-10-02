@@ -1,8 +1,9 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unused-vars, react-hooks/set-state-in-effect, @next/next/no-img-element */
+/* eslint-disable react-hooks/set-state-in-effect, @next/next/no-img-element */
 import { useCallback, useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import Sidebar from "@/components/Sidebar";
+import { authHeaders } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 // กำหนดโครงสร้างข้อมูล User
@@ -88,11 +89,11 @@ export default function Navbar() {
 
       try {
         const res = await Promise.race([
-          fetch(`${API_BASE_URL}/api/user/profile?email=${targetEmail}`, {
+          fetch(`${API_BASE_URL}/api/user/profile?email=${encodeURIComponent(targetEmail)}`, {
             method: "GET",
             cache: "no-store",
             credentials: "include",
-            headers: { "Content-Type": "application/json" }
+            headers: authHeaders({ "Content-Type": "application/json" }),
           }),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Backend timeout')), 5000)
@@ -194,47 +195,6 @@ export default function Navbar() {
       localStorage.removeItem("userEmail");
       localStorage.removeItem("userRole");
       window.location.href = "/";
-    }
-  };
-
-  const handleRegisterPatient = async () => {
-    try {
-      // 1. ดึง Token เผื่อ Backend ต้องใช้เช็คสิทธิ์ (ถ้าไม่มีก็เอาออกได้ครับ)
-      const token = localStorage.getItem("token");
-
-      // 2. ข้อมูลที่จะส่งไปให้ Backend (ปรับ key ให้ตรงกับที่ Go Backend ต้องการ)
-      const payload = {
-        mac_address: "AA:BB:CC:DD:EE:FF",
-        patient_name: "นายทดสอบ สมมติ",
-      };
-
-      const res = await fetch(`${API_BASE_URL}/dashboard/device`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`, // ส่ง Token ไปด้วย
-        },
-        body: JSON.stringify(payload), // แปลงข้อมูลเป็น JSON
-      });
-
-      // 3. เช็คว่า Backend ตอบกลับมาว่าสำเร็จหรือไม่ (Status 200-299)
-      if (!res.ok) {
-        // ถ้าไม่สำเร็จ ให้โยน Error ไปเข้าบล็อก catch
-        const errorData = await res.json();
-        throw new Error(errorData.error || "เกิดข้อผิดพลาดในการลงทะเบียน");
-      }
-
-      // 4. แกะข้อมูลที่ Backend ส่งกลับมาเมื่อสำเร็จ
-      const data = await res.json();
-      console.log("ลงทะเบียนสำเร็จ:", data);
-      alert("ลงทะเบียนสำเร็จเรียบร้อย!");
-    } catch (error) {
-      // 🟢 แปลงประเภทตัวแปรให้ปลอดภัยก่อนดึงค่า .message
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-
-      console.error("❌ Error registering patient:", errorMessage);
-      alert(`เกิดข้อผิดพลาด: ${errorMessage}`);
     }
   };
 

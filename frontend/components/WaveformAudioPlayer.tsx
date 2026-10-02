@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWavesurfer } from '@wavesurfer/react';
+import { getAuthToken } from '@/lib/auth';
 
 export default function WaveformAudioPlayer({ src }: { src: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -10,9 +11,24 @@ export default function WaveformAudioPlayer({ src }: { src: string }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [loadError, setLoadError] = useState(false);
 
+  // GET /api/audio/:filename ต้องมีสิทธิ์ (ไม่มี static public แล้ว) — wavesurfer v7 fetch ไฟล์ทั้งก้อนด้วย
+  // fetchParams แล้วเล่นจาก blob URL จึงส่ง Authorization header ได้โดยไม่ต้องใส่ JWT ใน URL.
+  // memo ตาม src: useWavesurfer สร้าง instance ใหม่เมื่อ reference ของ option เปลี่ยน.
+  // ใส่ signal เองเพราะ wavesurfer เขียน signal ของตัวเองลงใน object นี้ แล้ว abort ตอน destroy —
+  // StrictMode (mount→unmount→mount) จะได้ instance ที่สองที่ใช้ signal ที่ถูก abort ไปแล้ว
+  const fetchParams = useMemo<RequestInit | undefined>(() => {
+    const token = getAuthToken();
+    if (!token || !src) return undefined;
+    return {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: new AbortController().signal,
+    };
+  }, [src]);
+
   const { wavesurfer, isPlaying } = useWavesurfer({
     container: containerRef,
     url: src,
+    fetchParams,
     waveColor: '#94a3b8',
     progressColor: '#2563eb',
     cursorColor: '#1d4ed8',

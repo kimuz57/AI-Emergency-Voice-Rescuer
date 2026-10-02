@@ -6,7 +6,11 @@ import QRCode from "qrcode";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-const APP_URL = process.env.FRONTEND_URL || "https://kws.wattanapong.com";
+// ไฟล์นี้เป็น client component → อ่านได้เฉพาะ env ที่ขึ้นต้นด้วย NEXT_PUBLIC_
+// ถ้าไม่ได้ตั้งไว้ ให้ใช้ origin ของหน้าเว็บที่เปิดอยู่ (กัน SSR ที่ไม่มี window)
+const getAppUrl = () =>
+  process.env.NEXT_PUBLIC_FRONTEND_URL ||
+  (typeof window !== "undefined" ? window.location.origin : "https://kws.wattanapong.com");
 // ============================================================
 // 🔲 TAB 1: QR Code Generator Component
 // ============================================================
@@ -42,7 +46,7 @@ function QRGeneratorTab() {
     setIsGenerating(true);
     setError("");
     try {
-      const qrUrl = `${APP_URL}/register-patient?mac=${macInput}`;
+      const qrUrl = `${getAppUrl()}/register-patient?mac=${macInput}`;
       const dataUrl = await QRCode.toDataURL(qrUrl, {
         width: 400,
         margin: 2,
@@ -295,7 +299,7 @@ function QRGeneratorTab() {
               </p>
             )}
             <p className="text-xs neu-text-muted mt-2 break-all max-w-xs">
-              🔗 {APP_URL}/register-patient?mac={macInput}
+              🔗 {getAppUrl()}/register-patient?mac={macInput}
             </p>
           </div>
 

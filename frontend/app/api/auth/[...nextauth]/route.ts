@@ -56,6 +56,11 @@ const handler = NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider === "google") {
+        // backend ต้องใช้ Google ID token เพื่อ verify ตัวตน (ไม่เชื่อ email จาก body)
+        if (!account.id_token) {
+          console.error("Google Auth Error: missing id_token");
+          return false;
+        }
         try {
           const imageUrl = user.image || (profile as any)?.picture || "";
           const backendUrl =
@@ -65,6 +70,7 @@ const handler = NextAuth({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              id_token: account.id_token,
               email: user.email,
               name: user.name,
               profile: imageUrl,

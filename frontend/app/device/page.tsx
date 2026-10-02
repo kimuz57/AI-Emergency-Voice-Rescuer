@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect, @next/next/no-img-element */
 import { useState, useEffect } from "react";
 import QRCode from "qrcode";
+import { connectSSE } from "@/lib/auth";
 
 interface DeviceData {
   id: number;
@@ -56,7 +57,9 @@ export default function DevicesPage() {
     const last6 = cleanMac.substring(6, 12);
 
     const ssid = `Smartvoice-${last6}`;
-    const pass = `SV-${first6}`;
+    // ต้องตรงกับ firmwareV2/main/main.c: SSID "Smartvoice-%02X%02X%02X" (mac[3..5]),
+    // password "SV_%02X%02X%02X" (mac[0..2]) — ใช้ขีดล่าง ไม่ใช่ขีดกลาง
+    const pass = `SV_${first6}`;
     const wifiString = `WIFI:T:WPA;S:${ssid};P:${pass};;`;
 
     setWifiInfo({ ssid, pass });
@@ -88,11 +91,16 @@ export default function DevicesPage() {
     if (!wifiQrUrl || !wifiModalDevice) return;
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
+    // S28: ค่าจาก DB/อุปกรณ์ต้อง escape ก่อนเขียนลง HTML ไม่งั้นแทรกสคริปต์ได้
+    const esc = (v: unknown) =>
+      String(v ?? "").replace(/[&<>"']/g, (ch) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch] as string,
+      );
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>WiFi QR - ${wifiModalDevice.mac_address}</title>
+        <title>WiFi QR - ${esc(wifiModalDevice.mac_address)}</title>
         <style>
           body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: white; }
           .card { text-align: center; padding: 24px; border: 2px solid #e2e8f0; border-radius: 16px; display: inline-block; }
@@ -104,10 +112,10 @@ export default function DevicesPage() {
       </head>
       <body>
         <div class="card">
-          <img src="${wifiQrUrl}" alt="WiFi QR Code" />
-          <div class="mac">SSID: ${wifiInfo.ssid}</div>
-          <div class="label">Password: ${wifiInfo.pass}</div>
-          <div class="label" style="font-size: 12px; margin-top: 12px;">MAC: ${wifiModalDevice.mac_address}</div>
+          <img src="${esc(wifiQrUrl)}" alt="WiFi QR Code" />
+          <div class="mac">SSID: ${esc(wifiInfo.ssid)}</div>
+          <div class="label">Password: ${esc(wifiInfo.pass)}</div>
+          <div class="label" style="font-size: 12px; margin-top: 12px;">MAC: ${esc(wifiModalDevice.mac_address)}</div>
         </div>
         <script>window.onload = () => { window.print(); window.close(); }<\/script>
       </body>
@@ -140,9 +148,13 @@ export default function DevicesPage() {
       const token = getAuthToken();
 
       const userRes = await fetch(
-        `${API_BASE_URL}/api/user/profile?email=${targetEmail}`,
+        `${API_BASE_URL}/api/user/profile?email=${encodeURIComponent(targetEmail)}`,
         {
           method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           credentials: "include",
         },
       );
@@ -187,47 +199,42 @@ export default function DevicesPage() {
 
     // 🌟 เลียนแบบ Dashboard เป๊ะๆ: ส่งทั้ง email และ token ไปใน URL
     const sseUrl = `${API_BASE_URL}/api/device/stream?email=${encodeURIComponent(targetEmail)}&token=${encodeURIComponent(token)}`;
-    const eventSource = new EventSource(sseUrl, {
-      withCredentials: true,
+    // 🟢 connectSSE ต่อใหม่เองแบบ backoff เมื่อ browser ยอมแพ้ (readyState = CLOSED เช่น backend ตอบ 401/5xx)
+    const closeStream = connectSSE(sseUrl, {
+      onOpen: () => {
+        setIsLive(true);
+        console.log("🟢 SSE Connected: Ready for real-time device updates");
+      },
+      onMessage: (event) => {
+        if (!event.data) return;
+
+        try {
+          const data = JSON.parse(event.data);
+
+          setDevices((prevDevices) => {
+            if (Array.isArray(data)) return data;
+
+            const exists = prevDevices.find(
+              (d) => d.mac_address === data.mac_address,
+            );
+            if (exists) {
+              return prevDevices.map((d) =>
+                d.mac_address === data.mac_address ? { ...d, ...data } : d,
+              );
+            }
+            return [...prevDevices, data];
+          });
+        } catch (err) {
+          console.error("SSE JSON Parse Error:", err);
+        }
+      },
+      onError: (err) => {
+        console.error("🔴 SSE Connection Error:", err);
+        setIsLive(false);
+      },
     });
 
-    eventSource.onopen = () => {
-      setIsLive(true);
-      console.log("🟢 SSE Connected: Ready for real-time device updates");
-    };
-
-    eventSource.onmessage = (event) => {
-      if (!event.data) return;
-
-      try {
-        const data = JSON.parse(event.data);
-
-        setDevices((prevDevices) => {
-          if (Array.isArray(data)) return data;
-
-          const exists = prevDevices.find(
-            (d) => d.mac_address === data.mac_address,
-          );
-          if (exists) {
-            return prevDevices.map((d) =>
-              d.mac_address === data.mac_address ? { ...d, ...data } : d,
-            );
-          }
-          return [...prevDevices, data];
-        });
-      } catch (err) {
-        console.error("SSE JSON Parse Error:", err);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error("🔴 SSE Connection Error:", err);
-      setIsLive(false);
-    };
-
-    return () => {
-      eventSource.close();
-    };
+    return closeStream;
   }, []);
 
   const isAdmin = user?.role?.toLowerCase() === "admin";

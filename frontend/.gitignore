@@ -52,3 +52,5 @@ Thumbs.db
 logs/
 *.log
 certs/
+# Keep the template tracked (.env* above would hide it)
+!.env.example

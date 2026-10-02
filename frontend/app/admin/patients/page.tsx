@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { authHeaders, getAuthToken } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const avatarColors = [
@@ -37,7 +38,8 @@ export default function AdminPatients() {
     const checkAdminAndFetchData = async () => {
       try {
         const email = localStorage.getItem("userEmail");
-        const token = localStorage.getItem("token");
+        // ผู้ใช้ที่ login ผ่าน Google ไม่มี token ใน localStorage → ใช้ helper ที่ fallback ไป cookie token_public
+        const token = getAuthToken();
 
         if (!email) {
           router.push("/dashboard");
@@ -46,7 +48,7 @@ export default function AdminPatients() {
 
         // 🚨 1. ยิง API เช็คสิทธิ์จาก Database ตรงๆ เพื่อความปลอดภัยสูงสุด
         const profileRes = await fetch(
-          `${API_URL}/api/user/profile?email=${email}`,
+          `${API_URL}/api/user/profile?email=${encodeURIComponent(email)}`,
           {
             method: "GET",
             headers: {
@@ -138,7 +140,7 @@ export default function AdminPatients() {
         {
           method: "PUT",
           credentials: "include",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             name: editForm.name,
             age: Number(editForm.age),
@@ -172,6 +174,7 @@ export default function AdminPatients() {
       const res = await fetch(`${API_URL}/api/admin/patients/${id}`, {
         method: "DELETE",
         credentials: "include",
+        headers: authHeaders(),
       });
       if (res.ok) {
         setPatients(patients.filter((p: any) => p.ID !== id));

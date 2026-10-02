@@ -5,6 +5,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+const EXPIRED_LINK_MSG = "ลิงก์หมดอายุหรือไม่ถูกต้อง";
 
 // โครงสร้างข้อมูลที่คาดว่าจะได้รับจาก Backend
 interface AlertData {
@@ -32,6 +33,13 @@ function AlertContent() {
       return;
     }
 
+    // ลิงก์จาก LINE/Telegram ต้องมี ?token= (alert token ที่ backend เซ็นให้ MAC นี้)
+    if (!token) {
+      setErrorMsg(EXPIRED_LINK_MSG);
+      setStatus("error");
+      return;
+    }
+
     // ดึงข้อมูลผู้ป่วยและไฟล์เสียง
     const fetchDevice = async () => {
       try {
@@ -44,6 +52,10 @@ function AlertContent() {
           const data = await res.json();
           setDeviceInfo(data);
           setStatus("alert");
+        } else if (res.status === 401) {
+          // token หมดอายุ (24 ชม.) หรือไม่ตรงกับ MAC
+          setErrorMsg(EXPIRED_LINK_MSG);
+          setStatus("error");
         } else {
           setDeviceInfo({ patient_name: null, room_number: null, underlying_disease: null, audio_url: null });
           setStatus("alert");
@@ -77,7 +89,13 @@ function AlertContent() {
         body: JSON.stringify({ mac_address: mac, token }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 401) {
+        alert(EXPIRED_LINK_MSG);
+        setIsAcknowledging(false);
+        return;
+      }
 
       if (!res.ok) {
         alert(`อัปเดตไม่สำเร็จ: ${data.error || 'ไม่ทราบสาเหตุ'}`);
@@ -131,7 +149,11 @@ function AlertContent() {
           {deviceInfo?.patient_name && (
             <p className="font-semibold neu-text text-lg mb-4">{deviceInfo.patient_name} (ห้อง {deviceInfo.room_number})</p>
           )}
-          <p className="text-sm neu-text-muted">ปิดหน้าต่างนี้ได้ใน {countdown} วินาที...</p>
+          <p className="text-sm neu-text-muted">
+            {countdown !== null && countdown > 0
+              ? `ปิดหน้าต่างนี้ได้ใน ${countdown} วินาที...`
+              : "ปิดหน้าต่างนี้ได้แล้ว"}
+          </p>
         </div>
       </div>
     );

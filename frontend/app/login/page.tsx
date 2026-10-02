@@ -4,6 +4,7 @@ import React, { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { safeRedirectPath } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -12,9 +13,23 @@ function LoginFormContent() {
   const searchParams = useSearchParams();
   
   // 🟢 ดึงค่า callbackUrl ถ้าไม่มีให้ดีดไป /dashboard เป็นค่าเริ่มต้น
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  // S26: รับเฉพาะ path ภายในเว็บ ("/..." แต่ไม่ใช่ "//...") กัน open redirect / javascript:
+  const callbackUrl = safeRedirectPath(searchParams.get("callbackUrl"), "/dashboard");
 
   const [isLogin, setIsLogin] = useState(true);
+
+  // Google login ไม่ได้เขียน token ลง localStorage (ใช้ cookie token_public แทน)
+  // ถ้ามี token/email ของบัญชีก่อนหน้าค้างอยู่ getAuthToken() จะหยิบของเก่าก่อน cookie
+  // → ล้างทิ้งก่อนเริ่ม Google sign-in เพื่อไม่ให้ยิง API ด้วยตัวตนของคนก่อน
+  const handleGoogleSignIn = () => {
+    try {
+      localStorage.removeItem("token");
+      localStorage.removeItem("userEmail");
+    } catch {
+      // localStorage ถูกบล็อก — ไม่มีอะไรค้างให้ล้าง
+    }
+    signIn("google", { callbackUrl }, { prompt: "select_account" });
+  };
 
   // States สำหรับเก็บข้อมูลฟอร์ม
   const [name, setName] = useState("");
@@ -309,7 +324,7 @@ function LoginFormContent() {
 
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl }, { prompt: "select_account" })}
+            onClick={handleGoogleSignIn}
             className="neu-card-sm w-full flex items-center justify-center gap-3 py-3 neu-text hover:bg-slate-50 transition-all font-semibold text-sm"
           >
             <img src="/google-color.svg" alt="Google Logo" className="w-5 h-5" />
@@ -400,7 +415,7 @@ function LoginFormContent() {
 
           <button
             type="button"
-            onClick={() => signIn("google", { callbackUrl }, { prompt: "select_account" })}
+            onClick={handleGoogleSignIn}
             className="neu-card-sm w-full flex items-center justify-center gap-3 py-3 neu-text hover:bg-slate-50 transition-all font-semibold text-sm"
           >
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />

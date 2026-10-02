@@ -4,11 +4,59 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import WaveformAudioPlayer from "@/components/WaveformAudioPlayer"; // ปรับ Path ให้ตรง
-import PhoneReminder from "@/components/PhoneReminder";
 import BlinkingAlert from "@/components/BlinkingAlert";
 import DirectionCompass from "@/components/DirectionCompass";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+// ==========================================
+// เปิด SSE แบบต่อใหม่อัตโนมัติ
+// - error ชั่วคราว (เน็ตหลุด) browser จะ reconnect เองถ้าเราไม่ close()
+// - ถ้า browser ยอมแพ้ (readyState = CLOSED เช่น backend ตอบ 5xx/401) เราต่อใหม่เองแบบ backoff สูงสุด 30 วินาที
+// คืนฟังก์ชัน cleanup สำหรับใช้ตอน unmount
+// ==========================================
+const SSE_RETRY_MIN_MS = 1000;
+const SSE_RETRY_MAX_MS = 30000;
+
+function connectSSE(url: string, label: string, onData: (data: any) => void): () => void {
+  let source: EventSource | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let retryDelay = SSE_RETRY_MIN_MS;
+  let stopped = false;
+
+  const open = () => {
+    if (stopped) return;
+    const es = new EventSource(url, { withCredentials: true });
+    source = es;
+
+    es.onopen = () => {
+      retryDelay = SSE_RETRY_MIN_MS;
+    };
+
+    es.onmessage = (event) => {
+      try {
+        onData(JSON.parse(event.data));
+      } catch (error) {
+        console.error(`Error parsing ${label}:`, error);
+      }
+    };
+
+    es.onerror = () => {
+      if (stopped || es.readyState !== EventSource.CLOSED) return; // browser กำลัง reconnect เอง
+      es.close();
+      retryTimer = setTimeout(open, retryDelay);
+      retryDelay = Math.min(retryDelay * 2, SSE_RETRY_MAX_MS);
+    };
+  };
+
+  open();
+
+  return () => {
+    stopped = true;
+    if (retryTimer) clearTimeout(retryTimer);
+    source?.close();
+  };
+}
 
 type Coordinates = {
   angle_degrees: number;
@@ -32,9 +80,10 @@ export default function Dashboard() {
   const router = useRouter();
 
   // 🆕 Phase 3: Mock data สำหรับทดสอบ UI (จะลบออกเมื่อ Backend พร้อม)
+  // ใช้ id ติดลบ เพื่อไม่ให้ชนกับ id จริงใน detection_logs (handleResolve จะไม่ยิง API ให้ id ติดลบ)
   const MOCK_ALERT_DATA: EmergencyAlert[] = [
     {
-      id: 1,
+      id: -1,
       patient_name: "นายสมชาย ใจดี",
       room_number: "A-301",
       created_at: new Date().toISOString(),
@@ -48,7 +97,7 @@ export default function Dashboard() {
     },
     // เพิ่มตัวอย่างที่ 2 (ไม่มีระยะทาง)
     {
-      id: 2,
+      id: -2,
       patient_name: "นางสาวมานี สุขใจ",
       room_number: "B-205",
       created_at: new Date(Date.now() - 300000).toISOString(), // 5 นาทีก่อน
@@ -67,7 +116,8 @@ export default function Dashboard() {
   const [patients, setPatients] = useState<any[]>([]);
 
   // 🆕 Phase 3: Toggle สำหรับเปิด/ปิด mock data (ใช้ในการทดสอบ)
-  const [useMockData, setUseMockData] = useState(true); // เปลี่ยนเป็น false เมื่อ Backend พร้อม
+  // ค่าเริ่มต้นเป็นข้อมูลจริงเสมอ ปุ่มสลับแสดงเฉพาะตอน development
+  const [useMockData, setUseMockData] = useState(false);
 
   // Helper สำหรับดึง Token
   const getAuthToken = () => {
@@ -112,10 +162,10 @@ export default function Dashboard() {
         }
       } catch (error) {
         // ถ้า session fail ให้ใช้ fallback email สำหรับทดสอบ
+        // ใช้ในหน่วยความจำเท่านั้น ห้ามเขียนลง localStorage ไม่งั้นจะค้างไปถึงตอน login จริง
         if (process.env.NODE_ENV === 'development') {
           const fallbackEmail = "test@example.com";
           setUserEmail(fallbackEmail);
-          localStorage.setItem("userEmail", fallbackEmail);
         }
       }
     };
@@ -135,24 +185,13 @@ export default function Dashboard() {
       // ยังคงเชื่อมต่อ SSE สำหรับ Patients (ไม่ต้อง mock)
       const token = getAuthToken();
       const patientsUrl = `${API_BASE_URL}/api/patients/stream?email=${encodeURIComponent(userEmail)}&token=${encodeURIComponent(token)}`;
-      const patientsSource = new EventSource(patientsUrl, {
-        withCredentials: true,
+      const closePatients = connectSSE(patientsUrl, "patients", (data) => {
+        const newData = Array.isArray(data) ? data : [];
+        setPatients((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
       });
 
-      patientsSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          const newData = Array.isArray(data) ? data : [];
-          setPatients((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
-        } catch (error) {
-          console.error("Error parsing patients:", error);
-        }
-      };
-
-      patientsSource.onerror = () => patientsSource.close();
-
       return () => {
-        patientsSource.close();
+        closePatients();
       };
     }
 
@@ -164,44 +203,22 @@ export default function Dashboard() {
 
     // 1. เชื่อมต่อ SSE สำหรับ Alerts
     const alertsUrl = `${API_BASE_URL}/api/alerts/stream?email=${encodeURIComponent(userEmail)}&token=${encodeURIComponent(token)}`;
-    const alertsSource = new EventSource(alertsUrl, {
-      withCredentials: true,
+    const closeAlerts = connectSSE(alertsUrl, "alerts", (data) => {
+      const newData = Array.isArray(data) ? data : [];
+      setAlerts((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
     });
-
-    alertsSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const newData = Array.isArray(data) ? data : [];
-        setAlerts((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
-      } catch (error) {
-        console.error("Error parsing alerts:", error);
-      }
-    };
-
-    alertsSource.onerror = () => alertsSource.close();
 
     // 2. เชื่อมต่อ SSE สำหรับ Patients
     const patientsUrl = `${API_BASE_URL}/api/patients/stream?email=${encodeURIComponent(userEmail)}&token=${encodeURIComponent(token)}`;
-    const patientsSource = new EventSource(patientsUrl, {
-      withCredentials: true,
+    const closePatients = connectSSE(patientsUrl, "patients", (data) => {
+      const newData = Array.isArray(data) ? data : [];
+      setPatients((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
     });
 
-    patientsSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const newData = Array.isArray(data) ? data : [];
-        setPatients((prev) => (JSON.stringify(prev) === JSON.stringify(newData) ? prev : newData));
-      } catch (error) {
-        console.error("Error parsing patients:", error);
-      }
-    };
-
-    patientsSource.onerror = () => patientsSource.close();
-
-    // 3. Clean up
+    // 3. Clean up (ยกเลิก timer reconnect ที่ค้างอยู่ด้วย)
     return () => {
-      alertsSource.close();
-      patientsSource.close();
+      closeAlerts();
+      closePatients();
     };
 
   // 🌟 จุดสำคัญที่สุด: บังคับให้ React รู้ว่า "ถ้า userEmail เปลี่ยน ให้รีสตาร์ทฟังก์ชันนี้นะ!"
@@ -212,10 +229,18 @@ export default function Dashboard() {
   // ==========================================
   const handleResolve = async (id: number) => {
     if (!id) return;
+    // การ์ด mock (id ติดลบ หรือเปิดโหมด mock อยู่) ปิดเฉพาะบนหน้าจอ ห้ามยิง API
+    // ไม่งั้นอาจไป resolve alert จริงใน DB ที่ id ตรงกัน
+    if (useMockData || id < 0) {
+      setAlerts((prev) => prev.filter((a) => (a.id ?? a.ID) !== id));
+      return;
+    }
     try {
+      const token = getAuthToken();
       const res = await fetch(`${API_BASE_URL}/api/alerts/${id}/resolve`, {
         method: "PUT",
         credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
       if (!res.ok) {
@@ -231,7 +256,6 @@ export default function Dashboard() {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center px-3 py-4 sm:p-6 md:p-8 font-sans overflow-hidden">
-      {/* <PhoneReminder hasPhone={!!userData?.phone} /> */}
       {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
       {/* เอา blob สีเบลอออก — neumorphism ต้องการพื้นเรียบสีเดียว */}
       <div

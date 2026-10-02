@@ -24,7 +24,7 @@ function VerifyEmailContent() {
       try {
         // ยิง Token ไปให้ Go Fiber ตรวจสอบ
         const res = await fetch(
-          `${API_URL}/api/auth/verify-email?token=${token}`,
+          `${API_URL}/api/auth/verify-email?token=${encodeURIComponent(token)}`,
         );
 
         // ปลอดภัย: ถ้า response ไม่ใช่ JSON ให้จับเป็นข้อความสำเร็จ/ผิดพลาดทั่วไป

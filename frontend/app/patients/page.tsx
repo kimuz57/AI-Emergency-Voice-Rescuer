@@ -2,7 +2,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars, @typescript-eslint/no-explicit-any, react-hooks/set-state-in-effect */
 import { useState, useEffect } from "react";
 import PatientFormModal from "@/components/PatientFormModal";
-// import UnderConstruction from '../../components/UnderConstruction';
 
 // ปรับ Type ให้ตรงกับข้อมูลที่ใช้ใน Frontend
 type Patient = {

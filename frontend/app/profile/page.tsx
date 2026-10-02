@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import { getCroppedImg } from "../../untils/cropUtils";
+import { getAuthToken } from "@/lib/auth";
 
 // กำหนด Interface สำหรับข้อมูลผู้ใช้ (TypeScript)
 interface UserProfile {
@@ -41,7 +42,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = localStorage.getItem("token");
+        const token = getAuthToken();
         let email = localStorage.getItem("userEmail");
 
         const sessionRes = await fetch("/api/auth/session");
@@ -56,7 +57,7 @@ export default function ProfilePage() {
           throw new Error("ไม่มีอีเมลในระบบ ไม่สามารถดึงโปรไฟล์ได้");
         }
 
-        const url = `${BASE_URL}/api/user/profile?email=${email}`;
+        const url = `${BASE_URL}/api/user/profile?email=${encodeURIComponent(email)}`;
         const response = await fetch(url, {
           method: "GET",
           headers: {
@@ -130,7 +131,7 @@ export default function ProfilePage() {
   const uploadProfileImage = async (file: File) => {
     setIsUploading(true);
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const email = localStorage.getItem("userEmail");
 
       const formData = new FormData();
@@ -168,7 +169,7 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      const token = localStorage.getItem("token");
+      const token = getAuthToken();
       const email = localStorage.getItem("userEmail");
       const response = await fetch(`${BASE_URL}/api/user/profile`, {
         method: "PUT",

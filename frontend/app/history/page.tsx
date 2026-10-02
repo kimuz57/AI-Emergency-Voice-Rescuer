@@ -18,6 +18,7 @@ import {
   Area,
 } from "recharts";
 import WaveformAudioPlayer from "@/components/WaveformAudioPlayer";
+import { authHeaders } from "@/lib/auth";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -108,9 +109,10 @@ export default function HistoryPage() {
       const toStr = toDate.toISOString().split("T")[0];
 
       const historyRes = await fetch(
-        `${API_BASE_URL}/api/alerts/history?email=${email}&from=${fromStr}&to=${toStr}`,
+        `${API_BASE_URL}/api/alerts/history?email=${encodeURIComponent(email)}&from=${fromStr}&to=${toStr}`,
         {
           credentials: "include",
+          headers: authHeaders(),
         },
       );
       if (historyRes.ok) {
@@ -120,9 +122,10 @@ export default function HistoryPage() {
 
       // ดึงสถิติ
       const statsRes = await fetch(
-        `${API_BASE_URL}/api/alerts/stats?email=${email}&days=30`,
+        `${API_BASE_URL}/api/alerts/stats?email=${encodeURIComponent(email)}&days=30`,
         {
           credentials: "include",
+          headers: authHeaders(),
         },
       );
       if (statsRes.ok) {
@@ -144,6 +147,8 @@ export default function HistoryPage() {
     try {
       const res = await fetch(`${API_BASE_URL}/api/alerts/${id}/resolve`, {
         method: "PUT",
+        credentials: "include",
+        headers: authHeaders(),
       });
       if (res.ok) {
         // อัปเดต state ทันทีเพื่อไม่ต้องโหลดใหม่หมด

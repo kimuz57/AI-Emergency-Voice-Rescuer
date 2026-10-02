@@ -2,6 +2,7 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState, Suspense, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { authHeaders, LINE_OAUTH_STATE_KEY } from "@/lib/auth";
 
 // แยก Component สำหรับอ่าน URL Parameter ออกมา
 function CallbackContent() {
@@ -30,21 +31,33 @@ function CallbackContent() {
 
       // 🔒 ล็อกทันที ป้องกันรอบที่สองวิ่งมาชน
       hasFetched.current = true;
+
+      // S27: state ต้องตรงกับที่ /settings/notifications สุ่มเก็บไว้ก่อน redirect ไป LINE
+      // ใช้ได้ครั้งเดียว — ลบทิ้งทันทีไม่ว่าจะตรงหรือไม่
+      const returnedState = searchParams.get("state");
+      let expectedState: string | null = null;
+      try {
+        expectedState = sessionStorage.getItem(LINE_OAUTH_STATE_KEY);
+        sessionStorage.removeItem(LINE_OAUTH_STATE_KEY);
+      } catch {
+        expectedState = null;
+      }
+      if (!expectedState || !returnedState || returnedState !== expectedState) {
+        setStatus("❌ คำขอเชื่อมต่อ LINE ไม่ถูกต้องหรือหมดอายุ กรุณากดเชื่อมต่อใหม่จากหน้าตั้งค่าการแจ้งเตือน");
+        return;
+      }
+
       setCode(authCode);
       setStatus("กำลังนำรหัสไปผูกกับบัญชีของคุณ...");
 
       try {
-        const token = localStorage.getItem("token");
         const email = localStorage.getItem("userEmail");
 
         const response = await fetch(
           `${BASE_URL}/api/user/link-line`,
           {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token || ""}`,
-            },
+            headers: authHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({ code: authCode, email: email }),
           },
         );
@@ -55,7 +68,7 @@ function CallbackContent() {
             router.push("/profile");
           }, 2000);
         } else {
-          const errData = await response.json();
+          const errData = await response.json().catch(() => ({}));
           setStatus(
             `❌ เกิดข้อผิดพลาด: ${errData.error || "ไม่สามารถผูกบัญชีได้"}`,
           );

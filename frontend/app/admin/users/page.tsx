@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useState } from "react";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { authHeaders } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const avatarColors = ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#EF4444"];
@@ -33,7 +34,7 @@ export default function AdminUsers() {
     fetch(`${API_URL}/api/admin/users`, {
       method: "GET",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
     })
       .then(async (res) => {
         if (!res.ok) throw new Error(`API Error: ${res.status}`);
@@ -59,7 +60,7 @@ export default function AdminUsers() {
       const res = await fetch(`${API_URL}/api/admin/users/${id}`, {
         method: "DELETE",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
       });
 
       if (res.ok) {
@@ -94,7 +95,7 @@ export default function AdminUsers() {
       const res = await fetch(`${API_URL}/api/admin/users/${editUser.id || editUser.ID}`, {
         method: "PUT",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(editForm), // ส่งข้อมูลทั้งก้อนไปให้ Go
       });
 
