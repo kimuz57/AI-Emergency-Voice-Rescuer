@@ -1,11 +1,13 @@
 import io
 import os
 import logging
+import threading
 import torch
 import torchaudio
 import torch.nn.functional as F
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel
 from torchaudio import transforms as T
 from nnAudio.features.mel import MelSpectrogram
@@ -23,11 +25,14 @@ logger = logging.getLogger("uvicorn.error")
 # 🌟 2. ดึง Core Logic ของ AI ออกมาเป็น Function ธรรมดา 
 # (เพื่อให้ MQTT เรียกใช้ได้ตรงๆ โดยไม่ต้องผ่าน Network)
 # =========================================================================
+# 🌟 /need-help (threadpool) กับ ai_worker ของ MQTT ใช้ model ตัวเดียวกัน ต้องเข้าทีละคน
+_inference_lock = threading.Lock()
+
 def run_kws_inference(audio_bytes: bytes) -> dict:
     """รับไฟล์เสียงแบบ Bytes เข้ามาประมวลผล และคืนค่าเป็น Dict"""
     try:
-        input_tensor = preprocess_audio(audio_bytes)
-        with torch.no_grad():
+        with _inference_lock, torch.no_grad():
+            input_tensor = preprocess_audio(audio_bytes)
             logits = model(input_tensor)
             probabilities = torch.softmax(logits, dim=-1).squeeze()
             
@@ -82,7 +87,7 @@ torch.backends.nnpack.enabled = False
 # -------------------------------------------------------------------------
 # 1. Model Configuration & Loading
 # -------------------------------------------------------------------------
-SAMPLE_RATE = 8000  # BCResNet typically uses 16kHz
+SAMPLE_RATE = 8000  # ต้องตรงกับ firmware (I2S_SAMPLE_RATE = 8000) และ mel_transform ด้านล่าง
 DURATION_SEC = 2
 TARGET_SAMPLES = SAMPLE_RATE * DURATION_SEC
 device = torch.device("cpu")
@@ -103,8 +108,9 @@ try:
     model.eval()
     logger.info("✅ Model successfully loaded on CPU.")
 except Exception as e:
-    logger.warning(f"⚠️ Warning: Could not load model weights ({e}). Running with dummy initialization.")
-    model.eval()
+    # 🌟 ห้ามรันต่อด้วย weight สุ่ม: ผลที่ได้จะดูเหมือนจริงแต่ไม่มีความหมาย
+    logger.error(f"❌ Could not load model weights from {MODEL_PATH}: {e}")
+    raise RuntimeError(f"Could not load model weights from {MODEL_PATH}") from e
 
 # -------------------------------------------------------------------------
 # 2. Preprocessing Utility
@@ -150,14 +156,14 @@ class KWSResponse(BaseModel):
 @app.post("/need-help", response_model=KWSResponse)
 async def predict_keyword(sound: UploadFile = File(...)):
     # Validate file extension
-    if not sound.filename.lower().endswith(('.wav')):
+    if not sound.filename or not sound.filename.lower().endswith((".wav",)):
         raise HTTPException(status_code=400, detail="Only standard WAV files are supported.")
 
     # Read the file payload into memory
     audio_bytes = await sound.read()
-    
-    # 🌟 เรียกใช้ฟังก์ชัน AI Core ที่แยกไว้
-    result = run_kws_inference(audio_bytes)
+
+    # 🌟 เรียกใช้ฟังก์ชัน AI Core ที่แยกไว้ (รันใน threadpool จะได้ไม่บล็อก event loop)
+    result = await run_in_threadpool(run_kws_inference, audio_bytes)
 
     return KWSResponse(
         detected=result["detected"],

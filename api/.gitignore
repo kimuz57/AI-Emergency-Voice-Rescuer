@@ -2,7 +2,11 @@ best_bcresnet_kws.pth
 best_sens_model.pth
 dockerfile
 epoch000_best_sens.pth
-model
+
 .venv
+# ignore local weights/checkpoints, but keep the shipped BCResNet_M weights tracked
 models/*
-_pycache__
+!models/best_m.pth
+__pycache__/
+# Keep the env template tracked (root .gitignore ignores .env*)
+!.env.example
