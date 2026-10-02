@@ -32,3 +32,6 @@ env/
 # Temporary
 *.temp
 .cache/
+
+# Local credentials (template: main/secrets.h.example)
+main/secrets.h

@@ -7,21 +7,18 @@
 #include "esp_mac.h"
 #include <stdlib.h> 
 #include <ctype.h> // สำหรับถอดรหัส URL
+#include <string.h>
 
-#define IS_LOCAL_ENV 0 
-
-#if IS_LOCAL_ENV
-    // --- ตั้งค่าสำหรับ Local ---
-    #define SERVER_URL "https://s8449mbs-3000.asse.devtunnels.ms/register-patient?mac=%s" 
-#else
-    // --- ตั้งค่าสำหรับ Server จริง ---
-    #define SERVER_URL "https://kws.wattanapong.com/register-patient?mac=%s"
+// 🌍 SERVER_URL (ลิงก์ register-patient) และ TARGET_MQTT_URI มาจากบล็อก DEPLOY_ENV ใน main.c
+// ซึ่งต้องอยู่ก่อน #include "web_server.h" — ไม่มีการ define environment ซ้ำในไฟล์นี้
+#ifndef SERVER_URL
+#error "SERVER_URL is not defined: set DEPLOY_ENV in main.c before including web_server.h"
+#endif
+#ifndef TARGET_MQTT_URI
+#error "TARGET_MQTT_URI is not defined: set DEPLOY_ENV in main.c before including web_server.h"
 #endif
 
-
-
 extern char mqtt_broker_uri_dynamic[128];
-extern void restart_mqtt_client(void);
 extern void connect_to_sta(const char* ssid, const char* password);
 extern void save_mqtt_uri_to_nvs(const char* uri);
 
@@ -37,9 +34,16 @@ const char* html_header = "<!DOCTYPE html><html><head><meta charset='UTF-8'><met
 const char* html_footer = "</body></html>";
 
 // 🟢 ฟังก์ชันช่วยถอดรหัส URL (แก้อาการรับชื่อไวไฟที่มีเว้นวรรคแล้วเพี้ยน)
-static void url_decode(char *dst, const char *src) {
+// เขียนไม่เกิน dst_size (รวม '\0') คืน false ถ้าผลลัพธ์ยาวเกินที่ปลายทางรับได้
+static bool url_decode(char *dst, size_t dst_size, const char *src) {
     char a, b;
+    size_t out = 0;
+    if (dst_size == 0) return false;
     while (*src) {
+        if (out + 1 >= dst_size) {
+            dst[out] = '\0';
+            return false;
+        }
         if ((*src == '%') &&
             ((a = src[1]) && (b = src[2])) &&
             (isxdigit((unsigned char)a) && isxdigit((unsigned char)b))) {
@@ -49,16 +53,90 @@ static void url_decode(char *dst, const char *src) {
             if (b >= 'a') b -= 'a'-'A';
             if (b >= 'A') b -= ('A' - 10);
             else b -= '0';
-            *dst++ = 16*a+b;
+            dst[out++] = 16*a+b;
             src+=3;
         } else if (*src == '+') {
-            *dst++ = ' '; // แปลงเครื่องหมาย + เป็นเว้นวรรค
+            dst[out++] = ' '; // แปลงเครื่องหมาย + เป็นเว้นวรรค
             src++;
         } else {
-            *dst++ = *src++;
+            dst[out++] = *src++;
         }
     }
-    *dst++ = '\0';
+    dst[out] = '\0';
+    return true;
+}
+
+// 🛡️ escape ข้อความก่อนใส่ลง HTML (เช่น SSID จากการสแกน ที่ใครก็ตั้งชื่อเป็นแท็ก HTML/JS ได้)
+// คืน false ถ้าไม่พอดี dst_size (ผลลัพธ์ที่ได้ยังปิดด้วย '\0' เสมอ)
+static bool html_escape(char *dst, size_t dst_size, const char *src) {
+    size_t out = 0;
+    if (dst_size == 0) return false;
+    for (; *src; src++) {
+        char one[2] = { *src, '\0' };
+        const char *rep = one;
+        switch (*src) {
+            case '&':  rep = "&amp;";  break;
+            case '<':  rep = "&lt;";   break;
+            case '>':  rep = "&gt;";   break;
+            case '"':  rep = "&quot;"; break;
+            case '\'': rep = "&#39;";  break;
+            default: break;
+        }
+        size_t n = strlen(rep);
+        if (out + n >= dst_size) {
+            dst[out] = '\0';
+            return false;
+        }
+        memcpy(dst + out, rep, n);
+        out += n;
+    }
+    dst[out] = '\0';
+    return true;
+}
+
+// 🛡️ เขียนข้อความเป็น JSON string พร้อมเครื่องหมายคำพูดหัวท้าย (escape " \ และอักขระควบคุม)
+static bool json_escape_quoted(char *dst, size_t dst_size, const char *src) {
+    size_t out = 0;
+    if (dst_size < 3) return false;
+    dst[out++] = '"';
+    for (; *src; src++) {
+        unsigned char c = (unsigned char)*src;
+        char tmp[7];
+        size_t n;
+        if (c == '"' || c == '\\') {
+            tmp[0] = '\\'; tmp[1] = (char)c; n = 2;
+        } else if (c < 0x20) {
+            snprintf(tmp, sizeof(tmp), "\\u%04x", c); n = 6;
+        } else {
+            tmp[0] = (char)c; n = 1;
+        }
+        if (out + n + 2 > dst_size) {   // เผื่อ '"' ปิดท้าย + '\0'
+            dst[0] = '\0';
+            return false;
+        }
+        memcpy(dst + out, tmp, n);
+        out += n;
+    }
+    dst[out++] = '"';
+    dst[out] = '\0';
+    return true;
+}
+
+// 📄 ส่งหน้า HTML แบบ chunk: html_header, ส่วนเนื้อหาตามลำดับ, html_footer
+// (เดิมรวมทุกอย่างลง buffer เดียวด้วย snprintf ซึ่งเล็กกว่า html_header ~830 byte จนหน้าเว็บถูกตัด)
+static esp_err_t send_html_parts(httpd_req_t *req, const char *const parts[], size_t count) {
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    if (httpd_resp_send_chunk(req, html_header, HTTPD_RESP_USE_STRLEN) != ESP_OK) return ESP_FAIL;
+    for (size_t i = 0; i < count; i++) {
+        if (parts[i] != NULL && httpd_resp_send_chunk(req, parts[i], HTTPD_RESP_USE_STRLEN) != ESP_OK) return ESP_FAIL;
+    }
+    if (httpd_resp_send_chunk(req, html_footer, HTTPD_RESP_USE_STRLEN) != ESP_OK) return ESP_FAIL;
+    return httpd_resp_send_chunk(req, NULL, 0);
+}
+
+static esp_err_t send_html_page(httpd_req_t *req, const char *body) {
+    const char *parts[] = { body };
+    return send_html_parts(req, parts, 1);
 }
 
 // 🟢 Route /wifi (GET: ส่งหน้าเว็บ wifi.html ที่ฝังใน CMake ออกไป)
@@ -72,42 +150,39 @@ esp_err_t wifi_page_get_handler(httpd_req_t *req) {
 // Route / (หน้าแรก) 🟢 เพิ่มปุ่มเข้าหน้าตั้งค่า WiFi
 // แก้ไขโค้ดหน้าแรกให้มีปุ่ม Reconnect
 static esp_err_t root_get_handler(httpd_req_t *req) {
-    char response[1024];
-    snprintf(response, sizeof(response), 
-             "%s"
+    // ℹ️ broker ถูกกำหนดตอน build (TARGET_MQTT_URI) ไม่ใช่ค่า mqtt_uri ใน NVS จึงแสดงค่าที่ใช้จริง
+    static const char body[] =
              "<h2>ESP32 SmartVoice Configuration</h2>"
-             "<p>ปัจจุบัน MQTT URI: <b>%s</b></p>"
-             "<p><a href='/host'>ตั้งค่า MQTT Broker URI</a></p>"
-             "<p><a href='/wifi'>ตั้งค่าการเชื่อมต่อ Wi-Fi (ใหม่)</a></p>"
+             "<p>MQTT Broker ที่ใช้งาน (กำหนดตอน build เปลี่ยนจากหน้าเว็บไม่ได้): <b>" TARGET_MQTT_URI "</b></p>"
+             "<p><a href='/host'>ข้อมูล MQTT Broker URI</a></p>"
+             "<p><a href='/'>ตั้งค่าการเชื่อมต่อ Wi-Fi (ใหม่)</a></p>"
              "<p><a href='/scanwifi'>สแกนรายชื่อ Wi-Fi บริเวณนี้</a></p>"
              "<hr style='border:1px solid #ccc; margin:20px 0;'>"
-             "<p><a href='/reconnect' style='background:#17a2b8;'>🔄 เชื่อมต่อ Wi-Fi เดิมอีกครั้ง (Reconnect)</a></p>" // 🟢 เพิ่มปุ่มนี้เข้าไป
-             "%s", 
-             html_header, mqtt_broker_uri_dynamic, html_footer);
+             "<p><a href='/reconnect' style='background:#17a2b8;'>🔄 เชื่อมต่อ Wi-Fi เดิมอีกครั้ง (Reconnect)</a></p>"; // 🟢 เพิ่มปุ่มนี้เข้าไป
              
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
+    return send_html_page(req, body);
 }
 
 // Route /host (GET)
 static esp_err_t host_get_handler(httpd_req_t *req) {
-    char response[1500];
-    snprintf(response, sizeof(response),
-             "%s"
-             "<h2>ตั้งค่า MQTT Broker URI</h2>"
-             "<form action='/host' method='POST'>"
-             "  <label>MQTT Broker URI:</label>"
-             "  <input type='text' name='uri' value='%s' placeholder='mqtt://192.168.1.50:1883'>"
-             "  <input type='submit' class='btn' value='บันทึกและปรับปรุง'>"
-             "</form>"
-             "<p><a href='/'>กลับหน้าหลัก</a></p>"
-             "%s",
-             html_header, mqtt_broker_uri_dynamic, html_footer);
+    char uri_esc[sizeof(mqtt_broker_uri_dynamic) * 6];
+    html_escape(uri_esc, sizeof(uri_esc), mqtt_broker_uri_dynamic);
 
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
+    const char *parts[] = {
+             "<h2>MQTT Broker URI</h2>"
+             "<p>เฟิร์มแวร์นี้เชื่อมต่อ broker ที่กำหนดตอน build เท่านั้น (TARGET_MQTT_URI): <b>" TARGET_MQTT_URI "</b></p>"
+             "<p style='color:#856404;'>⚠️ ค่าในฟอร์มด้านล่างถูกเก็บใน NVS แต่ <b>ไม่ถูกใช้</b> เชื่อมต่อ MQTT "
+             "(เปลี่ยน broker ต้องแก้ DEPLOY_ENV ใน main.c แล้ว build ใหม่)</p>"
+             "<form action='/host' method='POST'>"
+             "  <label>ค่าที่เก็บใน NVS (ไม่ถูกใช้):</label>"
+             "  <input type='text' name='uri' value='",
+             uri_esc,
+             "' placeholder='mqtt://192.168.1.50:1883'>"
+             "  <input type='submit' class='btn' value='บันทึกลง NVS'>"
+             "</form>"
+             "<p><a href='/'>กลับหน้าหลัก</a></p>",
+    };
+    return send_html_parts(req, parts, sizeof(parts) / sizeof(parts[0]));
 }
 
 // Route /host (POST)
@@ -115,7 +190,10 @@ static esp_err_t host_post_handler(httpd_req_t *req) {
     char buf[150];
     int ret, received = 0;
     
-    if (req->content_len >= sizeof(buf)) { return ESP_FAIL; }
+    if (req->content_len >= sizeof(buf)) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Request body too long");
+        return ESP_FAIL;
+    }
 
     while (received < req->content_len) {
         ret = httpd_req_recv(req, buf + received, req->content_len - received);
@@ -128,45 +206,68 @@ static esp_err_t host_post_handler(httpd_req_t *req) {
     buf[received] = '\0';
 
     char uri_val[128] = {0};
-    if (httpd_query_key_value(buf, "uri", uri_val, sizeof(uri_val)) == ESP_OK) {
-        char decoded_uri[128] = {0};
-        url_decode(decoded_uri, uri_val); // ใช้ฟังก์ชันถอดรหัส
+    esp_err_t qerr = httpd_query_key_value(buf, "uri", uri_val, sizeof(uri_val));
+    if (qerr == ESP_ERR_HTTPD_RESULT_TRUNC) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "uri too long");
+        return ESP_OK;
+    }
+    if (qerr == ESP_OK) {
+        char decoded_uri[sizeof(mqtt_broker_uri_dynamic)] = {0};
+        if (!url_decode(decoded_uri, sizeof(decoded_uri), uri_val)) { // ใช้ฟังก์ชันถอดรหัส
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "uri too long");
+            return ESP_OK;
+        }
         
-        strncpy(mqtt_broker_uri_dynamic, decoded_uri, sizeof(mqtt_broker_uri_dynamic) - 1);
-        ESP_LOGI(WS_TAG, "ปรับปรุง MQTT URI ใหม่สำเร็จ: %s", mqtt_broker_uri_dynamic);
+        memcpy(mqtt_broker_uri_dynamic, decoded_uri, sizeof(mqtt_broker_uri_dynamic)); // url_decode ปิดด้วย '\0' ภายในขนาดนี้แล้ว
+        ESP_LOGI(WS_TAG, "บันทึก MQTT URI ลง NVS (ไม่ถูกใช้ เชื่อมต่อจริงใช้ TARGET_MQTT_URI): %s", mqtt_broker_uri_dynamic);
         
+        // ℹ️ ไม่ restart MQTT client แล้ว: restart_mqtt_client() ใช้ TARGET_MQTT_URI เสมอ
+        // การ restart จึงแค่ตัดสตรีมเสียงชั่วคราวโดยไม่เปลี่ยน broker
         save_mqtt_uri_to_nvs(mqtt_broker_uri_dynamic); 
-        restart_mqtt_client();
     }
 
-    char response[1024];
-    snprintf(response, sizeof(response),
-             "%s"
-             "<h2>บันทึกสำเร็จแล้ว!</h2>"
-             "<p>กำลังเปลี่ยนระบบเชื่อมต่อไปยัง: %s</p>"
-             "<script>setTimeout(function(){window.location.href='/admin';}, 3000);</script>"
-             "%s",
-             html_header, mqtt_broker_uri_dynamic, html_footer);
+    char uri_esc[sizeof(mqtt_broker_uri_dynamic) * 6];
+    html_escape(uri_esc, sizeof(uri_esc), mqtt_broker_uri_dynamic);
              
-    httpd_resp_set_type(req, "text/html");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
+    const char *parts[] = {
+             "<h2>บันทึกลง NVS แล้ว</h2>"
+             "<p>ค่าที่บันทึก: <b>",
+             uri_esc,
+             "</b></p>"
+             "<p>⚠️ ไม่มีผลกับการเชื่อมต่อ MQTT — เฟิร์มแวร์นี้ใช้ broker ที่กำหนดตอน build: <b>" TARGET_MQTT_URI "</b></p>"
+             "<script>setTimeout(function(){window.location.href='/admin';}, 3000);</script>",
+    };
+    return send_html_parts(req, parts, sizeof(parts) / sizeof(parts[0]));
 }
 
 // Route /scanwifi (GET)
 static esp_err_t scanwifi_get_handler(httpd_req_t *req) {
-    uint16_t number = 15; wifi_ap_record_t ap_info[15]; uint16_t ap_count = 0;
+    uint16_t number = 15; uint16_t ap_count = 0;
+    // 🌟 ใช้ heap แทน stack ของเว็บเซิร์ฟเวอร์ (15 records ~1.2 KB)
+    wifi_ap_record_t *ap_info = (wifi_ap_record_t *)calloc(number, sizeof(wifi_ap_record_t));
+    if (ap_info == NULL) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "Out of memory");
+        return ESP_OK;
+    }
     esp_wifi_scan_start(NULL, true);
-    esp_wifi_scan_get_ap_records(&number, ap_info);
-    esp_wifi_scan_get_ap_num(&ap_count);
+    esp_wifi_scan_get_ap_num(&ap_count);   // ถามจำนวนก่อน เพราะ get_ap_records จะคืนหน่วยความจำผลสแกนทิ้ง
+    if (esp_wifi_scan_get_ap_records(&number, ap_info) != ESP_OK) {
+        number = 0;
+    }
 
-    httpd_resp_set_type(req, "text/html");
-    char chunk[512];
-    snprintf(chunk, sizeof(chunk), "%s<h2>สแกนพบ Wi-Fi (%d ช่องสัญญาณ)</h2><ul>", html_header, ap_count);
-    httpd_resp_send_chunk(req, chunk, HTTPD_RESP_USE_STRLEN);
+    httpd_resp_set_type(req, "text/html; charset=utf-8");
+    char chunk[1024];
+    char ssid_esc[sizeof(ap_info[0].ssid) * 6];
+    esp_err_t err = httpd_resp_send_chunk(req, html_header, HTTPD_RESP_USE_STRLEN);
+    if (err == ESP_OK) {
+        snprintf(chunk, sizeof(chunk), "<h2>สแกนพบ Wi-Fi (%d ช่องสัญญาณ)</h2><ul>", ap_count);
+        err = httpd_resp_send_chunk(req, chunk, HTTPD_RESP_USE_STRLEN);
+    }
     
-    for (int i = 0; i < number && i < ap_count; i++) {
-        snprintf(chunk, sizeof(chunk),
+    for (int i = 0; err == ESP_OK && i < number; i++) {
+        // 🛡️ SSID มาจากใครก็ได้ที่ปล่อย Wi-Fi ใกล้ๆ ต้อง escape ก่อนใส่ลง HTML
+        if (!html_escape(ssid_esc, sizeof(ssid_esc), (char*)ap_info[i].ssid)) continue;
+        int n = snprintf(chunk, sizeof(chunk),
                  "<li>"
                  "  <span><b>%s</b> (RSSI: %d dBm)</span>"
                  "  <form action='/connect' method='POST' style='margin:0;'>"
@@ -175,11 +276,15 @@ static esp_err_t scanwifi_get_handler(httpd_req_t *req) {
                  "    <input type='submit' class='btn' value='เชื่อมต่อ' style='padding:5px 10px;'>"
                  "  </form>"
                  "</li>",
-                 (char*)ap_info[i].ssid, ap_info[i].rssi, (char*)ap_info[i].ssid);
-        httpd_resp_send_chunk(req, chunk, HTTPD_RESP_USE_STRLEN);
+                 ssid_esc, ap_info[i].rssi, ssid_esc);
+        if (n < 0 || n >= (int)sizeof(chunk)) continue;   // ไม่ส่งแถวที่ถูกตัด
+        err = httpd_resp_send_chunk(req, chunk, HTTPD_RESP_USE_STRLEN);
     }
-    snprintf(chunk, sizeof(chunk), "</ul><p><a href='/'>กลับหน้าหลัก</a></p>%s", html_footer);
-    httpd_resp_send_chunk(req, chunk, HTTPD_RESP_USE_STRLEN);
+    free(ap_info);
+    if (err != ESP_OK) return ESP_FAIL;
+
+    if (httpd_resp_send_chunk(req, "</ul><p><a href='/'>กลับหน้าหลัก</a></p>", HTTPD_RESP_USE_STRLEN) != ESP_OK) return ESP_FAIL;
+    if (httpd_resp_send_chunk(req, html_footer, HTTPD_RESP_USE_STRLEN) != ESP_OK) return ESP_FAIL;
     httpd_resp_send_chunk(req, NULL, 0); 
     
     return ESP_OK;
@@ -190,7 +295,10 @@ static esp_err_t connect_post_handler(httpd_req_t *req) {
     char buf[512]; 
     int ret, received = 0;
 
-    if (req->content_len >= sizeof(buf)) { return ESP_FAIL; }
+    if (req->content_len >= sizeof(buf)) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Request body too long");
+        return ESP_FAIL;
+    }
 
     while (received < req->content_len) {
         ret = httpd_req_recv(req, buf + received, req->content_len - received);
@@ -202,14 +310,20 @@ static esp_err_t connect_post_handler(httpd_req_t *req) {
     }
     buf[received] = '\0';
 
-    char ssid_raw[256] = {0}, pass_raw[256] = {0};
-    char ssid[128] = {0}, password[128] = {0};
+    // ขนาดตาม wifi_config_t: SSID ≤ 32 byte, รหัส ≤ 64 byte (+1 สำหรับ '\0')
+    // ค่าดิบเป็น URL-encoded ซึ่งแต่ละ byte อาจกลายเป็น %XX (3 ตัวอักษร) จึงเผื่อไว้ 3 เท่า
+    char ssid_raw[32 * 3 + 1] = {0}, pass_raw[64 * 3 + 1] = {0};
+    char ssid[32 + 1] = {0}, password[64 + 1] = {0};
 
-    httpd_query_key_value(buf, "ssid", ssid_raw, sizeof(ssid_raw));
-    httpd_query_key_value(buf, "password", pass_raw, sizeof(pass_raw));
+    esp_err_t ssid_err = httpd_query_key_value(buf, "ssid", ssid_raw, sizeof(ssid_raw));
+    esp_err_t pass_err = httpd_query_key_value(buf, "password", pass_raw, sizeof(pass_raw));
 
-    url_decode(ssid, ssid_raw);
-    url_decode(password, pass_raw);
+    if (ssid_err == ESP_ERR_HTTPD_RESULT_TRUNC || pass_err == ESP_ERR_HTTPD_RESULT_TRUNC ||
+        !url_decode(ssid, sizeof(ssid), ssid_raw) ||
+        !url_decode(password, sizeof(password), pass_raw)) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "SSID (max 32 bytes) or password (max 64 bytes) is too long");
+        return ESP_OK;
+    }
 
     if (strlen(ssid) == 0) {
         httpd_resp_set_type(req, "text/plain; charset=utf-8");
@@ -283,18 +397,12 @@ static esp_err_t reconnect_get_handler(httpd_req_t *req) {
     trigger_wifi_reconnect();
     
     // แสดงหน้าเว็บชั่วคราว แล้วเด้งกลับไปหน้าแรกใน 3 วินาที
-    char response[500];
-    snprintf(response, sizeof(response),
-             "%s"
+    static const char body[] =
              "<h2>กำลังพยายามเชื่อมต่อ Wi-Fi อีกครั้ง...</h2>"
              "<p>ระบบกำลังค้นหาและเชื่อมต่อไปยัง Wi-Fi เดิมที่เคยบันทึกไว้ (เช็คสถานะได้จากไฟ LED)</p>"
-             "<script>setTimeout(function(){window.location.href='/';}, 3000);</script>"
-             "%s",
-             html_header, html_footer);
+             "<script>setTimeout(function(){window.location.href='/';}, 3000);</script>";
     
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    httpd_resp_send(req, response, HTTPD_RESP_USE_STRLEN);
-    return ESP_OK;
+    return send_html_page(req, body);
 }
 
 static esp_err_t captive_portal_404_handler(httpd_req_t *req, httpd_err_code_t err) {
@@ -339,8 +447,10 @@ static esp_err_t api_scan_get_handler(httpd_req_t *req) {
     ESP_LOGI(WS_TAG, "สแกนเสร็จสิ้น เจอ %d เครือข่าย", ap_count);
 
     // 🌟 1. ดึงหน่วยความจำจาก Heap (แรมหลัก) เพื่อไม่ให้ Stack ของเว็บเซิร์ฟเวอร์ระเบิด
+    // JSON: SSID ละ ≤ 32 byte ที่ escape แล้วยาวได้สูงสุด 6 เท่า (\u00XX) + เครื่องหมายคำพูด 2 + ',' 1
+    const size_t json_cap = (size_t)max_ap * (32 * 6 + 3) + 3;
     wifi_ap_record_t *ap_info = (wifi_ap_record_t *)malloc(sizeof(wifi_ap_record_t) * max_ap);
-    char *json_response = (char *)malloc(2048);
+    char *json_response = (char *)malloc(json_cap);
 
     // ป้องกันกรณีที่แรมเต็มจริงๆ
     if (ap_info == NULL || json_response == NULL) {
@@ -355,22 +465,27 @@ static esp_err_t api_scan_get_handler(httpd_req_t *req) {
     // ดึงข้อมูลรายชื่อ Wi-Fi มาใส่ในแรมที่จองไว้
     esp_wifi_scan_get_ap_records(&max_ap, ap_info);
 
-    strcpy(json_response, "[");
+    size_t used = 0;
+    json_response[used++] = '[';
     bool first_item = true;
 
     for (int i = 0; i < max_ap; i++) {
         // กรองเอาเฉพาะ Wi-Fi ที่มีชื่อ (ไม่ซ่อน SSID)
         if (strlen((char *)ap_info[i].ssid) > 0) {
-            char ssid_buffer[128];
-            if (!first_item) strcat(json_response, ",");
+            char ssid_buffer[32 * 6 + 3];
             
-            // ใช้ท่า snprintf ป้องกันการเขียนทับ (Buffer Overflow)
-            snprintf(ssid_buffer, sizeof(ssid_buffer), "\"%s\"", (char *)ap_info[i].ssid);
-            strcat(json_response, ssid_buffer);
+            // 🛡️ escape " \ และอักขระควบคุมใน SSID ไม่ให้ JSON พัง
+            if (!json_escape_quoted(ssid_buffer, sizeof(ssid_buffer), (char *)ap_info[i].ssid)) continue;
+            size_t n = strlen(ssid_buffer);
+            if (used + n + 3 > json_cap) break;   // ',' + ']' + '\0'
+            if (!first_item) json_response[used++] = ',';
+            memcpy(json_response + used, ssid_buffer, n);
+            used += n;
             first_item = false;
         }
     }
-    strcat(json_response, "]");
+    json_response[used++] = ']';
+    json_response[used] = '\0';
     
     // ส่งข้อมูลกลับไปให้หน้าเว็บ
     httpd_resp_set_type(req, "application/json; charset=utf-8");

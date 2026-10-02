@@ -75,7 +75,7 @@
                 <option value="">-- กำลังค้นหา Wi-Fi ⏳ --</option>
             </select>
             
-            <input type="password" id="password" placeholder="รหัสผ่าน Wi-Fi (เว้นว่างได้ถ้าไม่มี)">
+            <input type="password" id="password" maxlength="64" placeholder="รหัสผ่าน Wi-Fi (เว้นว่างได้ถ้าไม่มี)">
             <button type="submit" id="submitBtn" disabled>เชื่อมต่อ Wi-Fi</button>
         </form>
 
@@ -138,8 +138,14 @@
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: 'ssid=' + encodeURIComponent(ssid) + '&password=' + encodeURIComponent(password)
             })
-            .then(response => response.text())
-            .then(data => {
+            .then(response => response.text().then(data => ({ ok: response.ok, data: data })))
+            .then(({ ok, data }) => {
+                if (!ok) {
+                    // ❌ บอร์ดปฏิเสธ (เช่น SSID/รหัสยาวเกิน) แสดงเป็นข้อความธรรมดา
+                    statusText.style.color = "red";
+                    statusText.textContent = "❌ " + data;
+                    return;
+                }
                 // 🟢 สีเขียวถ้าส่งคำสั่งสำเร็จ
                 statusText.style.color = "#28a745"; 
                 statusText.innerHTML = data; 
