@@ -4,6 +4,15 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Suspense } from "react";
+import AuthSplitCard, {
+  AUTH_INPUT_CLASS,
+  AUTH_LABEL_CLASS,
+  AUTH_SUBMIT_CLASS,
+  AuthAlert,
+  RESET_STEPS,
+  Spinner,
+} from "@/components/AuthSplitCard";
+import PasswordToggle from "@/components/PasswordToggle";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -18,6 +27,9 @@ function ResetPasswordForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  // สถานะของปุ่มรูปตาเท่านั้น ไม่มีผลกับการตรวจหรือการส่งรหัสผ่าน
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     if (!token) {
@@ -68,92 +80,109 @@ function ResetPasswordForm() {
     }
   };
 
+  // ลิงก์ไม่มี token — พากลับไปขอลิงก์ใหม่ที่หน้าลืมรหัสผ่าน
   if (!token) {
     return (
-      <div className="neu-card w-full max-w-md p-8 text-center">
-        <h1 className="text-xl font-bold text-red-500 mb-4">ลิงก์ไม่ถูกต้อง</h1>
-        <p className="neu-text-muted text-sm mb-6">{error}</p>
-        <Link
-          href="/forgot-password"
-          className="px-6 py-3 bg-blue-600 text-white rounded-xl font-semibold shadow-md hover:bg-blue-700 transition-colors"
-        >
+      <AuthSplitCard
+        title="ลิงก์ไม่ถูกต้อง"
+        subtitle="ลิงก์นี้ใช้ตั้งรหัสผ่านใหม่ไม่ได้ ขอลิงก์ใหม่แล้วเปิดจากอีเมลล่าสุดอีกครั้ง"
+        panelTitle="ขอลิงก์ใหม่ได้เลย"
+        panelText="ลิงก์ตั้งรหัสผ่านใหม่มีอายุจำกัด ถ้าหมดอายุหรือเปิดไม่ครบ ให้ขอลิงก์ใหม่จากหน้าลืมรหัสผ่าน"
+        steps={RESET_STEPS}
+        activeStep={2}
+      >
+        {error && <AuthAlert tone="error">{error}</AuthAlert>}
+        <Link href="/forgot-password" className={AUTH_SUBMIT_CLASS}>
           ขอลิงก์รีเซ็ตรหัสผ่านใหม่
         </Link>
-      </div>
+      </AuthSplitCard>
     );
   }
 
   return (
-    <div className="neu-card w-full max-w-md p-8">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold neu-text mb-2">ตั้งรหัสผ่านใหม่</h1>
-        <p className="neu-text-muted text-sm">
-          กรุณากรอกรหัสผ่านใหม่ของคุณ
-        </p>
-      </div>
-
+    <AuthSplitCard
+      title="ตั้งรหัสผ่านใหม่"
+      subtitle="กรอกรหัสผ่านใหม่ที่ต้องการใช้เข้าสู่ระบบ"
+      panelTitle="เกือบเสร็จแล้ว"
+      panelText="ตั้งรหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร แล้วใช้เข้าสู่ระบบได้ทันที"
+      steps={RESET_STEPS}
+      activeStep={success ? 4 : 3}
+    >
       {success ? (
         <div className="text-center">
-          <div className="mb-6 p-4 rounded-xl bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-sm font-medium">
-            {message}
-          </div>
+          <AuthAlert tone="success">{message}</AuthAlert>
           <p className="neu-text-muted text-sm">กำลังพากลับไปยังหน้าเข้าสู่ระบบ...</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          {error && (
-            <div className="p-4 rounded-xl bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm text-center">
-              {error}
-            </div>
-          )}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {error && <AuthAlert tone="error">{error}</AuthAlert>}
 
           <div>
-            <label className="text-xs font-semibold neu-text-muted ml-1 mb-1 block">
+            <label htmlFor="reset-password" className={AUTH_LABEL_CLASS}>
               รหัสผ่านใหม่
             </label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm"
-            />
+            <div className="relative">
+              <input
+                id="reset-password"
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="อย่างน้อย 6 ตัวอักษร"
+                className={`${AUTH_INPUT_CLASS} pr-12`}
+              />
+              <PasswordToggle
+                visible={showPassword}
+                onToggle={() => setShowPassword(!showPassword)}
+                controls="reset-password"
+              />
+            </div>
           </div>
 
           <div>
-            <label className="text-xs font-semibold neu-text-muted ml-1 mb-1 block">
+            <label htmlFor="reset-confirm-password" className={AUTH_LABEL_CLASS}>
               ยืนยันรหัสผ่านใหม่
             </label>
-            <input
-              type="password"
-              required
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="••••••••"
-              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm"
-            />
+            <div className="relative">
+              <input
+                id="reset-confirm-password"
+                type={showConfirmPassword ? "text" : "password"}
+                required
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                className={`${AUTH_INPUT_CLASS} pr-12`}
+              />
+              <PasswordToggle
+                visible={showConfirmPassword}
+                onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+                controls="reset-confirm-password"
+              />
+            </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading || !password || !confirmPassword}
-            className="w-full py-3.5 mt-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 transition-all hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? "กำลังบันทึก..." : "บันทึกรหัสผ่านใหม่"}
+          <button type="submit" disabled={loading} className={AUTH_SUBMIT_CLASS}>
+            {loading ? (
+              <>
+                <Spinner />
+                กำลังบันทึก...
+              </>
+            ) : (
+              "บันทึกรหัสผ่านใหม่"
+            )}
           </button>
         </form>
       )}
-    </div>
+    </AuthSplitCard>
   );
 }
 
 export default function ResetPasswordPage() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 transition-colors">
-      <Suspense fallback={<div className="neu-text-muted">Loading...</div>}>
-        <ResetPasswordForm />
-      </Suspense>
-    </div>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center neu-text-muted">Loading...</div>}>
+      <ResetPasswordForm />
+    </Suspense>
   );
 }

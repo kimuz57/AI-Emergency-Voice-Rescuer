@@ -1,7 +1,7 @@
 "use client";
 
 import { ThemeProvider } from "next-themes";
-import { SessionProvider } from "next-auth/react"; // 🟢 1. Import SessionProvider เข้ามา
+import { SessionProvider } from "next-auth/react"; // 1. Import SessionProvider เข้ามา
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (

@@ -203,7 +203,7 @@ export default function DevicesPage() {
     const closeStream = connectSSE(sseUrl, {
       onOpen: () => {
         setIsLive(true);
-        console.log("🟢 SSE Connected: Ready for real-time device updates");
+        console.log("SSE Connected: Ready for real-time device updates");
       },
       onMessage: (event) => {
         if (!event.data) return;
@@ -229,7 +229,7 @@ export default function DevicesPage() {
         }
       },
       onError: (err) => {
-        console.error("🔴 SSE Connection Error:", err);
+        console.error("SSE Connection Error:", err);
         setIsLive(false);
       },
     });

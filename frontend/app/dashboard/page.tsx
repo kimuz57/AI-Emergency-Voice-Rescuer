@@ -72,14 +72,14 @@ type EmergencyAlert = {
   created_at: string;
   audio_url: string;
   status: string;
-  coordinates?: Coordinates; // 🆕 Phase 3: ข้อมูลพิกัดจาก 4-mic array
+  coordinates?: Coordinates; // Phase 3: ข้อมูลพิกัดจาก 4-mic array
 };
 
 export default function Dashboard() {
-  //console.log("🟢 1. Dashboard Component Rendered!");
+  //console.log("1. Dashboard Component Rendered!");
   const router = useRouter();
 
-  // 🆕 Phase 3: Mock data สำหรับทดสอบ UI (จะลบออกเมื่อ Backend พร้อม)
+  // Phase 3: Mock data สำหรับทดสอบ UI (จะลบออกเมื่อ Backend พร้อม)
   // ใช้ id ติดลบ เพื่อไม่ให้ชนกับ id จริงใน detection_logs (handleResolve จะไม่ยิง API ให้ id ติดลบ)
   const MOCK_ALERT_DATA: EmergencyAlert[] = [
     {
@@ -115,7 +115,7 @@ export default function Dashboard() {
   const [userData, setUserData] = useState<any>(null);
   const [patients, setPatients] = useState<any[]>([]);
 
-  // 🆕 Phase 3: Toggle สำหรับเปิด/ปิด mock data (ใช้ในการทดสอบ)
+  // Phase 3: Toggle สำหรับเปิด/ปิด mock data (ใช้ในการทดสอบ)
   // ค่าเริ่มต้นเป็นข้อมูลจริงเสมอ ปุ่มสลับแสดงเฉพาะตอน development
   const [useMockData, setUseMockData] = useState(false);
 
@@ -133,13 +133,13 @@ export default function Dashboard() {
   // ==========================================
   const [userEmail, setUserEmail] = useState<string | null>(null);
   // ==========================================
-  // 🔄 จังหวะที่ 1: ค้นหาอีเมลทันทีที่หน้าเว็บขยับ
+  // จังหวะที่ 1: ค้นหาอีเมลทันทีที่หน้าเว็บขยับ
   // ==========================================
   useEffect(() => {
     const initEmail = async () => {
       let email = localStorage.getItem("userEmail");
 
-      // 🆕 ถ้ามี email ใน localStorage แล้ว ให้ใช้เลยทันที (ไม่ต้องรอ session)
+      // ถ้ามี email ใน localStorage แล้ว ให้ใช้เลยทันที (ไม่ต้องรอ session)
       if (email && email !== "null" && email !== "undefined") {
         setUserEmail(email);
         return;
@@ -174,12 +174,12 @@ export default function Dashboard() {
   }, []); // ทำงานครั้งเดียวตอน Mount
 
   // ==========================================
-  // 🚀 จังหวะที่ 2: เริ่มต่อท่อ SSE "เมื่อได้อีเมลแล้วเท่านั้น"
+  // จังหวะที่ 2: เริ่มต่อท่อ SSE "เมื่อได้อีเมลแล้วเท่านั้น"
   // ==========================================
   useEffect(() => {
     if (!userEmail) return;
 
-    // 🆕 Phase 3: ถ้าเปิด mock data ให้ใช้ข้อมูลทดสอบแทน SSE
+    // Phase 3: ถ้าเปิด mock data ให้ใช้ข้อมูลทดสอบแทน SSE
     if (useMockData) {
       setAlerts(MOCK_ALERT_DATA);
       // ยังคงเชื่อมต่อ SSE สำหรับ Patients (ไม่ต้อง mock)
@@ -221,8 +221,8 @@ export default function Dashboard() {
       closePatients();
     };
 
-  // 🌟 จุดสำคัญที่สุด: บังคับให้ React รู้ว่า "ถ้า userEmail เปลี่ยน ให้รีสตาร์ทฟังก์ชันนี้นะ!"
-  }, [userEmail, useMockData]); // 🆕 เพิ่ม useMockData dependency
+  // จุดสำคัญที่สุด: บังคับให้ React รู้ว่า "ถ้า userEmail เปลี่ยน ให้รีสตาร์ทฟังก์ชันนี้นะ!"
+  }, [userEmail, useMockData]); // เพิ่ม useMockData dependency
 
   // ==========================================
   // ฟังก์ชันเมื่อพยาบาลกดปุ่ม "รับทราบ" (อัปเดต DB)
@@ -246,7 +246,7 @@ export default function Dashboard() {
       if (!res.ok) {
         console.error("อัปเดตสถานะล้มเหลว");
       }
-      // 💡 ข้อดีของ SSE:
+      // ข้อดีของ SSE:
       // ไม่จำเป็นต้องเรียกดึงข้อมูลใหม่แล้ว (ไม่ต้อง fetchAlerts)
       // เพราะเมื่อ Go Backend อัปเดต DB เสร็จ Go จะพ่นข้อมูลใหม่กลับมาทาง SSE Stream ให้เองทันที!
     } catch (error) {
@@ -254,144 +254,224 @@ export default function Dashboard() {
     }
   };
 
-  return (
-    <div className="relative min-h-screen flex flex-col items-center px-3 py-4 sm:p-6 md:p-8 font-sans overflow-hidden">
-      {/* 🌟 Background Glowing Orbs (ลูกแก้วแสงวิ้งๆ สีไซเรนเตือนภัย) */}
-      {/* เอา blob สีเบลอออก — neumorphism ต้องการพื้นเรียบสีเดียว */}
-      <div
-        className="dark:bg-slate-800 fixed bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse pointer-events-none"
-        style={{ animationDelay: "2s" }}
-      ></div>
+  // ค่าสรุปสำหรับแถวสถิติ — คำนวณจาก state ที่มีอยู่แล้วเท่านั้น ไม่มีการดึงข้อมูลเพิ่ม
+  // (stream แจ้งเตือนส่งมาเฉพาะเหตุที่ยังไม่มีใครรับทราบ จึงนับจาก alerts ได้ตรงๆ)
+  const latestAlertTime = alerts.reduce<number | null>((latest, a) => {
+    const t = Date.parse(a.created_at);
+    if (Number.isNaN(t)) return latest;
+    return latest === null || t > latest ? t : latest;
+  }, null);
 
-      {/* 📦 Main Container */}
-      <div className="relative z-10 w-full max-w-5xl mt-6">
-        {/* 🆕 Phase 3: Debug toggle (จะลบออกเมื่อ production) */}
+  return (
+    <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+
+      {/* หัวหน้า (Tabler page header) — ปุ่มอยู่ขวา จอเล็กตกลงมาใต้หัวข้อ */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[var(--tb-muted)]">ภาพรวม</p>
+          <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">
+            บอร์ดแจ้งเตือนผู้ป่วยวิกฤต
+          </h1>
+          <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
+            ข้อมูลอัปเดตเรียลไทม์จากระบบ AI Sensor
+          </p>
+        </div>
+
+        {/* Phase 3: Debug toggle (จะลบออกเมื่อ production) */}
         {process.env.NODE_ENV === 'development' && (
-          <div className="mb-4 flex justify-end">
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
+              type="button"
               onClick={() => setUseMockData(!useMockData)}
-              className={`neu-btn px-4 py-2 text-xs font-bold ${
-                useMockData
-                  ? 'bg-amber-500 text-white hover:bg-amber-600'
-                  : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'
-              }`}
+              aria-pressed={useMockData}
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
             >
-              {useMockData ? '🧪 Mock Data ON' : '📡 Live SSE'}
+              <span
+                aria-hidden="true"
+                className={`w-2 h-2 rounded-full ${
+                  useMockData ? "bg-[var(--tb-warning)]" : "bg-[var(--tb-success)]"
+                }`}
+              />
+              {useMockData ? "ข้อมูลตัวอย่าง: เปิด" : "ข้อมูลตัวอย่าง: ปิด"}
             </button>
           </div>
         )}
+      </div>
 
-        {/* Header */}
-        <div className="neu-card flex flex-col md:flex-row items-center md:items-start gap-4 mb-10 text-center md:text-left p-6 border border-white/60 shadow-sm">
-          <div className="neu-card-sm p-3 animate-bounce">
-            <span className="text-3xl md:text-4xl">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-9 h-9 text-rose-500"
-              >
-                {/* ฐานไซเรน */}
-                <rect x="4" y="16" width="16" height="4" rx="1" />
-                {/* โดมไฟ */}
-                <path d="M7 16v-4a5 5 0 0 1 10 0v4" />
-                {/* แสงไฟ 3 แฉก (บน, ซ้าย, ขวา) */}
-                <line x1="12" x2="12" y1="2" y2="5" />
-                <line x1="6" x2="8" y1="5" y2="7" />
-                <line x1="18" x2="16" y1="5" y2="7" />
-              </svg>
-            </span>
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold neu-text tracking-tight">
-              บอร์ดแจ้งเตือนผู้ป่วยวิกฤต
-            </h1>
-            <p className="neu-text-muted font-medium mt-1 text-sm md:text-base">
-              (ข้อมูลอัปเดตเรียลไทม์จากระบบ AI Sensor)
-            </p>
-          </div>
-        </div>
+      {/* แถวสถิติ */}
+      {/* มือถือเรียง 2 คอลัมน์ ไม่งั้นการ์ด 4 ใบดันการ์ดแจ้งเหตุฉุกเฉินตกไปใต้จอ */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mb-6">
+        <StatCard
+          label="แจ้งเตือนรอรับทราบ"
+          value={alerts.length}
+          sub={alerts.length > 0 ? "ต้องเข้าช่วยเหลือทันที" : "ไม่มีเหตุฉุกเฉิน"}
+          tone={alerts.length > 0 ? "danger" : "success"}
+          icon={
+            <>
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+            </>
+          }
+        />
+        <StatCard
+          label="ผู้ป่วยในความดูแล"
+          value={patients.length}
+          sub="เฝ้าระวังด้วย AI Sensor"
+          tone="primary"
+          subTone="neutral"
+          icon={
+            <>
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </>
+          }
+        />
+        <StatCard
+          label="แจ้งเตือนล่าสุด"
+          value={latestAlertTime !== null ? formatClock(latestAlertTime) : "–"}
+          sub={latestAlertTime !== null ? formatDay(latestAlertTime) : "ยังไม่มีการแจ้งเตือน"}
+          tone="neutral"
+          icon={
+            <>
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 6v6l4 2" />
+            </>
+          }
+        />
+        <StatCard
+          label="แหล่งข้อมูล"
+          value={useMockData ? "ตัวอย่าง" : "เรียลไทม์"}
+          sub={useMockData ? "ข้อมูลทดสอบ ไม่ใช่เหตุจริง" : "รับข้อมูลสดผ่าน SSE"}
+          tone={useMockData ? "warning" : "success"}
+          icon={<path d="M22 12h-4l-3 9L9 3l-3 9H2" />}
+        />
+      </div>
 
-        {/* ========================================== */}
-        {/* 🚨 เงื่อนไขที่ 1: มี Alert ฉุกเฉิน (แสดงก่อนเสมอ!) */}
-        {/* ========================================== */}
-        {alerts.length > 0 ? (
-          /* แสดงการ์ด Alert */
-          <div className="space-y-6">
-            {alerts.map((alert, index) => (
-              <BlinkingAlert
-                key={alert.id || alert.ID || `alert-${index}`}
-                isActive={true}
-                intensity="high"
-              >
-                <div className="neu-card p-6 md:p-8 relative overflow-hidden flex flex-col gap-6 hover:shadow-xl transition-all group">
-                  {/* แถบสีแดงเตือนภัยด้านซ้าย (Glow Effect) */}
-                  <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-red-500 to-rose-600 shadow-[0_0_15px_rgba(225,29,72,0.6)]"></div>
+      {/* ========================================== */}
+      {/* เงื่อนไขที่ 1: มี Alert ฉุกเฉิน (แสดงก่อนเสมอ!) */}
+      {/* ========================================== */}
+      {alerts.length > 0 ? (
+        /* แสดงการ์ด Alert */
+        <div className="space-y-6">
+          {alerts.map((alert, index) => (
+            <BlinkingAlert
+              key={alert.id || alert.ID || `alert-${index}`}
+              isActive={true}
+              intensity="high"
+            >
+              <article className="relative overflow-hidden bg-[var(--tb-surface)] border border-[var(--tb-border)] rounded-[var(--tb-radius-lg)] shadow-[var(--tb-shadow-card)]">
+                {/* แถบสีแดง 4px ด้านซ้าย — stream ส่งมาเฉพาะเหตุที่ยังไม่รับทราบ ทุกใบจึงมีแถบนี้ */}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-y-0 left-0 w-1 bg-[var(--tb-danger)]"
+                />
 
-                  {/* Header: ข้อมูลผู้ป่วย + เวลา */}
-                  <div className="flex-1 pl-4 w-full">
-                    <div className="flex flex-wrap items-center gap-3 mb-3">
-                      <span className="dark:bg-red-500 dark:text-red-300 px-4 py-1.5 bg-red-100 text-red-700 text-xs font-bold rounded-full uppercase tracking-wider animate-pulse border border-red-200 shadow-sm">
-                        ⚠️ ต้องการความช่วยเหลือ!
-                      </span>
-                      <span className="neu-inset-sm neu-text-muted text-xs font-semibold px-3 py-1.5 rounded-full">
-                        🕒{" "}
-                        {alert.created_at
-                          ? new Date(alert.created_at).toLocaleString("th-TH")
-                          : "ไม่ระบุเวลา"}
-                      </span>
-                    </div>
-                    <h2 className="text-3xl font-extrabold neu-text mb-1 tracking-tight">
-                      {alert.patient_name}
-                    </h2>
-                    <p className="neu-text-muted text-sm font-medium flex items-center gap-2">
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                        />
-                      </svg>
-                      ห้องพัก:{" "}
-                      <span className="neu-text font-bold text-base">
-                        {alert.room_number}
-                      </span>
-                    </p>
-                  </div>
+                {/* หัวการ์ด: สถานะ + เวลา */}
+                <div className="flex flex-wrap items-center gap-2 pl-6 pr-5 py-4 border-b border-[var(--tb-border)]">
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border border-[var(--tb-danger)]/25 bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)] animate-pulse">
+                    <svg
+                      className="w-3.5 h-3.5 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <path d="M12 9v4" />
+                      <path d="M12 17h.01" />
+                    </svg>
+                    ต้องการความช่วยเหลือ
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border border-[var(--tb-border)] bg-[var(--tb-surface-2)] text-[var(--tb-muted)]">
+                    <svg
+                      className="w-3.5 h-3.5 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 6v6l4 2" />
+                    </svg>
+                    {alert.created_at
+                      ? new Date(alert.created_at).toLocaleString("th-TH")
+                      : "ไม่ระบุเวลา"}
+                  </span>
+                </div>
 
-                  {/* Main content: 2 columns layout */}
-                  <div className="flex flex-col md:flex-row gap-4 md:gap-6 pl-2 sm:pl-4">
+                {/* เนื้อหาการ์ด */}
+                <div className="pl-6 pr-5 py-5">
+                  <h2 className="text-2xl font-bold text-[var(--tb-text)] break-words">
+                    {alert.patient_name}
+                  </h2>
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-[var(--tb-muted)]">
+                    <svg
+                      className="w-4 h-4 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    ห้องพัก:
+                    <span className="font-semibold text-[var(--tb-text)]">
+                      {alert.room_number}
+                    </span>
+                  </p>
+
+                  {/* สองคอลัมน์: เข็มทิศ | เสียง (จอเล็กเรียงลงมา) */}
+                  <div className="mt-5 flex flex-col md:flex-row gap-4">
                     {/* Left column: Direction Compass */}
                     {alert.coordinates && (
-                      <div className="flex-shrink-0">
+                      <section className="md:w-80 shrink-0 p-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface-2)]">
+                        <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--tb-muted)]">
+                          <svg
+                            className="w-4 h-4 shrink-0"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            viewBox="0 0 24 24"
+                            aria-hidden="true"
+                          >
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z" />
+                          </svg>
+                          ทิศทางของเสียง
+                        </h3>
                         <DirectionCompass
                           angle={alert.coordinates.angle_degrees}
                           distance={alert.coordinates.distance_meters}
                           confidence={alert.coordinates.confidence}
                         />
-                      </div>
+                      </section>
                     )}
 
                     {/* Right column: Audio player
-                        จัดกึ่งกลางแนวตั้ง เพราะพอถอดแถบ SIGNAL ออกแล้ว
-                        คอลัมน์นี้เตี้ยกว่าเข็มทิศ ถ้าชิดบนจะเหลือที่ว่างค้างด้านล่าง */}
-                    <div className="flex-1 flex flex-col justify-center space-y-4">
-                      {/* Audio player */}
-                      <div className="neu-inset p-4 rounded-2xl">
-                        <p className="neu-text-muted text-xs font-bold mb-3 flex items-center gap-2 uppercase tracking-wide">
-                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
-                          เสียงร้องขอความช่วยเหลือ:
-                        </p>
+                        ตัวเล่นจัดกึ่งกลางแนวตั้งในพื้นที่ที่เหลือ เพราะกล่องนี้เตี้ยกว่า
+                        กล่องเข็มทิศ ถ้าชิดบนจะเหลือที่ว่างค้างด้านล่าง */}
+                    <section className="flex-1 min-w-0 flex flex-col p-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface-2)]">
+                      <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--tb-muted)]">
+                        <span aria-hidden="true" className="relative flex w-2.5 h-2.5 shrink-0">
+                          <span className="absolute inline-flex w-full h-full rounded-full bg-[var(--tb-danger)] opacity-75 animate-ping" />
+                          <span className="relative inline-flex w-2.5 h-2.5 rounded-full bg-[var(--tb-danger)]" />
+                        </span>
+                        เสียงร้องขอความช่วยเหลือ
+                      </h3>
+                      <div className="flex-1 flex items-center">
                         <WaveformAudioPlayer
                           src={`${API_BASE_URL}${alert.audio_url}`}
                         />
@@ -400,123 +480,220 @@ export default function Dashboard() {
                       {/* หมายเหตุ: แถบ SIGNAL ของไมค์ทั้ง 4 ย้ายไปหน้า
                           /admin/audio-diagnostics แล้ว — ผู้ดูแล (caregiver)
                           สนใจแค่ว่าตรวจจับเหตุได้ไหม ไม่ใช่ไมค์ตัวไหนดังกว่ากัน */}
-                    </div>
-                  </div>
-
-                  {/* Footer: ปุ่มรับทราบ */}
-                  <div className="w-full flex justify-end pl-4">
-                    <button
-                      onClick={() => {
-                        const idToResolve = alert.id ?? alert.ID;
-                        if (idToResolve !== undefined) {
-                          handleResolve(idToResolve);
-                        }
-                      }}
-                      className="neu-btn-accent w-full md:w-auto px-8 py-4 rounded-2xl font-bold text-lg transition-all hover:-translate-y-1 active:translate-y-0 flex items-center justify-center gap-2"
-                    >
-                      <svg
-                        className="w-6 h-6"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2.5"
-                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      รับทราบ & ช่วยเหลือ
-                    </button>
+                    </section>
                   </div>
                 </div>
-              </BlinkingAlert>
-            ))}
-          </div>
-        ) : /* ========================================== */
-        /* ⚪ เงื่อนไขที่ 2: ยังไม่มีผู้ป่วยในความดูแลเลย (Empty State) */
-        /* ========================================== */
-        patients.length === 0 ? (
-          <div className="neu-card p-12 flex flex-col items-center justify-center text-center relative overflow-hidden group">
-            {/* แสงตกแต่งพื้นหลัง Empty State */}
 
-
-            <div className="neu-inset relative z-10 rounded-full p-6 mb-6 group-hover:scale-110 transition-transform duration-500">
-              <svg
-                className="w-12 h-12 neu-text-muted"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="1.5"
-                  d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                ></path>
-              </svg>
-            </div>
-            <h2 className="relative z-10 text-2xl font-extrabold neu-text mb-2">
-              คุณยังไม่มีผู้ป่วยในการดูแล
-            </h2>
-            <p className="relative z-10 neu-text-muted mb-8 max-w-md leading-relaxed">
-              กรุณาเพิ่มข้อมูลผู้ป่วยและเชื่อมต่ออุปกรณ์ EVR Sensor
-              เพื่อเริ่มการเฝ้าระวังตลอด 24 ชั่วโมง
-            </p>
-
-            <Link
-              href="/register-patient"
-              className="neu-btn-accent relative z-10 font-bold py-4 px-8 rounded-2xl transition-all shadow-lg hover:shadow-indigo-500/30 flex items-center gap-3 hover:-translate-y-1"
+                {/* Footer: ปุ่มรับทราบ */}
+                <div className="flex md:justify-end pl-6 pr-5 py-4 border-t border-[var(--tb-border)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idToResolve = alert.id ?? alert.ID;
+                      if (idToResolve !== undefined) {
+                        handleResolve(idToResolve);
+                      }
+                    }}
+                    className={`${PRIMARY_BTN} w-full md:w-auto h-11 px-5 text-base`}
+                  >
+                    <svg
+                      className="w-5 h-5 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="m9 12 2 2 4-4" />
+                    </svg>
+                    รับทราบ & ช่วยเหลือ
+                  </button>
+                </div>
+              </article>
+            </BlinkingAlert>
+          ))}
+        </div>
+      ) : /* ========================================== */
+      /* เงื่อนไขที่ 2: ยังไม่มีผู้ป่วยในความดูแลเลย (Empty State) */
+      /* ========================================== */
+      patients.length === 0 ? (
+        <EmptyCard
+          tone="primary"
+          title="คุณยังไม่มีผู้ป่วยในการดูแล"
+          description="กรุณาเพิ่มข้อมูลผู้ป่วยและเชื่อมต่ออุปกรณ์ EVR Sensor เพื่อเริ่มการเฝ้าระวังตลอด 24 ชั่วโมง"
+          icon={
+            <>
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </>
+          }
+        >
+          <Link
+            href="/register-patient"
+            className={`${PRIMARY_BTN} mt-6 h-10 px-4 text-sm`}
+          >
+            <svg
+              className="w-5 h-5 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  d="M12 4v16m8-8H4"
-                ></path>
-              </svg>
-              เพิ่มผู้ป่วยลงในระบบ
-            </Link>
-          </div>
-        ) : (
-          /* ========================================== */
-          /* 🟢 เงื่อนไขที่ 3: มีผู้ป่วยแล้ว แต่ไม่มีใครป่วยหนัก (สถานการณ์ปกติ) */
-          /* ========================================== */
-          <div className="neu-card p-10 text-center flex flex-col items-center justify-center gap-4 shadow-lg relative overflow-hidden">
-            {/* แสงวิ้งๆ สีเขียวมรกตแสดงความปลอดภัย */}
-            <div className="hidden pointer-events-none "></div>
-
-            <div className="neu-inset relative z-10 p-4 rounded-full">
-              <svg
-                className="w-10 h-10 text-emerald-600 dark:text-emerald-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                ></path>
-              </svg>
-            </div>
-            <h2 className="relative z-10 font-extrabold text-2xl text-emerald-800 tracking-wide dark:text-emerald-400">
-              สถานการณ์ปกติ ปลอดภัยดี
-            </h2>
-            <p className="neu-inset-sm relative z-10 text-emerald-600 dark:text-emerald-400 font-medium px-6 py-2 rounded-full">
-              ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบ AI กำลังเฝ้าระวัง...
-            </p>
-          </div>
-        )}
-      </div>
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            เพิ่มผู้ป่วยลงในระบบ
+          </Link>
+        </EmptyCard>
+      ) : (
+        /* ========================================== */
+        /* เงื่อนไขที่ 3: มีผู้ป่วยแล้ว แต่ไม่มีใครป่วยหนัก (สถานการณ์ปกติ) */
+        /* ========================================== */
+        <EmptyCard
+          tone="success"
+          title="สถานการณ์ปกติ ปลอดภัยดี"
+          description="ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบ AI กำลังเฝ้าระวัง..."
+          icon={
+            <>
+              <circle cx="12" cy="12" r="10" />
+              <path d="m9 12 2 2 4-4" />
+            </>
+          }
+        />
+      )}
     </div>
   );
+}
+
+// ==========================================
+// ชิ้นส่วน UI ของหน้านี้ (สไตล์ Tabler)
+// ==========================================
+const PRIMARY_BTN =
+  "inline-flex items-center justify-center gap-2 rounded-[var(--tb-radius)] bg-[var(--tb-primary)] hover:bg-[var(--tb-primary-hover)] text-[var(--tb-primary-contrast)] font-semibold shadow-[var(--tb-shadow-xs)] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+
+type Tone = "danger" | "success" | "warning" | "primary" | "neutral";
+
+// สีตัวอักษร / สีพื้นอ่อนของไอคอน ตามโทนสถานะ
+const TONE_TEXT: Record<Tone, string> = {
+  danger: "text-[var(--tb-danger-text)]",
+  success: "text-[var(--tb-success-text)]",
+  warning: "text-[var(--tb-warning-text)]",
+  primary: "text-[var(--tb-primary-text)]",
+  neutral: "text-[var(--tb-muted)]",
+};
+
+const TONE_CHIP: Record<Tone, string> = {
+  danger: "bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)]",
+  success: "bg-[var(--tb-success-tint)] text-[var(--tb-success-text)]",
+  warning: "bg-[var(--tb-warning-tint)] text-[var(--tb-warning-text)]",
+  primary: "bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]",
+  neutral: "bg-[var(--tb-surface-2)] text-[var(--tb-muted)]",
+};
+
+// icon = เนื้อใน <svg> (path/circle) แบบเส้น viewBox 24
+function StatCard({
+  label,
+  value,
+  sub,
+  tone,
+  subTone = tone,
+  icon,
+}: {
+  label: string;
+  value: React.ReactNode;
+  sub: string;
+  tone: Tone;
+  subTone?: Tone;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="p-4 sm:p-5 bg-[var(--tb-surface)] border border-[var(--tb-border)] rounded-[var(--tb-radius-lg)] shadow-[var(--tb-shadow-card)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[var(--tb-muted)]">{label}</p>
+          <p className="mt-1 text-2xl sm:text-3xl font-bold leading-tight tabular-nums text-[var(--tb-text)]">
+            {value}
+          </p>
+        </div>
+        <span
+          aria-hidden="true"
+          className={`hidden sm:inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-[var(--tb-radius)] ${TONE_CHIP[tone]}`}
+        >
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            viewBox="0 0 24 24"
+          >
+            {icon}
+          </svg>
+        </span>
+      </div>
+      <p className={`mt-1 text-xs sm:text-sm font-medium ${TONE_TEXT[subTone]}`}>{sub}</p>
+    </div>
+  );
+}
+
+// การ์ดสถานะว่าง: ไอคอนในวงกลมสีอ่อน + หัวข้อ + คำอธิบาย (+ ปุ่มถ้ามี)
+function EmptyCard({
+  tone,
+  title,
+  description,
+  icon,
+  children,
+}: {
+  tone: Tone;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center text-center px-6 py-12 sm:py-16 bg-[var(--tb-surface)] border border-[var(--tb-border)] rounded-[var(--tb-radius-lg)] shadow-[var(--tb-shadow-card)]">
+      <span
+        aria-hidden="true"
+        className={`inline-flex items-center justify-center w-14 h-14 mb-4 rounded-full ${TONE_CHIP[tone]}`}
+      >
+        <svg
+          className="w-7 h-7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.75}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          viewBox="0 0 24 24"
+        >
+          {icon}
+        </svg>
+      </span>
+      <h2 className="text-lg font-semibold text-[var(--tb-text)]">{title}</h2>
+      <p className="mt-1.5 max-w-md text-sm leading-relaxed text-[var(--tb-muted)]">
+        {description}
+      </p>
+      {children}
+    </div>
+  );
+}
+
+// เวลา/วันที่ของแจ้งเตือนล่าสุด (ms จาก Date.parse)
+function formatClock(ms: number) {
+  return `${new Date(ms).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} น.`;
+}
+
+function formatDay(ms: number) {
+  return new Date(ms).toLocaleDateString("th-TH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }

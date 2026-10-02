@@ -50,7 +50,7 @@ export default function PatientsPage() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        credentials: "include", // 🌟 ต้องมีบรรทัดนี้ เพื่อส่ง Cookie ให้ Backend
+        credentials: "include", // ต้องมีบรรทัดนี้ เพื่อส่ง Cookie ให้ Backend
       });
       if (!res.ok) throw new Error("ไม่สามารถดึงข้อมูลได้");
 

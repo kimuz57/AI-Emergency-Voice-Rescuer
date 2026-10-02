@@ -71,7 +71,16 @@ func GetHistoryAlerts(c *fiber.Ctx) error {
 			patients.name as patient_name, 
 			patients.room_number
 		`).
-		Joins("LEFT JOIN patients ON patients.id = detection_logs.patient_id").
+		// อุปกรณ์กับผู้ป่วยผูกกันผ่านตารางกลาง device_patients — ตาราง devices ไม่มีคอลัมน์ patient_id
+		// ใช้ patient_id ที่บันทึกไว้ตอนเกิดเหตุก่อน ถ้าไม่มีค่อยดูผู้ป่วยที่ผูกกับอุปกรณ์ตอนนี้
+		// โดยเลือกแถวผูกแรก (id น้อยสุด) แบบเดียวกับ .First() ตอนสร้างการแจ้งเตือน และไม่ทำให้แถวซ้ำ
+		Joins("LEFT JOIN devices ON devices.mac_address = detection_logs.device_mac").
+		Joins(`LEFT JOIN patients ON patients.id = COALESCE(
+			detection_logs.patient_id,
+			(SELECT dp.patient_id FROM device_patients dp
+			 WHERE dp.device_id = devices.id AND dp.deleted_at IS NULL
+			 ORDER BY dp.id LIMIT 1)
+		)`).
 		Where("detection_logs.deleted_at IS NULL").
 		Scopes(scope)
 

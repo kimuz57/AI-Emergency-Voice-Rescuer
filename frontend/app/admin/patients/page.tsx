@@ -103,7 +103,7 @@ export default function AdminPatients() {
           setAvailableCaregivers(caregiversOnly);
         }
       } catch (err) {
-        console.error("❌ ดึงข้อมูลล้มเหลว:", err);
+        console.error("ดึงข้อมูลล้มเหลว:", err);
         router.push("/dashboard");
       } finally {
         setIsLoading(false);

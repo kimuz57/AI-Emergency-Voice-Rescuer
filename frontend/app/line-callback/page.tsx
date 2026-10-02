@@ -63,19 +63,19 @@ function CallbackContent() {
         );
 
         if (response.ok) {
-          setStatus("✅ ผูกบัญชี LINE สำเร็จ! กำลังพากลับหน้าโปรไฟล์...");
+          setStatus("ผูกบัญชี LINE สำเร็จ! กำลังพากลับหน้าโปรไฟล์...");
           setTimeout(() => {
             router.push("/profile");
           }, 2000);
         } else {
           const errData = await response.json().catch(() => ({}));
           setStatus(
-            `❌ เกิดข้อผิดพลาด: ${errData.error || "ไม่สามารถผูกบัญชีได้"}`,
+            `เกิดข้อผิดพลาด: ${errData.error || "ไม่สามารถผูกบัญชีได้"}`,
           );
         }
       } catch (error) {
         console.error("Error linking line:", error);
-        setStatus("❌ ไม่สามารถติดต่อเซิร์ฟเวอร์ Backend ได้");
+        setStatus("ไม่สามารถติดต่อเซิร์ฟเวอร์ Backend ได้");
       }
     };
 

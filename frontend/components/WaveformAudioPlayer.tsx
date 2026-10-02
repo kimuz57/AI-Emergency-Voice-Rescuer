@@ -4,6 +4,14 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useWavesurfer } from '@wavesurfer/react';
 import { getAuthToken } from '@/lib/auth';
 
+// wavesurfer วาดคลื่นลง canvas จึงรับ var(--tb-*) ตรงๆ ไม่ได้ ต้องส่งเป็นค่าสีจริง
+// ธีมสว่าง: สีหลักตรงกับ --tb-primary / --tb-primary-hover ส่วนคลื่นใช้เทาเข้มกว่า
+// --tb-border-strong เล็กน้อยให้มองเห็นบนพื้นขาว · ธีมมืด: คงสีเดิมไว้
+const WAVE_COLORS = {
+  light: { waveColor: '#9aa5b4', progressColor: '#066fd1', cursorColor: '#0560b5' },
+  dark: { waveColor: '#94a3b8', progressColor: '#2563eb', cursorColor: '#1d4ed8' },
+} as const;
+
 export default function WaveformAudioPlayer({ src }: { src: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [volume, setVolume] = useState(1);
@@ -29,15 +37,32 @@ export default function WaveformAudioPlayer({ src }: { src: string }) {
     container: containerRef,
     url: src,
     fetchParams,
-    waveColor: '#94a3b8',
-    progressColor: '#2563eb',
-    cursorColor: '#1d4ed8',
+    // สีตั้งต้น (ธีมสว่าง) — ห้ามคำนวณสีจากธีมตรงนี้ เพราะ useWavesurfer จะสร้าง
+    // instance ใหม่ทุกครั้งที่ค่าใน options เปลี่ยน (โหลดไฟล์ใหม่ + เสียงที่เล่นอยู่หยุด)
+    ...WAVE_COLORS.light,
     height: 32,
     barWidth: 2,
     barGap: 1,
     barRadius: 2,
     normalize: true,
   });
+
+  // เปลี่ยนสีคลื่นตามธีมด้วย setOptions แทน — next-themes สลับคลาส .dark บน <html>
+  useEffect(() => {
+    if (!wavesurfer) return;
+    const root = document.documentElement;
+    let applied: keyof typeof WAVE_COLORS | null = null;
+    const applyTheme = () => {
+      const next = root.classList.contains('dark') ? 'dark' : 'light';
+      if (next === applied) return;
+      applied = next;
+      wavesurfer.setOptions(WAVE_COLORS[next]);
+    };
+    applyTheme();
+    const observer = new MutationObserver(applyTheme);
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, [wavesurfer]);
 
   // wavesurfer only fires 'timeupdate' during playback, so a paused seek
   // (click/drag on the waveform) needs 'interaction'/'seeking' too or the
@@ -80,21 +105,29 @@ export default function WaveformAudioPlayer({ src }: { src: string }) {
   };
 
   return (
-    <div className="neu-inset flex items-center gap-2 p-1.5 px-3 rounded-full w-full max-w-sm mt-2 relative">
+    <div className="relative flex items-center gap-2 w-full p-1.5 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-xs)]">
+      {/* ปุ่มเล่น/หยุด — ปุ่มกลมสีหลัก 40px */}
       <button
+        type="button"
         onClick={togglePlay}
         disabled={loadError}
-        className="neu-icon-btn shrink-0 p-2 disabled:opacity-40 disabled:cursor-not-allowed"
+        aria-label={isPlaying ? 'หยุดเสียงชั่วคราว' : 'เล่นเสียง'}
+        className="shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-full bg-[var(--tb-primary)] text-[var(--tb-primary-contrast)] hover:bg-[var(--tb-primary-hover)] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[var(--tb-primary)]"
       >
         {isPlaying ? (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="6" y="5" width="4" height="14" rx="1" />
+            <rect x="14" y="5" width="4" height="14" rx="1" />
+          </svg>
         ) : (
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>
+          <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5.14v13.72a1 1 0 0 0 1.52.85l10.29-6.86a1 1 0 0 0 0-1.7L9.52 4.29A1 1 0 0 0 8 5.14z" />
+          </svg>
         )}
       </button>
 
       {!loadError && (
-        <div className="shrink-0 text-xs font-medium neu-text-muted min-w-[65px] text-center">
+        <div className="shrink-0 min-w-[68px] text-center text-xs font-medium tabular-nums text-[var(--tb-muted)]">
           {formatTime(currentTime)} / {formatTime(duration)}
         </div>
       )}
@@ -106,19 +139,20 @@ export default function WaveformAudioPlayer({ src }: { src: string }) {
       />
 
       {loadError && (
-        <div className="flex-1 min-w-0 h-8 flex items-center gap-1.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+        <div className="flex-1 min-w-0 h-10 flex items-center gap-1.5 text-sm font-medium text-[var(--tb-warning-text)]">
           <svg
             className="w-4 h-4 shrink-0"
             fill="none"
             stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
             viewBox="0 0 24 24"
+            aria-hidden="true"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"
-            />
+            <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
           </svg>
           <span className="truncate">โหลดไฟล์เสียงไม่สำเร็จ</span>
         </div>
@@ -129,24 +163,53 @@ export default function WaveformAudioPlayer({ src }: { src: string }) {
         onMouseEnter={() => setShowVolume(!loadError)}
         onMouseLeave={() => setShowVolume(false)}
       >
+        {/* ปุ่มระดับเสียง — ปุ่มไอคอนแบบโปร่ง 40px ชี้เมาส์ค้างเพื่อเปิดแถบปรับ */}
         <button
+          type="button"
           disabled={loadError}
-          className="neu-icon-btn p-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          aria-label="ระดับเสียง"
+          className="inline-flex items-center justify-center w-10 h-10 rounded-full text-[var(--tb-muted)] hover:bg-[var(--tb-surface-2)] hover:text-[var(--tb-text)] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" /></svg>
+          <svg
+            className="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path d="M11 5 6 9H2v6h4l5 4V5z" />
+            {volume === 0 ? (
+              <>
+                <path d="m22 9-6 6" />
+                <path d="m16 9 6 6" />
+              </>
+            ) : (
+              <>
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </>
+            )}
+          </svg>
         </button>
 
         {showVolume && (
-          <div className="neu-card-sm absolute bottom-8 left-1/2 -translate-x-1/2 w-9 h-24 rounded-xl flex justify-center items-center z-50">
-            <input
-              type="range"
-              min="0"
-              max="1"
-              step="0.05"
-              value={volume}
-              onChange={handleVolume}
-              className="w-16 h-1 rounded-lg appearance-none cursor-pointer -rotate-90 origin-center bg-[var(--neu-shadow-dark)] accent-[var(--neu-accent)]"
-            />
+          // pb-2 เป็นสะพานโปร่งใส ลากเมาส์จากปุ่มขึ้นไปหาแถบได้โดยป๊อปอัปไม่ปิดก่อน
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 pb-2 z-50">
+            <div className="w-10 h-28 flex justify-center items-center rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-pop)]">
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.05"
+                value={volume}
+                onChange={handleVolume}
+                aria-label="ปรับระดับเสียง"
+                className="w-20 h-1.5 rounded-full appearance-none cursor-pointer -rotate-90 origin-center bg-[var(--tb-border-strong)] accent-[var(--tb-primary)]"
+              />
+            </div>
           </div>
         )}
       </div>

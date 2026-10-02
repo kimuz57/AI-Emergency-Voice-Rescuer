@@ -33,7 +33,7 @@ func setupAlertScopeDB(t *testing.T) *alertScopeFixture {
 	if err := db.SetupJoinTable(&models.Patient{}, "Caregivers", &models.CaregiverPatient{}); err != nil {
 		t.Fatalf("setup join table: %v", err)
 	}
-	if err := db.AutoMigrate(&models.User{}, &models.Patient{}, &models.CaregiverPatient{}, &models.DetectionLog{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Patient{}, &models.CaregiverPatient{}, &models.Device{}, &models.Device_patient{}, &models.DetectionLog{}); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
 	database.DB = db

@@ -25,9 +25,9 @@ export default function BlinkingAlert({
 
   return (
     <div className={`relative ${className}`}>
-      {/* Blinking red border wrapper */}
+      {/* Blinking red border wrapper — มุมโค้งเท่าการ์ด (12px) เงาแดงจะได้ล้อมการ์ดพอดี */}
       <div
-        className={`absolute inset-0 rounded-3xl pointer-events-none ${borderAnimationClass}`}
+        className={`absolute inset-0 rounded-[var(--tb-radius-lg)] pointer-events-none ${borderAnimationClass}`}
         style={{
           border: '3px solid rgba(239, 68, 68, 0.8)',
           boxShadow: '0 0 20px rgba(239, 68, 68, 0.6)',

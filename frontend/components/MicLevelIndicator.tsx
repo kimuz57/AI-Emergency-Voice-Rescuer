@@ -35,8 +35,13 @@ export default function MicLevelIndicator({
   if (compact) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-[10px] font-bold neu-text-muted uppercase tracking-wide">
-          🎤 Signal:
+        <span className="text-[10px] font-bold neu-text-muted uppercase tracking-wide inline-flex items-center gap-1">
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" x2="12" y1="19" y2="22" />
+          </svg>
+          Signal:
         </span>
         <div className="flex gap-1.5">
           {normalizedLevels.map((level, index) => {
@@ -70,7 +75,9 @@ export default function MicLevelIndicator({
                 {/* Sparkle effect for max mic */}
                 {isMax && level > 0.7 && (
                   <div className="absolute -top-1 -right-1">
-                    <span className="text-[10px] animate-pulse">✨</span>
+                    <svg className="w-2.5 h-2.5 animate-pulse" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+                    </svg>
                   </div>
                 )}
 
@@ -118,7 +125,11 @@ export default function MicLevelIndicator({
               {percentage}%
             </span>
             <span className="w-4 shrink-0 text-sm">
-              {isMax && level > 0.7 && <span className="animate-pulse">✨</span>}
+              {isMax && level > 0.7 && (
+                <svg className="w-4 h-4 animate-pulse" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+                </svg>
+              )}
             </span>
           </div>
         );

@@ -134,9 +134,10 @@ export default function LandingPage() {
 
         <a
           href="/login"
-          className="neu-card group relative px-6 md:px-8 py-3 md:py-4 text-white font-bold text-base md:text-lg hover:bg-slate-800 transition-all hover:-translate-y-1 overflow-hidden"
+          className="group relative px-6 md:px-8 py-3 md:py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-base md:text-lg rounded-full shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-1 overflow-hidden"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+          {/* ไม่ใช้ neu-card แล้ว — คลาสนั้นบังคับพื้นเป็นสีเทาเดียวกับหน้า ตัวอักษรสีขาวเลยแทบมองไม่เห็น */}
+          <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           <span className="relative flex items-center gap-2">
             Start Monitoring
             <svg

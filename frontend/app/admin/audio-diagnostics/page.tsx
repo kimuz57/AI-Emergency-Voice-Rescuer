@@ -232,7 +232,11 @@ export default function AudioDiagnosticsPage() {
       {/* ---------- รายการเหตุการณ์ ---------- */}
       {withLevels.length === 0 ? (
         <div className="neu-card p-12 text-center">
-          <p className="text-4xl mb-3">🎤</p>
+          <svg className="w-10 h-10 mx-auto mb-3 neu-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+            <line x1="12" x2="12" y1="19" y2="22" />
+          </svg>
           <p className="text-sm font-semibold neu-text-muted">
             ยังไม่มีข้อมูลระดับสัญญาณให้แสดง
           </p>

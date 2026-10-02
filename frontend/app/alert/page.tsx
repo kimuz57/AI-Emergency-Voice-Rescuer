@@ -142,7 +142,9 @@ function AlertContent() {
       <div className="min-h-screen bg-emerald-50 flex items-center justify-center p-6">
         <div className="neu-card p-10 max-w-md w-full text-center animate-in fade-in zoom-in-95 duration-300">
           <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-3xl">✅</span>
+            <svg className="w-8 h-8 text-emerald-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
           </div>
           <h1 className="text-2xl font-extrabold text-emerald-700 mb-2">รับทราบแล้ว</h1>
           <p className="neu-text-muted mb-6">ผู้ป่วยกำลังได้รับการช่วยเหลือ</p>
@@ -169,7 +171,16 @@ function AlertContent() {
       <div className="neu-card relative z-10 border-red-500 p-8 max-w-md w-full text-center animate-in fade-in zoom-in-95 duration-300">
         
         <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 alert-icon-pulse">
-          <span className="text-4xl">🚨</span>
+          <svg className="w-10 h-10 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M7 18v-6a5 5 0 1 1 10 0v6" />
+            <path d="M5 21a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2z" />
+            <path d="M21 12h1" />
+            <path d="M18.5 4.5 18 5" />
+            <path d="M2 12h1" />
+            <path d="M12 2v1" />
+            <path d="m4.929 4.929.707.707" />
+            <path d="M12 12v6" />
+          </svg>
         </div>
 
         <div className="inline-flex items-center gap-2 bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-widest">
@@ -187,17 +198,39 @@ function AlertContent() {
           
           <div className="space-y-3">
             <div className="flex items-center justify-between border-b border-red-100 pb-2">
-              <span className="text-sm neu-text-muted">👤 ชื่อ-สกุล:</span>
+              <span className="text-sm neu-text-muted inline-flex items-center gap-1.5">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+                ชื่อ-สกุล:
+              </span>
               <span className="font-bold neu-text text-base">{deviceInfo?.patient_name || "กำลังโหลด..."}</span>
             </div>
             
             <div className="flex items-center justify-between border-b border-red-100 pb-2">
-              <span className="text-sm neu-text-muted">🚪 ห้องพัก:</span>
+              <span className="text-sm neu-text-muted inline-flex items-center gap-1.5">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M18 20V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14" />
+                  <path d="M2 20h20" />
+                  <path d="M14 12v.01" />
+                </svg>
+                ห้องพัก:
+              </span>
               <span className="font-bold neu-text text-base">{deviceInfo?.room_number || "-"}</span>
             </div>
             
             <div className="flex items-center justify-between">
-              <span className="text-sm neu-text-muted">🏥 โรคประจำตัว:</span>
+              <span className="text-sm neu-text-muted inline-flex items-center gap-1.5">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M11 2v2" />
+                  <path d="M5 2v2" />
+                  <path d="M5 3H4a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2h-1" />
+                  <path d="M8 15a6 6 0 0 0 12 0v-3" />
+                  <circle cx="20" cy="10" r="2" />
+                </svg>
+                โรคประจำตัว:
+              </span>
               <span className="font-bold text-red-600 text-sm text-right max-w-[60%]">
                 {deviceInfo?.underlying_disease || "ไม่ระบุ"}
               </span>
@@ -208,7 +241,12 @@ function AlertContent() {
           {deviceInfo?.audio_url && (
             <div className="mt-5 pt-4 border-t border-red-200">
               <p className="text-xs font-bold text-red-700 mb-2 flex items-center gap-1">
-                <span>🔊</span> ฟังเสียงที่ตรวจจับได้:
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                  <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                </svg>
+                ฟังเสียงที่ตรวจจับได้:
               </p>
               <audio 
                 controls 
@@ -228,7 +266,17 @@ function AlertContent() {
           disabled={isAcknowledging}
           className="w-full py-4 bg-red-600 hover:bg-red-700 active:scale-95 text-white text-lg font-extrabold rounded-xl transition-all shadow-lg shadow-red-500/40 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-3"
         >
-          {isAcknowledging ? "กำลังบันทึก..." : "✅ รับทราบและเข้าช่วยเหลือ"}
+          {isAcknowledging ? (
+            "กำลังบันทึก..."
+          ) : (
+            <>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+              รับทราบและเข้าช่วยเหลือ
+            </>
+          )}
         </button>
 
       </div>

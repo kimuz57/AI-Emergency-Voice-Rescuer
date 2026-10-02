@@ -1,10 +1,11 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-unused-vars, @next/next/no-img-element, @typescript-eslint/no-explicit-any */
+/* eslint-disable @next/next/no-img-element, @typescript-eslint/no-explicit-any */
 import React, { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { safeRedirectPath } from "@/lib/auth";
+import PasswordToggle from "@/components/PasswordToggle";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -12,7 +13,7 @@ function LoginFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
-  // 🟢 ดึงค่า callbackUrl ถ้าไม่มีให้ดีดไป /dashboard เป็นค่าเริ่มต้น
+  // ดึงค่า callbackUrl ถ้าไม่มีให้ดีดไป /dashboard เป็นค่าเริ่มต้น
   // S26: รับเฉพาะ path ภายในเว็บ ("/..." แต่ไม่ใช่ "//...") กัน open redirect / javascript:
   const callbackUrl = safeRedirectPath(searchParams.get("callbackUrl"), "/dashboard");
 
@@ -62,7 +63,7 @@ function LoginFormContent() {
     setSuccessMsg("");
 
     // ==============================================
-    // 📝 โหมดสมัครสมาชิก (Register)
+    // โหมดสมัครสมาชิก (Register)
     // ==============================================
     if (!isLogin) {
       if (password !== confirmPassword) {
@@ -87,7 +88,7 @@ function LoginFormContent() {
 
         if (response.ok) {
           setSuccessMsg(
-            "🎉 สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบกล่องข้อความในอีเมลของคุณเพื่อยืนยันบัญชี",
+            "สมัครสมาชิกสำเร็จ! กรุณาตรวจสอบกล่องข้อความในอีเมลของคุณเพื่อยืนยันบัญชี",
           );
           setIsLogin(true); 
           setName("");
@@ -118,7 +119,7 @@ function LoginFormContent() {
       }
 
       // ==============================================
-      // 🔐 โหมดเข้าสู่ระบบ (Login)
+      // โหมดเข้าสู่ระบบ (Login)
       // ==============================================
     } else {
       try {
@@ -161,7 +162,7 @@ function LoginFormContent() {
             });
           }
 
-          // 🟢 เมื่อล็อกอินสำเร็จ จะพาเด้งกลับไปที่ callbackUrl (ซึ่งอาจพก ?mac=... มาด้วย)
+          // เมื่อล็อกอินสำเร็จ จะพาเด้งกลับไปที่ callbackUrl (ซึ่งอาจพก ?mac=... มาด้วย)
           setTimeout(() => {
             window.location.href = callbackUrl;
             router.refresh();
@@ -209,11 +210,13 @@ function LoginFormContent() {
         style={{ animationDelay: "2s" }}
       ></div>
 
-      <div className="neu-card relative z-10 w-full max-w-[900px] min-h-[600px] overflow-hidden">
+      {/* จอมือถือ: ฟอร์มไม่ใช้ absolute การ์ดเลยสูงตามเนื้อหา — เดิมการ์ดสูงตายตัว 600px
+          ฟอร์มสมัครสมาชิกยาวกว่านั้น หัวการ์ดกับลิงก์ด้านล่างจึงถูกตัดและเลื่อนไปดูไม่ได้ */}
+      <div className="neu-card relative z-10 w-full max-w-[900px] md:min-h-[600px] overflow-hidden">
         
         {/* =================UP FORM================= */}
         <div
-          className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
+          className={`relative md:absolute md:top-0 md:left-0 w-full md:w-1/2 md:h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
           ${isLogin ? "opacity-0 z-10 md:translate-x-0 hidden md:flex" : "opacity-100 z-20 md:translate-x-full flex"}`}
         >
           <div className="text-center mb-4">
@@ -278,14 +281,10 @@ function LoginFormContent() {
                   onChange={(e) => setPassword(e.target.value)}
                   className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
                 />
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 neu-text-muted hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                >
-                  {showPassword ? "Hide" : "Show"}
-                </button>
+                <PasswordToggle
+                  visible={showPassword}
+                  onToggle={() => setShowPassword(!showPassword)}
+                />
               </div>
             </div>
 
@@ -301,6 +300,10 @@ function LoginFormContent() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
+                />
+                <PasswordToggle
+                  visible={showConfirmPassword}
+                  onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
                 />
               </div>
               {errors.confirmPassword && (
@@ -330,11 +333,22 @@ function LoginFormContent() {
             <img src="/google-color.svg" alt="Google Logo" className="w-5 h-5" />
             ดำเนินการต่อด้วย Google
           </button>
+          {/* จอมือถือไม่มีแผงไล่สีด้านข้าง (แผงนั้นซ่อนไว้ด้วย hidden md:block) จึงต้องมีปุ่มสลับโหมดตรงนี้แทน */}
+          <p className="md:hidden mt-6 text-center text-sm neu-text-muted">
+            มีบัญชีอยู่แล้วใช่ไหม?{" "}
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="inline-flex items-center min-h-11 px-1 font-bold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              เข้าสู่ระบบ
+            </button>
+          </p>
         </div>
 
         {/* =================IN FORM================= */}
         <div
-          className={`absolute top-0 left-0 w-full md:w-1/2 h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
+          className={`relative md:absolute md:top-0 md:left-0 w-full md:w-1/2 md:h-full transition-all duration-700 ease-in-out flex flex-col justify-center px-8 md:px-12 py-8 overflow-y-auto
           ${isLogin ? "opacity-100 z-20 md:translate-x-0 flex" : "opacity-0 z-10 md:translate-x-full hidden md:flex"}`}
         >
           <div className="text-center mb-6">
@@ -387,6 +401,10 @@ function LoginFormContent() {
                   onKeyDown={(e) => { if (e.key === 'Enter') handleStandardAuth(e as any); }}
                   className="neu-input w-full px-4 py-3 pr-12 dark:placeholder-slate-400 outline-none transition-all text-sm"
                 />
+                <PasswordToggle
+                  visible={showLoginPassword}
+                  onToggle={() => setShowLoginPassword(!showLoginPassword)}
+                />
               </div>
               {errors.password && (
                 <span className="text-red-500 text-xs ml-1 mt-1 block">{errors.password}</span>
@@ -421,6 +439,17 @@ function LoginFormContent() {
             <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google Logo" className="w-5 h-5" />
             ดำเนินการต่อด้วย Google
           </button>
+          {/* จอมือถือไม่มีแผงไล่สีด้านข้าง (แผงนั้นซ่อนไว้ด้วย hidden md:block) จึงต้องมีปุ่มสลับโหมดตรงนี้แทน */}
+          <p className="md:hidden mt-6 text-center text-sm neu-text-muted">
+            ยังไม่มีบัญชีใช่ไหม?{" "}
+            <button
+              type="button"
+              onClick={toggleMode}
+              className="inline-flex items-center min-h-11 px-1 font-bold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              สมัครสมาชิก
+            </button>
+          </p>
         </div>
 
         {/* =================OVERLAY================= */}
