@@ -1,0 +1,42 @@
+# =======================================================================
+# ตัวอย่าง ACL ของ Mosquitto (S29) — แยกสิทธิ์ตามบทบาท
+# ใช้งาน: copy เป็น mosquitto/config/acl, เปลี่ยนชื่อ user ให้ตรงกับใน passwd
+#         แล้วเปิดบรรทัด `acl_file /mosquitto/config/acl` ใน mosquitto.conf และ restart broker
+# กติกา: เมื่อเปิด acl_file แล้ว อะไรที่ไม่ได้เขียนอนุญาตไว้ในไฟล์นี้จะถูกปฏิเสธทั้งหมด
+#   topic read <t>       = subscribe ได้อย่างเดียว
+#   topic write <t>      = publish ได้อย่างเดียว
+#   topic readwrite <t>  = ทั้งสองอย่าง
+#   # = ทุกระดับที่เหลือ, + = หนึ่งระดับ
+#   ใน `pattern`: %u = username, %c = client id
+# ชื่อ user ด้านล่าง (esp32-device, ai-receiver) เป็นตัวอย่าง ต้องสร้างใน passwd ด้วย mosquitto_passwd
+# =======================================================================
+
+# -----------------------------------------------------------------------
+# 1) บอร์ด ESP32 (firmwareV2/) — publish ได้อย่างเดียว ไม่ต้อง subscribe อะไร
+#    topic ที่ firmware ใช้: voice/audio/{mac}, voice/angle/{mac}, device/status/{mac}
+# -----------------------------------------------------------------------
+user esp32-device
+topic write voice/audio/#
+topic write voice/angle/#
+topic write device/status/#
+
+# แบบเข้มกว่า (แนะนำ): ให้แต่ละบอร์ดมี user ของตัวเอง โดยตั้ง username = MAC ในรูปแบบเดียวกับ topic
+# แล้วใช้ pattern แทน block `user esp32-device` ด้านบน
+# บอร์ดจะ publish ได้เฉพาะ topic ของ MAC ตัวเอง ปลอมเป็นเครื่องอื่นไม่ได้
+# ⚠️ ตอนนี้ firmware ส่ง topic เป็น MAC แบบมี ':' (AA:BB:CC:DD:EE:FF) แต่ mosquitto_passwd ไม่ยอมให้ username มี ':'
+#    ต้องเปลี่ยนรูปแบบ MAC ใน topic เป็นแบบไม่มี ':' (เช่น AABBCCDDEEFF) ทั้ง firmware, receiver และ backend ก่อน
+#    (%c = client id ใช้แทนได้ แต่ client id ไม่ได้ผ่านการยืนยันตัวตน user ไหนก็ตั้ง client id ปลอมได้)
+# ⚠️ pattern มีผลกับทุก user รวมถึง ai-receiver (ซึ่งไม่เป็นปัญหา เพราะ username ของมันไม่ใช่ MAC)
+# ต้องแก้ firmware ให้ส่ง username/password ต่อเครื่องก่อน ถึงจะใช้แบบนี้ได้
+#pattern write voice/audio/%u
+#pattern write voice/angle/%u
+#pattern write device/status/%u
+
+# -----------------------------------------------------------------------
+# 2) MQTT Audio Receiver (api/mqtt_audio_receiver.py) — subscribe ได้อย่างเดียว
+#    ตั้ง MQTT_USER ใน api/.env ให้ตรงกับ user นี้
+# -----------------------------------------------------------------------
+user ai-receiver
+topic read voice/audio/#
+topic read voice/angle/#
+topic read device/status/#

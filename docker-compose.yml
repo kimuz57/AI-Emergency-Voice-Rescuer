@@ -1,3 +1,12 @@
+# =======================================================================
+# Infrastructure สำหรับรันในเครื่อง dev: Mosquitto (MQTT), PostgreSQL, Redis
+# แอป Go (backend/), Python (api/) และ Next.js (frontend/) รันนอก Docker (ดู start_guardian.bat)
+#
+# ค่า ${VAR:-default} ด้านล่างอ่านจาก shell หรือไฟล์ .env ที่ root ของ repo
+# ใช้ค่าชุดเดียวกับ backend ได้ด้วย:  docker compose --env-file backend/.env up -d
+# (DB_USER / DB_PASSWORD / DB_NAME / DB_PORT / REDIS_PORT / REDIS_PASSWORD ต้องตรงกับ backend/.env)
+# default ของรหัสผ่านเป็น placeholder สำหรับเครื่อง dev เท่านั้น ห้ามใช้ใน production
+# =======================================================================
 services:
   mosquitto:
     image: eclipse-mosquitto:2
@@ -6,10 +15,64 @@ services:
       - "1883:1883"   # สำหรับ MQTT (TCP)
       - "9001:9001"   # สำหรับ WS (WebSocket)
       - "8083:8083"   # สำหรับ WSS (WebSocket Secure)
+    # ⚠️ ไฟล์ต่อไปนี้ถูก gitignore ต้องสร้างเองก่อน `docker compose up` (ดู mosquitto/README.md):
+    #   - mosquitto/config/passwd        สร้างด้วย mosquitto_passwd เช่น
+    #       docker run --rm -it -v "${PWD}/mosquitto/config:/mosquitto/config" eclipse-mosquitto:2 mosquitto_passwd -c /mosquitto/config/passwd <username>
+    #   - mosquitto/certs/server.crt และ server.key   (listener 8083 / WSS ใน mosquitto.conf)
+    # ถ้าไม่มี passwd broker จะ start ไม่ขึ้น (password_file ใน mosquitto.conf หาไฟล์ไม่เจอ)
+    # passwd อยู่ในโฟลเดอร์ config ที่ mount ทั้งโฟลเดอร์แล้ว จึงไม่ต้อง mount ซ้ำแยกไฟล์
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
       - ./mosquitto/log:/mosquitto/log
       - ./mosquitto/certs:/mosquitto/certs
-      - ./mosquitto/config/passwd:/mosquitto/config/passwd
     restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    container_name: smartvoice-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-guardian}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me-dev-only}
+      POSTGRES_DB: ${DB_NAME:-guardian}
+    # ⚠️ POSTGRES_* มีผลแค่ตอนสร้าง volume ครั้งแรก เปลี่ยน DB_PASSWORD ทีหลังต้อง ALTER USER เอง หรือลบ volume postgres_data
+    ports:
+      # backend ใช้ DB_PORT default 5433 (backend/database/database.go) -> map 5433 ของ host เข้า 5432 ใน container
+      # bind แค่ 127.0.0.1 เพราะ backend รันบนเครื่องเดียวกัน ไม่เปิด DB ให้เครื่องอื่นในวง LAN/SoftAP
+      - "127.0.0.1:${DB_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    container_name: smartvoice-redis
+    environment:
+      # ปล่อยว่างได้ = ไม่ตั้งรหัส (ตรงกับ backend ที่ REDIS_PASSWORD default เป็นค่าว่าง)
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    # ใส่ --requirepass เฉพาะตอนที่ตั้ง REDIS_PASSWORD ไว้ ($$ = ตัวแปรของ shell ใน container ไม่ใช่ของ compose)
+    # เรียกผ่าน docker-entrypoint.sh เพื่อให้ image ลดสิทธิ์เป็น user redis เหมือนเดิม (ไม่งั้น redis-server รันเป็น root)
+    command: >
+      sh -c 'if [ -n "$$REDIS_PASSWORD" ]; then
+      exec docker-entrypoint.sh redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD";
+      else exec docker-entrypoint.sh redis-server --appendonly yes; fi'
+    ports:
+      # bind แค่ 127.0.0.1: default ไม่มีรหัสผ่าน ห้ามเปิดให้เครื่องอื่นในวง LAN/SoftAP ต่อได้
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "if [ -n \"$$REDIS_PASSWORD\" ]; then redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping; else redis-cli ping; fi | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
