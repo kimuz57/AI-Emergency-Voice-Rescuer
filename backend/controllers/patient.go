@@ -3,13 +3,13 @@ package controllers
 import (
 	"errors" // 🟢 อย่าลืม import errors
 	"go_backend/database"
+	"go_backend/middleware"
 	"go_backend/models"
 	"strings"
 
 	"gorm.io/gorm"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // 🟢 สร้าง Struct สำหรับรับข้อมูล JSON ป้องกันปัญหาเมื่อ Model ไม่มีฟิลด์ MACAddress แล้ว
@@ -35,30 +35,11 @@ func CreatePatient(c *fiber.Ctx) error {
 		})
 	}
 
-	// 1. ดึง Token จาก c.Locals("user")
-	userToken, ok := c.Locals("user").(*jwt.Token)
-	if !ok {
+	// 1-3. ผู้ดูแล = เจ้าของ token ที่ RequireAuth ตรวจแล้ว (โหลดจาก DB ด้วย user_id ใน token)
+	user, err := middleware.CurrentUser(c)
+	if err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "Unauthorized: ไม่พบข้อมูลการเข้าสู่ระบบ",
-		})
-	}
-
-	claims := userToken.Claims.(jwt.MapClaims)
-
-	// 2. ดึง user_id จาก Claims
-	userIDClaim, ok := claims["user_id"].(float64)
-	if !ok {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"error": "Unauthorized: Token ไม่สมบูรณ์แบบ",
-		})
-	}
-	userID := uint(userIDClaim)
-
-	// 3. ค้นหา User ใน Database
-	var user models.User
-	if err := database.DB.First(&user, userID).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-			"error": "ไม่พบผู้ใช้งานในระบบ",
 		})
 	}
 
@@ -76,10 +57,11 @@ func CreatePatient(c *fiber.Ctx) error {
 		Gender:           input.Gender,
 		RoomNumber:       input.RoomNumber,
 		MedicalCondition: input.MedicalCondition,
-		Caregivers:       []models.User{user}, // ผูกผู้ดูแลทันที
+		Caregivers:       []models.User{*user}, // ผูกผู้ดูแลทันที
 	}
 
 	var validDevices []models.Device_patient
+	var activatedMACs []string // 🟢 MAC ที่ตั้ง is_active=true เพื่อล้าง cache หลัง commit
 
 	// ⭐ ทำงานผ่าน Transaction เพื่อให้บันทึกและอัปเดตไปพร้อมกัน
 	txErr := database.DB.Transaction(func(tx *gorm.DB) error {
@@ -98,6 +80,16 @@ func CreatePatient(c *fiber.Ctx) error {
 				return fiber.NewError(fiber.StatusInternalServerError, "เกิดข้อผิดพลาดในการตรวจสอบอุปกรณ์ในฐานข้อมูล")
 			}
 
+			// 🟢 ห้ามผูกบอร์ดที่ถูกผูกกับผู้ป่วยรายอื่นอยู่แล้ว (กฎเดียวกับ RegisterPatientWithDevice)
+			// ไม่งั้นผู้ใช้คนไหนก็ได้สามารถดึงบอร์ดของคนอื่นมาผูกกับผู้ป่วยของตัวเองแล้วรับแจ้งเตือนของเขาได้
+			var boundCount int64
+			if err := tx.Model(&models.Device_patient{}).Where("device_id = ?", hardware.ID).Count(&boundCount).Error; err != nil {
+				return fiber.NewError(fiber.StatusInternalServerError, "เกิดข้อผิดพลาดในการตรวจสอบอุปกรณ์ในฐานข้อมูล")
+			}
+			if boundCount > 0 {
+				return fiber.NewError(fiber.StatusConflict, "อุปกรณ์ MAC Address: "+mac+" ถูกลงทะเบียนให้ผู้ป่วยรายอื่นในระบบแล้ว")
+			}
+
 			deviceName := strings.TrimSpace(dev.DeviceName)
 			if deviceName == "" {
 				deviceName = "ไมค์หัวเตียง" // ค่าเริ่มต้นหากไม่ได้ส่งมา
@@ -113,6 +105,7 @@ func CreatePatient(c *fiber.Ctx) error {
 			if err := tx.Model(&hardware).Update("is_active", true).Error; err != nil {
 				return fiber.NewError(fiber.StatusInternalServerError, "ไม่สามารถอัปเดตสถานะอุปกรณ์ได้")
 			}
+			activatedMACs = append(activatedMACs, hardware.MacAddress)
 		}
 
 		// 🟢 กำหนดค่าไปยัง Field ความสัมพันธ์ใหม่ (DeviceAssignments)
@@ -133,6 +126,11 @@ func CreatePatient(c *fiber.Ctx) error {
 			return c.Status(fiberErr.Code).JSON(fiber.Map{"error": fiberErr.Message})
 		}
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "เกิดข้อผิดพลาดภายในระบบบันทึกข้อมูล"})
+	}
+
+	// 🟢 ล้าง cache device:activation หลัง commit แล้วเท่านั้น (B27)
+	for _, mac := range activatedMACs {
+		InvalidateDeviceCache(mac)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{

@@ -8,17 +8,22 @@ import (
 
 )
 
+// SetupRoutes ลงทะเบียน route ทั้งหมด แบ่งเป็น 4 ระดับสิทธิ์:
+//   - PUBLIC   : ไม่ต้องล็อกอิน (auth, webhook, ลิงก์ /alert ที่มี alert token)
+//   - INTERNAL : middleware.RequireInternalKey (header X-Internal-Key) — เรียกจาก api/mqtt_audio_receiver.py เท่านั้น
+//   - AUTH     : middleware.RequireAuth (cookie token / Bearer / ?token= สำหรับ SSE)
+//   - ADMIN    : RequireAuth + RequireAdmin (อ่าน role จาก DB ทุกครั้ง)
+//
+// ⚠️ static /profile ยังเป็น public อยู่ในรอบนี้ (ไฟล์เสียงไม่มี static แล้ว — ผ่าน GET /api/audio/:filename เท่านั้น)
 func SetupRoutes(app *fiber.App) {
 	// 🟢 1. ตั้งค่า Static Files (ย้ายมาไว้บนสุดให้เห็นชัดเจน)
 	api := app.Group("/api")
 	app.Static("/profile", "./profile")
-	// ตรวจสอบว่ามีบรรทัดนี้ใน main.go หรือยัง
+
+	// 🟢 Webhook ของ Telegram (PUBLIC — ตรวจ header X-Telegram-Bot-Api-Secret-Token ใน handler เมื่อตั้ง TELEGRAM_WEBHOOK_SECRET)
 	app.Post("/api/telegram/webhook", controllers.TelegramWebhook)
 	app.Post("/api/webhook", controllers.TelegramWebhook)
-	api.Get("/devices", middleware.AuthMiddleware, controllers.GetDashboardDevices)
-	api.Post("/devices", middleware.AuthMiddleware, controllers.RegisterDevice)
 	app.Post("/api/line/webhook", controllers.LineWebhook)
-	app.Delete("/api/user/telegram/disconnect", controllers.DisconnectTelegram)
 
 	// 🟢 2. เส้นทางเช็คสถานะ API
 	app.Get("/api/health", func(c *fiber.Ctx) error {
@@ -26,11 +31,11 @@ func SetupRoutes(app *fiber.App) {
 	})
 
 	// ==========================================
-	// 📍 หมวดหมู่ Auth (ระบบล็อกอิน/สมัครสมาชิก)
+	// 📍 หมวดหมู่ Auth (ระบบล็อกอิน/สมัครสมาชิก) — PUBLIC
 	// ==========================================
 	authGroup := app.Group("/api/auth")
 	{
-		authGroup.Post("/google", controllers.GoogleLogin)
+		authGroup.Post("/google", controllers.GoogleLogin) // ต้องส่ง id_token ของ Google มาด้วย
 		authGroup.Post("/login", controllers.LoginWithEmail) // รวบมาไว้ที่นี่หมดแล้ว
 		authGroup.Post("/register", controllers.Register)
 		authGroup.Post("/forgot-password", controllers.ForgotPassword)
@@ -56,9 +61,9 @@ func SetupRoutes(app *fiber.App) {
 		})
 	})
 	// ==========================================
-	// 📍 หมวดหมู่ User (จัดการข้อมูลผู้ใช้งาน)
+	// 📍 หมวดหมู่ User (จัดการข้อมูลผู้ใช้งาน) — AUTH
 	// ==========================================
-	userGroup := app.Group("/api/user")
+	userGroup := app.Group("/api/user", middleware.RequireAuth)
 	{
 		userGroup.Get("/profile", controllers.GetUserProfile)
 		userGroup.Put("/profile", controllers.UpdateUserProfile)
@@ -66,11 +71,12 @@ func SetupRoutes(app *fiber.App) {
 
 		userGroup.Post("/link-line", controllers.LinkLineAccount)
 		userGroup.Delete("/unlink-line", controllers.UnlinkLineAccount)
-		userGroup.Post("/telegram/connect", controllers.ConnectTelegram)
 		userGroup.Post("/telegram/toggle", controllers.ToggleTelegramNotify)
+		userGroup.Delete("/telegram/disconnect", controllers.DisconnectTelegram)
+		userGroup.Post("/telegram/link-token", controllers.CreateTelegramLinkToken) // 🟢 ออก token สำหรับ deep link /start <token>
 	}
 	// ==========================================
-	// 📍 หมวดหมู่ Patients (จัดการข้อมูลผู้ป่วย/คนชรา)
+	// 📍 หมวดหมู่ Patients (จัดการข้อมูลผู้ป่วย/คนชรา) — AUTH
 	// ==========================================
 	patientGroup := app.Group("/api/patients", middleware.RequireAuth)
 	{
@@ -83,29 +89,41 @@ func SetupRoutes(app *fiber.App) {
 		patientGroup.Get("/stream", controllers.StreamPatients)
 	}
 
+	// ==========================================
+	// 📍 หมวดหมู่ Devices (รายการบอร์ดบน Dashboard)
+	// ==========================================
+	api.Get("/devices", middleware.RequireAuth, controllers.GetDashboardDevices)
+	api.Post("/devices", middleware.RequireAuth, middleware.RequireAdmin, controllers.RegisterDevice)
+
 	deviceGroup := app.Group("/api/device")
 	{
-		// ให้ Python ยิงมาถามสถานะ Activation ของบอร์ดที่นี่
+		// ⚠️ PUBLIC: firmware ESP32 ยังส่ง key ไม่ได้ (ความเสี่ยงที่ยังเหลืออยู่)
 		deviceGroup.Get("/checkin", controllers.CheckinDeviceIP)
-		deviceGroup.Get("/check-activation", controllers.CheckDeviceActivation)
-		deviceGroup.Post("/status", controllers.UpdateDevices)
 
-		deviceGroup.Get("/stream", controllers.StreamDevices)
+		// INTERNAL: ให้ Python ยิงมาถามสถานะ Activation / อัปเดตสถานะบอร์ดที่นี่
+		deviceGroup.Get("/check-activation", middleware.RequireInternalKey, controllers.CheckDeviceActivation)
+		deviceGroup.Post("/status", middleware.RequireInternalKey, controllers.UpdateDevices)
+
+		// AUTH: SSE (EventSource ส่ง ?token= มาได้)
+		deviceGroup.Get("/stream", middleware.RequireAuth, controllers.StreamDevices)
 	}
 
 	alertGroup := app.Group("/api/alerts")
 	{
-    	alertGroup.Post("/ai", controllers.CreateAlert)
-    	alertGroup.Post("/", controllers.CreateAlert)
-    	alertGroup.Get("/", controllers.GetActiveAlerts)
-    	alertGroup.Get("/history", controllers.GetHistoryAlerts)
-    	alertGroup.Put("/:id/resolve", controllers.ResolveAlert) // API สำหรับ Dashboard (id)
-    	alertGroup.Get("/stats", controllers.GetAlertStats)
-    	alertGroup.Get("/stream", controllers.StreamAlerts)
+		// INTERNAL: Python AI แจ้งเหตุเข้ามา
+		alertGroup.Post("/ai", middleware.RequireInternalKey, controllers.CreateAlert)
+		alertGroup.Post("/", middleware.RequireInternalKey, controllers.CreateAlert)
 
-    // 🌟 API สำหรับหน้า /alert จาก LINE
-    	alertGroup.Get("/device", controllers.GetAlertDeviceInfo)
-    	alertGroup.Post("/acknowledge", controllers.AcknowledgeAlert)
+		// AUTH: Dashboard
+		alertGroup.Get("/", middleware.RequireAuth, controllers.GetActiveAlerts)
+		alertGroup.Get("/history", middleware.RequireAuth, controllers.GetHistoryAlerts)
+		alertGroup.Put("/:id/resolve", middleware.RequireAuth, controllers.ResolveAlert) // API สำหรับ Dashboard (id)
+		alertGroup.Get("/stats", middleware.RequireAuth, controllers.GetAlertStats)
+		alertGroup.Get("/stream", middleware.RequireAuth, controllers.StreamAlerts)
+
+		// 🌟 PUBLIC: API สำหรับหน้า /alert จาก LINE / Telegram — handler ตรวจ alert token (X-Alert-Token / ?token= / body token)
+		alertGroup.Get("/device", controllers.GetAlertDeviceInfo)
+		alertGroup.Post("/acknowledge", controllers.AcknowledgeAlert)
 	}
 
 	// ==========================================
@@ -113,13 +131,18 @@ func SetupRoutes(app *fiber.App) {
 	// ==========================================
 	audioGroup := app.Group("/api/audio")
 	{
-		audioGroup.Post("/emergency", controllers.SaveEmergencyAudio)
-		audioGroup.Post("/negative", controllers.SaveNegativeAudio)
-		audioGroup.Get("/my-logs", controllers.GetMyDetectionLogs)
+		// INTERNAL: Python AI ส่งไฟล์เสียงเข้ามา
+		audioGroup.Post("/emergency", middleware.RequireInternalKey, controllers.SaveEmergencyAudio)
+		audioGroup.Post("/negative", middleware.RequireInternalKey, controllers.SaveNegativeAudio)
 
-		audioGroup.Get("/", controllers.ListAudioFiles)
-		audioGroup.Get("/:filename", controllers.GetAudioFile)
-		audioGroup.Delete("/:filename", controllers.DeleteAudioFile)
+		// AUTH
+		audioGroup.Get("/my-logs", middleware.RequireAuth, controllers.GetMyDetectionLogs)
+
+		// ⚠️ ลำดับสำคัญ: "/" (list) ต้องมาก่อน "/:filename"
+		audioGroup.Get("/", middleware.RequireAuth, middleware.RequireAdmin, controllers.ListAudioFiles)
+		// OptionalAuth: ไม่ปฏิเสธเอง — GetAudioFile ตัดสินสิทธิ์ (JWT admin/ผู้ดูแลที่ผูกอยู่ หรือ ?mac=&alert_token= จากหน้า /alert)
+		audioGroup.Get("/:filename", middleware.OptionalAuth, controllers.GetAudioFile)
+		audioGroup.Delete("/:filename", middleware.RequireAuth, middleware.RequireAdmin, controllers.DeleteAudioFile)
 	}
 
 }

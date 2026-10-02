@@ -6,14 +6,17 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"fmt"
 	"github.com/gofiber/fiber/v2"
 	"go_backend/config"
 	"go_backend/database"
+	"go_backend/middleware"
 	"go_backend/models"
 )
 
 // โครงสร้างสำหรับรับข้อมูลที่ Next.js ส่งมาให้
+// 🟢 Email ไม่บังคับ: ผู้ใช้ระบุจาก token (email ของคนอื่นใช้ได้เฉพาะ admin)
 type LinkLineRequest struct {
 	Code  string `json:"code"`
 	Email string `json:"email"`
@@ -28,12 +31,21 @@ func LinkLineAccount(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "รูปแบบข้อมูลไม่ถูกต้อง"})
 	}
 
+	// 🟢 ระบุผู้ใช้จาก token ก่อนไปแลก code กับ LINE (ไม่เชื่อ email จาก body)
+	user, err := middleware.ResolveTargetUser(c, req.Email)
+	if err != nil {
+		return middleware.IdentityError(c, err)
+	}
+
 	// 1. เตรียมข้อมูลไปขอ Access Token จาก LINE
-	clientID := config.GetEnvRequired("LINE_LOGIN_CHANNEL_ID")
-	clientSecret := config.GetEnvRequired("LINE_LOGIN_CHANNEL_SECRET")
-	redirectURI := config.GetEnvRequired("LINE_LOGIN_CALLBACK_URL") // http://localhost:3000/line-callback
-	fmt.Println("redirectURI:", redirectURI)
-	fmt.Println("clientID:", clientID)
+	// 🟢 ใช้ GetEnv แทน GetEnvRequired: log.Fatalf ระหว่างรับ request จะฆ่าทั้ง process ถ้าลืมตั้งค่า
+	clientID := config.GetEnv("LINE_LOGIN_CHANNEL_ID", "")
+	clientSecret := config.GetEnv("LINE_LOGIN_CHANNEL_SECRET", "")
+	redirectURI := config.GetEnv("LINE_LOGIN_CALLBACK_URL", "") // http://localhost:3000/line-callback
+	if clientID == "" || clientSecret == "" || redirectURI == "" {
+		fmt.Println("🚨 ยังไม่ได้ตั้งค่า LINE_LOGIN_CHANNEL_ID / LINE_LOGIN_CHANNEL_SECRET / LINE_LOGIN_CALLBACK_URL")
+		return c.Status(500).JSON(fiber.Map{"error": "ระบบยังไม่ได้ตั้งค่าการเชื่อมต่อ LINE"})
+	}
 
 	tokenURL := "https://api.line.me/oauth2/v2.1/token"
 	data := url.Values{}
@@ -44,8 +56,11 @@ func LinkLineAccount(c *fiber.Ctx) error {
 	data.Set("client_secret", clientSecret)
 
 	// ยิง API ไปหา LINE เพื่อแลก Token
-	client := &http.Client{}
-	r, _ := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
+	client := &http.Client{Timeout: 10 * time.Second} // 🟢 กัน request ค้างถ้า LINE ไม่ตอบ
+	r, err := http.NewRequest("POST", tokenURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "การเชื่อมต่อขัดข้อง"})
+	}
 	r.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := client.Do(r)
@@ -63,42 +78,59 @@ func LinkLineAccount(c *fiber.Ctx) error {
 	}
 
 	// อ่านค่า Access Token ที่ LINE ส่งมา
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "อ่านข้อมูลจาก LINE ไม่สำเร็จ"})
+	}
 	var tokenResp map[string]interface{}
-	json.Unmarshal(body, &tokenResp)
-	accessToken := tokenResp["access_token"].(string)
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
+		fmt.Println("🚨 แปลง token response จาก LINE ไม่สำเร็จ:", err)
+		return c.Status(500).JSON(fiber.Map{"error": "ข้อมูลตอบกลับจาก LINE ไม่ถูกต้อง"})
+	}
+	// 🟢 เช็ค type assertion ก่อนใช้ ไม่งั้น panic ถ้า LINE ไม่ส่ง access_token มา
+	accessToken, ok := tokenResp["access_token"].(string)
+	if !ok || accessToken == "" {
+		fmt.Println("🚨 LINE ไม่ได้ส่ง access_token มา")
+		return c.Status(500).JSON(fiber.Map{"error": "ไม่ได้รับ Access Token จาก LINE"})
+	}
 
 	// 2. นำ Access Token ไปขอดูข้อมูลโปรไฟล์ (เพื่อดึง line_user_id)
 	profileURL := "https://api.line.me/v2/profile"
-	rProfile, _ := http.NewRequest("GET", profileURL, nil)
+	rProfile, err := http.NewRequest("GET", profileURL, nil)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "การเชื่อมต่อขัดข้อง"})
+	}
 	rProfile.Header.Add("Authorization", "Bearer "+accessToken)
 
 	respProfile, err := client.Do(rProfile)
-	if err != nil || respProfile.StatusCode != 200 {
+	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "ดึงข้อมูลโปรไฟล์จาก LINE ไม่สำเร็จ"})
 	}
 	defer respProfile.Body.Close()
+	if respProfile.StatusCode != 200 {
+		return c.Status(500).JSON(fiber.Map{"error": "ดึงข้อมูลโปรไฟล์จาก LINE ไม่สำเร็จ"})
+	}
 
-	bodyProfile, _ := io.ReadAll(respProfile.Body)
+	bodyProfile, err := io.ReadAll(respProfile.Body)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "อ่านข้อมูลโปรไฟล์จาก LINE ไม่สำเร็จ"})
+	}
 	var profileResp map[string]interface{}
-	json.Unmarshal(bodyProfile, &profileResp)
-	
+	if err := json.Unmarshal(bodyProfile, &profileResp); err != nil {
+		fmt.Println("🚨 แปลง profile response จาก LINE ไม่สำเร็จ:", err)
+		return c.Status(500).JSON(fiber.Map{"error": "ข้อมูลโปรไฟล์จาก LINE ไม่ถูกต้อง"})
+	}
+
 	// พระเอกของเราอยู่ตรงนี้ครับ! ไอดีที่ขึ้นต้นด้วย U
 	lineUserID, ok := profileResp["userId"].(string)
 
 	if !ok {
-    	fmt.Println("LINE profile error:", profileResp)
+    	fmt.Println("🚨 LINE profile response ไม่มี userId")
     	return c.Status(500).JSON(fiber.Map{
         	"error": "ไม่พบ LINE userId",
     	})
 	}
-	// 3. บันทึกลงฐานข้อมูล PostgreSQL
-	// ค้นหาผู้ใช้งานจาก Email
-	var user models.User
-	if err := database.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "ไม่พบผู้ใช้งานนี้ในระบบฐานข้อมูล"})
-	}
-
+	// 3. บันทึกลงฐานข้อมูล PostgreSQL (user ระบุจาก token ไว้แล้วด้านบน)
 	// เช็กว่าเคยผูกไปหรือยัง? ถ้าเคยแล้วให้อัปเดต ถ้ายังให้สร้างตารางจับคู่ใหม่
 	var mapping models.UserLineMapping
 	result := database.DB.Where("user_id = ?", user.ID).First(&mapping)
@@ -109,14 +141,24 @@ func LinkLineAccount(c *fiber.Ctx) error {
 			UserID:     user.ID,
 			LineUserID: lineUserID,
 		}
-		database.DB.Create(&mapping)
+		if err := database.DB.Create(&mapping).Error; err != nil {
+			// 🟢 เช่น line_user_id ชน unique index เพราะบัญชี LINE นี้ผูกกับผู้ใช้อื่นอยู่แล้ว
+			fmt.Println("❌ บันทึก LINE mapping ไม่สำเร็จ:", err)
+			return c.Status(500).JSON(fiber.Map{"error": "บันทึกการผูกบัญชี LINE ไม่สำเร็จ (บัญชี LINE นี้อาจผูกกับผู้ใช้อื่นอยู่แล้ว)"})
+		}
 	} else {
 		// อัปเดตข้อมูลเดิม (เผื่อผู้ใช้เปลี่ยนบัญชี LINE)
 		mapping.LineUserID = lineUserID
-		database.DB.Save(&mapping)
+		if err := database.DB.Save(&mapping).Error; err != nil {
+			fmt.Println("❌ อัปเดต LINE mapping ไม่สำเร็จ:", err)
+			return c.Status(500).JSON(fiber.Map{"error": "บันทึกการผูกบัญชี LINE ไม่สำเร็จ (บัญชี LINE นี้อาจผูกกับผู้ใช้อื่นอยู่แล้ว)"})
+		}
 	}
 
-	database.DB.Model(&user).Update("is_linked_line", true)
+	if err := database.DB.Model(user).Update("is_linked_line", true).Error; err != nil {
+		fmt.Println("❌ อัปเดตสถานะ is_linked_line ไม่สำเร็จ:", err)
+		return c.Status(500).JSON(fiber.Map{"error": "อัปเดตสถานะการผูกบัญชี LINE ไม่สำเร็จ"})
+	}
 
 	return c.JSON(fiber.Map{
 		"message": "ผูกบัญชี LINE สำเร็จ!",
@@ -126,23 +168,26 @@ func LinkLineAccount(c *fiber.Ctx) error {
 
 func UnlinkLineAccount(c *fiber.Ctx) error {
 	req := new(UnlinkLineRequest)
-	if err := c.BodyParser(req); err != nil {
+	// 🟢 DELETE อาจไม่มี body เลย (ใช้ผู้ใช้จาก token)
+	if err := parseOptionalBody(c, req); err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "รูปแบบข้อมูลไม่ถูกต้อง"})
 	}
+	if req.Email == "" {
+		req.Email = c.Query("email")
+	}
 
-	// 1. ค้นหาผู้ใช้งานจากอีเมลก่อนเพื่อเอา User ID
-	var user models.User
-	if err := database.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "ไม่พบผู้ใช้งานในระบบ"})
+	// 1. ระบุผู้ใช้จาก token (email ของคนอื่นใช้ได้เฉพาะ admin)
+	user, err := middleware.ResolveTargetUser(c, req.Email)
+	if err != nil {
+		return middleware.IdentityError(c, err)
 	}
 
 	// 2. สั่งลบข้อมูลการผูกบัญชี LINE ของ User คนนี้ออกจากตาราง mapping
 	// GORM จะอ้างอิงตาม user_id แล้วทำลายทิ้งทันที
-	err := database.DB.Where("user_id = ?", user.ID).Delete(&models.UserLineMapping{}).Error
-	if err != nil {
+	if err := database.DB.Where("user_id = ?", user.ID).Delete(&models.UserLineMapping{}).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "ไม่สามารถลบข้อมูลการผูกบัญชีได้"})
 	}
-	database.DB.Model(&user).Update("is_linked_line", false)
+	database.DB.Model(user).Update("is_linked_line", false)
 	return c.JSON(fiber.Map{
 		"message": "ยกเลิกการเชื่อมต่อ LINE สำเร็จเรียบร้อยแล้ว",
 	})

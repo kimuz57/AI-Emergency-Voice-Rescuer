@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
+
 	"github.com/gofiber/fiber/v2"
 	"go_backend/config"
 	"go_backend/database"
 	"go_backend/models"
+	"go_backend/utils"
 )
 
 // ฟังก์ชันรับ Webhook จาก LINE
@@ -22,10 +26,32 @@ func LineWebhook(c *fiber.Ctx) error {
     return c.SendStatus(200)
 }
 
+// buildAlertLink สร้างลิงก์หน้า /alert ของ Frontend พร้อม alert token ที่เซ็นกับ MAC (อายุ 24 ชม.)
+// ใช้ทั้ง LINE และ Telegram — หน้า /alert ส่ง token กลับมาให้ GetAlertDeviceInfo / AcknowledgeAlert ตรวจ
+// คืน "" ถ้าเซ็น token ไม่ได้ (เช่นไม่ได้ตั้ง JWT_SECRET) เพื่อไม่ส่งลิงก์ที่ใช้ไม่ได้
+func buildAlertLink(macAddress string) string {
+	mac := normalizeMAC(macAddress)
+	if mac == "" {
+		return ""
+	}
+	token, err := utils.SignAlertToken(mac)
+	if err != nil {
+		fmt.Println("❌ สร้าง alert token ไม่สำเร็จ:", err)
+		return ""
+	}
+	return alertLinkURL(config.GetEnv("FRONTEND_URL", "https://kws.wattanapong.com"), mac, token)
+}
+
+// alertLinkURL ประกอบ URL "<FRONTEND_URL>/alert?mac=<MAC>&token=<token>" (escape ทั้ง mac และ token)
+func alertLinkURL(frontendURL, mac, token string) string {
+	return fmt.Sprintf("%s/alert?mac=%s&token=%s",
+		strings.TrimRight(frontendURL, "/"), url.QueryEscape(mac), url.QueryEscape(token))
+}
+
 // 🟢 รับคำสั่งจาก Manager และเช็กเงื่อนไขก่อนส่ง LINE
 func TriggerLineAlert(userID uint, patientName string, roomNumber string, macAddress string) {
 	var lineMapping models.UserLineMapping
-	
+
 	// หาข้อมูลว่าผูก LINE ไว้ไหม
 	if err := database.DB.Where("user_id = ?", userID).First(&lineMapping).Error; err != nil {
 		fmt.Println("⚠️ ผู้ดูแลยังไม่ได้ผูกบัญชี LINE OA")
@@ -46,17 +72,21 @@ func sendLineOAPushMessage(lineUserID string, patientName string, roomNumber str
 		return
 	}
 
-	// 🌟 [เพิ่ม] สร้าง URL ลิงก์ไปยังหน้าแจ้งเตือนของ Frontend
-	frontendURL := config.GetEnv("FRONTEND_URL", "https://kws.wattanapong.com") 
-	alertLink := fmt.Sprintf("%s/alert?mac=%s", frontendURL, macAddress)
+	// 🌟 สร้าง URL ลิงก์ไปยังหน้าแจ้งเตือนของ Frontend (มี alert token ที่เซ็นกับ MAC)
+	alertLink := buildAlertLink(macAddress)
 
 	apiURL := "https://api.line.me/v2/bot/message/push"
-	
+
 	// 🌟 [ปรับปรุง] ข้อความให้มีลิงก์แนบไปตอนท้ายด้วย
 	msgText := fmt.Sprintf(
-		"🚨 แจ้งเตือนฉุกเฉิน 🚨\n\nพบเสียงร้องขอความช่วยเหลือ!\nผู้ป่วย: %s\nห้องพัก: %s\nเวลา: %s\n\n👇 กดลิงก์ด้านล่างเพื่อเข้าตรวจสอบและกดยอมรับ:\n%s",
-		patientName, roomNumber, time.Now().Format("15:04:05"), alertLink,
+		"🚨 แจ้งเตือนฉุกเฉิน 🚨\n\nพบเสียงร้องขอความช่วยเหลือ!\nผู้ป่วย: %s\nห้องพัก: %s\nเวลา: %s\n\n",
+		patientName, roomNumber, time.Now().Format("15:04:05"),
 	)
+	if alertLink != "" {
+		msgText += "👇 กดลิงก์ด้านล่างเพื่อเข้าตรวจสอบและกดยอมรับ:\n" + alertLink
+	} else {
+		msgText += "กรุณาเข้าตรวจสอบทันที!"
+	}
 
 	requestBody := map[string]interface{}{
 		"to": lineUserID,

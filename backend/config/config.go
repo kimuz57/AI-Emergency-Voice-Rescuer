@@ -26,6 +26,24 @@ func GetEnv(key string, fallback string) string {
 	return fallback
 }
 
+// WarnIfMissing ใช้ตอน startup สำหรับค่าที่ฟีเจอร์บางส่วนต้องใช้ (เช่น LINE Login, Telegram)
+// ถ้าไม่มีจะแค่เตือนใน log ไม่ปิดระบบ ส่วน handler ที่ใช้ค่านั้นจะตอบ error เอง
+func WarnIfMissing(keys ...string) {
+	for _, key := range keys {
+		if value, exists := os.LookupEnv(key); !exists || value == "" {
+			log.Printf("⚠️ Warning: Environment variable '%s' is not set. Features that depend on it will return errors.", key)
+		}
+	}
+}
+
+// WarnMissing เหมือน WarnIfMissing แต่บอกผลกระทบที่จะเกิดขึ้นด้วย (ใช้กับค่าด้านความปลอดภัยที่ไม่บังคับ)
+// ห้ามส่งค่าของ env เข้ามาใน impact — log แค่ชื่อ key เท่านั้น
+func WarnMissing(key, impact string) {
+	if value, exists := os.LookupEnv(key); !exists || value == "" {
+		log.Printf("⚠️ Warning: Environment variable '%s' is not set: %s", key, impact)
+	}
+}
+
 // GetEnvRequired ใช้ดึงค่า "ตัวตึง" ที่ระบบขาดไม่ได้ ถ้าลืมใส่ ระบบจะแจ้งเตือนและปิดตัวเองทันที (ป้องกันบั๊กเงียบ)
 func GetEnvRequired(key string) string {
 	value, exists := os.LookupEnv(key)

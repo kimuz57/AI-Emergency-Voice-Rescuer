@@ -7,3 +7,9 @@ profile/*
 profile
 localhost+2.pem
 localhost+2-key.pem
+# build output (go build / air)
+/main
+*.exe
+
+# Keep the env template tracked (root .gitignore ignores .env*)
+!.env.example

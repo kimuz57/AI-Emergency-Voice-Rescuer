@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"fmt"
 	"go_backend/database"
 	"go_backend/models"
 
 	"github.com/gofiber/fiber/v2"
+	"gorm.io/gorm"
 )
 
 // 1. ดึงข้อมูล User ทั้งหมด
@@ -19,7 +19,10 @@ func AdminGetAllUsers(c *fiber.Ctx) error {
 
 // 2. ลบ User
 func AdminDeleteUser(c *fiber.Ctx) error {
-	id := c.Params("id")
+	id, ok := parseIDParam(c)
+	if !ok {
+		return c.Status(400).JSON(fiber.Map{"error": "รหัสผู้ใช้งานไม่ถูกต้อง"})
+	}
 	var user models.User
 
 	if err := database.DB.First(&user, id).Error; err != nil {
@@ -34,7 +37,10 @@ func AdminDeleteUser(c *fiber.Ctx) error {
 
 // 3. แก้ไขข้อมูล User (ชื่อ, อีเมล, สิทธิ์, สถานะยืนยัน, ยกเลิกการเชื่อมต่อ)
 func AdminUpdateUser(c *fiber.Ctx) error {
-	id := c.Params("id")
+	id, ok := parseIDParam(c)
+	if !ok {
+		return c.Status(400).JSON(fiber.Map{"error": "รหัสผู้ใช้งานไม่ถูกต้อง"})
+	}
 	
 	// รับข้อมูลที่จะแก้ไขจากหน้าเว็บ
 	var input struct {
@@ -87,21 +93,51 @@ func AdminGetAllPatients(c *fiber.Ctx) error {
 }
 
 func AdminDeletePatient(c *fiber.Ctx) error {
-
-	fmt.Println("🔥 เข้ามาถึง Controller แล้ว!") // 🟢 ใส่บรรทัดนี้
-    
-    id := c.Params("id")
-    fmt.Println("กำลังจะลบ ID:", id)
+    id, ok := parseIDParam(c)
+    if !ok {
+        return c.Status(400).JSON(fiber.Map{"error": "รหัสผู้ป่วยไม่ถูกต้อง"})
+    }
 
     // 1. ค้นหาผู้ป่วยใน DB
     var patient models.Patient
-    if err := database.DB.First(&patient, id).Error; err != nil {
+    if err := database.DB.Preload("DeviceAssignments").First(&patient, id).Error; err != nil {
         return c.Status(404).JSON(fiber.Map{"error": "ไม่พบผู้ป่วยรายนี้"})
     }
 
-    // 2. ลบออกจาก Database
-    if err := database.DB.Delete(&patient).Error; err != nil {
+    // 2. ลบออกจาก Database พร้อมยกเลิกการผูกอุปกรณ์ (แบบเดียวกับ DeletePatient)
+    // 🟢 ถ้าไม่ลบแถว device_patients บอร์ดจะลงทะเบียนให้ผู้ป่วยใหม่ไม่ได้ (409) และยังถูกนับว่า active
+    var deactivatedMACs []string
+    txErr := database.DB.Transaction(func(tx *gorm.DB) error {
+        // 🟢 ล้างการผูกผู้ดูแล (caregiver_patients ถูก soft delete ผ่าน join model) เหมือน DeletePatient
+        if err := tx.Model(&patient).Association("Caregivers").Clear(); err != nil {
+            return err
+        }
+
+        if len(patient.DeviceAssignments) > 0 {
+            if err := tx.Where("patient_id = ?", patient.ID).Delete(&models.Device_patient{}).Error; err != nil {
+                return err
+            }
+
+            deviceIDs := make([]uint, 0, len(patient.DeviceAssignments))
+            for _, a := range patient.DeviceAssignments {
+                deviceIDs = append(deviceIDs, a.DeviceID)
+            }
+            macs, err := deactivateUnboundDevices(tx, deviceIDs)
+            if err != nil {
+                return err
+            }
+            deactivatedMACs = macs
+        }
+
+        return tx.Delete(&patient).Error
+    })
+    if txErr != nil {
         return c.Status(500).JSON(fiber.Map{"error": "ลบข้อมูลไม่สำเร็จ"})
+    }
+
+    // 🟢 ล้าง cache สถานะ activation หลัง commit
+    for _, mac := range deactivatedMACs {
+        InvalidateDeviceCache(mac)
     }
 
     return c.JSON(fiber.Map{"message": "ลบข้อมูลสำเร็จ"})
@@ -109,7 +145,10 @@ func AdminDeletePatient(c *fiber.Ctx) error {
 
 // แก้ไขข้อมูลผู้ป่วย (Admin)
 func AdminUpdatePatient(c *fiber.Ctx) error {
-	id := c.Params("id")
+	id, ok := parseIDParam(c)
+	if !ok {
+		return c.Status(400).JSON(fiber.Map{"error": "รหัสผู้ป่วยไม่ถูกต้อง"})
+	}
 
 	// 1. รับข้อมูลจากฟอร์มหน้าเว็บ (เพิ่ม CaregiverIDs)
 	var input struct {

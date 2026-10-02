@@ -15,8 +15,8 @@ import (
 type DetectionLog struct {
 	gorm.Model
 	// โครงสร้างเดิมที่คุณผู้กองมี (เก็บไว้เผื่ออนาคตทำระบบเชื่อมตารางผู้ป่วย)
-	PatientID    *uint
-	DeviceMAC    string `json:"device_mac"`
+	PatientID    *uint  `gorm:"index"`                   // ใช้ใน WHERE/JOIN ของ SSE alerts และ history
+	DeviceMAC    string `gorm:"index" json:"device_mac"` // ใช้หา alert ค้างของบอร์ด (acknowledge / alert device)
 	EventType    string
 	Confidence   float64
 	DecibelLevel float64
@@ -24,7 +24,7 @@ type DetectionLog struct {
 	ResolvedAt   *time.Time
 
 	AudioURL string `json:"audio_url"`
-	Status   string `gorm:"default:'needs_help'" json:"status"`
+	Status   string `gorm:"default:'needs_help';index" json:"status"` // SSE กรอง status = needs_help ทุก 1 วินาที
 }
 
 // 5. ตารางเชื่อม Many-to-Many ระหว่าง Caregiver (User) และ Patient

@@ -14,7 +14,7 @@ import (
 func CheckinDeviceIP(c *fiber.Ctx) error {
 	mac := c.Query("mac")
 	ip := c.Query("ip")
-	mac = strings.ToUpper(strings.TrimSpace(mac))
+	mac = normalizeMAC(mac)
 	if mac == "" || ip == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ส่งพารามิเตอร์ mac และ ip ไม่ครบ"})
 	}
@@ -57,8 +57,19 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 	})
 }
 
+// normalizeMAC ทำให้ MAC อยู่รูปแบบเดียวกันทั้งระบบ (ตัดช่องว่าง + ตัวพิมพ์ใหญ่)
+// ตรงกับที่ CheckinDeviceIP ใช้ตอนสร้าง device และใช้เป็น key ของ cache
+func normalizeMAC(mac string) string {
+	return strings.ToUpper(strings.TrimSpace(mac))
+}
+
+// deviceActivationKey คือ key ของ cache สถานะ activation — ใช้ทั้งตอนอ่าน/เขียน/ลบ เพื่อให้ invalidate โดนเสมอ
+func deviceActivationKey(mac string) string {
+	return fmt.Sprintf("device:activation:%s", normalizeMAC(mac))
+}
+
 func CheckDeviceActivation(c *fiber.Ctx) error {
-	mac := c.Query("mac")
+	mac := normalizeMAC(c.Query("mac"))
 	if mac == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":     "Missing 'mac' parameter",
@@ -70,7 +81,7 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 	var cached struct {
 		IsActive bool `json:"is_active"`
 	}
-	hit, _ := database.GetJSON(fmt.Sprintf("device:activation:%s", mac), &cached)
+	hit, _ := database.GetJSON(deviceActivationKey(mac), &cached)
 	if hit {
 		return c.JSON(fiber.Map{
 			"is_active": cached.IsActive,
@@ -80,7 +91,7 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 
 	// ── 2. Cache miss → query Postgres ──
 	var device models.Device
-	result := database.DB.Where("UPPER(mac_address) = UPPER(?)", mac).First(&device)
+	result := database.DB.Where("UPPER(mac_address) = ?", mac).First(&device)
 	if result.Error != nil {
 		return c.Status(fiber.StatusOK).JSON(fiber.Map{
 			"is_active": false,
@@ -92,7 +103,7 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 	if device.IsActive {
 		ttl = 1 * time.Hour
 	}
-	database.SetJSON(fmt.Sprintf("device:activation:%s", mac), fiber.Map{"is_active": device.IsActive}, ttl)
+	database.SetJSON(deviceActivationKey(mac), fiber.Map{"is_active": device.IsActive}, ttl)
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
 		"is_active":   device.IsActive,
@@ -104,7 +115,7 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 // InvalidateDeviceCache ลบ cache ของ device นั้นออก
 // เรียกตอนที่ admin เปลี่ยน is_active ใน UpdateDevices
 func InvalidateDeviceCache(mac string) {
-	key := fmt.Sprintf("device:activation:%s", mac)
+	key := deviceActivationKey(mac)
 	if err := database.Del(key); err != nil {
 		fmt.Printf("⚠️ [Redis] ลบ cache MAC %s ไม่สำเร็จ: %v\n", mac, err)
 	} else {

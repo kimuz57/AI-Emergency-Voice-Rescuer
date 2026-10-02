@@ -4,10 +4,8 @@ import (
 	"fmt" // เพิ่ม fmt สำหรับ debug
 	"strings"
 
-	"go_backend/config"
-    "go_backend/utils"
+	"go_backend/utils"
 	"github.com/gofiber/fiber/v2"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func ExtractToken(c *fiber.Ctx) string {
@@ -25,6 +23,7 @@ func ExtractToken(c *fiber.Ctx) string {
 }
 
 // RequireAuth เป็นด่านแรกสำหรับตรวจสอบว่าผู้ใช้ล็อกอิน (มี Token) หรือยัง
+// ลำดับการหา token: cookie "token" → Authorization: Bearer → ?token= (ให้ EventSource/SSE ใช้ได้)
 func RequireAuth(c *fiber.Ctx) error {
     // 🟢 1. ดัก OPTIONS ไว้บนสุด! (Preflight Request จะได้ผ่านทันที)
     if c.Method() == "OPTIONS" {
@@ -36,7 +35,7 @@ func RequireAuth(c *fiber.Ctx) error {
     if tokenString == "" {
 		tokenString = c.Query("token")
 	}
-    
+
     // ถ้าหาไม่เจอเลย แปลว่ายังไม่ได้ล็อกอิน
     if tokenString == "" {
         fmt.Println("❌ Middleware: ไม่พบ Token ใน Cookie และ Header")
@@ -44,56 +43,37 @@ func RequireAuth(c *fiber.Ctx) error {
     }
 
     // 3. ตรวจสอบความถูกต้องของ Token
-    secret := config.GetEnv("JWT_SECRET", "EVR_SECRET_KEY")
-    token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-        return []byte(secret), nil
-    })
-
-    if err != nil || !token.Valid {
+    // 🔒 ไม่มี fallback secret แล้ว (S4) และรับเฉพาะ HS256 (S19) — ดู utils.ParseJWT
+    token, err := utils.ParseJWT(tokenString)
+    if err != nil {
         fmt.Println("❌ Middleware: Token หมดอายุหรือไม่ถูกต้อง")
         return c.Status(401).JSON(fiber.Map{"error": "Unauthorized: Token ไม่ถูกต้องหรือหมดอายุ"})
     }
 
-    // 4. ถ้าผ่าน! ให้ฝากข้อมูล Token เอาไว้ในกระเป๋า c.Locals 
+    // 4. ถ้าผ่าน! ให้ฝากข้อมูล Token เอาไว้ในกระเป๋า c.Locals
     c.Locals("user", token)
 
     // อนุญาตให้ผ่านไปทำงานฟังก์ชันต่อไปได้
     return c.Next()
 }
 
-func AuthMiddleware(c *fiber.Ctx) error {
-	// 1. ดึง Token จาก Header Authorization
-	authHeader := c.Get("Authorization")
-	if authHeader == "" {
-		// ลองหาจาก Cookie เผื่อคุณส่งทาง Cookie (ถ้าไม่ใช้ ลบออกได้ครับ)
-		authHeader = c.Cookies("jwt")
-	}
+// OptionalAuth ใช้กับ route ที่มีทางเข้าได้มากกว่า JWT (เช่น GET /api/audio/:filename ที่หน้า /alert ใช้ alert token)
+// หา token ตามลำดับเดียวกับ RequireAuth แล้วฝาก c.Locals("user") เฉพาะเมื่อ JWT ถูกต้องเท่านั้น
+// ไม่ปฏิเสธ request เอง — handler ต้องตัดสินสิทธิ์ (middleware.CurrentUser คืน ErrUnauthorized เมื่อไม่มี user)
+func OptionalAuth(c *fiber.Ctx) error {
+    if c.Method() == "OPTIONS" {
+        return c.Next()
+    }
 
-	if authHeader == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized: กรุณาเข้าสู่ระบบ"})
-	}
+    tokenString := ExtractToken(c)
+    if tokenString == "" {
+        tokenString = c.Query("token")
+    }
+    if tokenString != "" {
+        if token, err := utils.ParseJWT(tokenString); err == nil {
+            c.Locals("user", token)
+        }
+    }
 
-	// 2. ตัดคำว่า "Bearer " ออก
-	tokenString := strings.Replace(authHeader, "Bearer ", "", 1)
-
-	// 3. แปลง Token (ใช้ฟังก์ชัน ParseToken ใน utils ของคุณ)
-	claims, err := utils.ParseToken(tokenString)
-	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized: Token ไม่ถูกต้องหรือหมดอายุ"})
-	}
-
-	// 4. สร้าง jwt.Token รูปแบบมาตรฐาน เพื่อฝากไว้ใน Locals
-	// ทำให้โค้ดใน RequireAdmin และ Controllers ของคุณใช้งาน c.Locals("user").(*jwt.Token) ได้ตามปกติ
-	token := &jwt.Token{
-		Claims: jwt.MapClaims{
-			"user_id": float64(claims.UserID), // แปลงกลับเป็น float64 ให้ตรงมาตรฐาน jwt
-			"email":   claims.Email,
-		},
-	}
-
-	// 5. ฝากข้อมูลไว้ใน Locals
-	c.Locals("user", token)
-
-	// 6. ส่งต่อให้ฟังก์ชันถัดไปทำงาน
-	return c.Next()
+    return c.Next()
 }

@@ -5,7 +5,7 @@ import (
 	"go_backend/database"
 	"go_backend/middleware"
 	"go_backend/models"
-	"go_backend/utils" // 🟢 อย่าลืม Import utils สำหรับแกะ Token
+	"strconv"
 	"strings"
 	"time"
 	"bufio"
@@ -30,21 +30,10 @@ type RegisterInput struct {
 
 func RegisterPatientWithDevice(c *fiber.Ctx) error {
 	// ==========================================
-	// 🟢 1. ดึงและตรวจสอบผู้ใช้งานจาก Cookie/Token
+	// 🟢 1. ผู้ดูแล = เจ้าของ token ที่ RequireAuth ตรวจแล้ว (โหลดจาก DB ด้วย user_id)
 	// ==========================================
-	tokenString := middleware.ExtractToken(c)
-	if tokenString == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "กรุณาล็อกอินก่อนทำรายการ"})
-	}
-
-	claims, err := utils.ParseToken(tokenString)
+	caregiver, err := middleware.CurrentUser(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Session หมดอายุหรือไม่ถูกต้อง"})
-	}
-	loggedInEmail := claims.Email 
-
-	var caregiver models.User
-	if err := database.DB.Where("email = ?", loggedInEmail).First(&caregiver).Error; err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 			"error": "ไม่พบข้อมูลผู้ดูแลในระบบ กรุณาล็อกอินใหม่",
 		})
@@ -160,6 +149,11 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถบันทึกข้อมูลได้"})
 	}
 
+	// 🟢 ล้าง cache device:activation หลัง commit (B27) ไม่งั้นค่า inactive ที่ cache ไว้ยังค้างอยู่
+	if normalizedBoardID != "" {
+		InvalidateDeviceCache(sourceDevice.MacAddress)
+	}
+
 	return c.JSON(fiber.Map{
 		"message": "ลงทะเบียนผู้ป่วยและผูกอุปกรณ์เรียบร้อย!",
 	})
@@ -171,26 +165,11 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 
 func GetPatientsByCaretaker(c *fiber.Ctx) error {
 	// ==========================================
-	// 🟢 1. ดึงอีเมลจาก Cookie Token อัตโนมัติ
+	// 🟢 1-2. ผู้ใช้ = เจ้าของ token (RequireAuth) โหลดจาก DB ด้วย user_id
 	// ==========================================
-	tokenString := middleware.ExtractToken(c)
-	if tokenString == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "กรุณาล็อกอินก่อนทำรายการ"})
-	}
-
-	claims, err := utils.ParseToken(tokenString)
+	user, err := middleware.CurrentUser(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Session หมดอายุหรือไม่ถูกต้อง"})
-	}
-
-	email := claims.Email 
-
-	// ==========================================
-	// 🟢 2. ค้นหาข้อมูล User
-	// ==========================================
-	var user models.User
-	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ใช้งาน"})
+		return middleware.IdentityError(c, err)
 	}
 
 	// ==========================================
@@ -198,9 +177,9 @@ func GetPatientsByCaretaker(c *fiber.Ctx) error {
 	// ==========================================
 	var patients []models.Patient
 	if err := database.DB.
-		Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id").
+		Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id AND caregiver_patients.deleted_at IS NULL").
 		Where("caregiver_patients.user_id = ?", user.ID).
-		Preload("DeviceAssignments").        // 🌟 1. ดึงข้อมูลการผูกอุปกรณ์ (ชื่อจุดติดตั้ง)
+		Preload("DeviceAssignments").       // 🌟 1. ดึงข้อมูลการผูกอุปกรณ์ (ชื่อจุดติดตั้ง)
 		Preload("DeviceAssignments.Device"). // 🌟 2. ดึงข้อมูลบอร์ดทะลุไปถึงตาราง Device (เพื่อเอา MAC Address และ Status)
 		Find(&patients).Error; err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถดึงข้อมูลผู้ป่วยได้"})
@@ -209,8 +188,19 @@ func GetPatientsByCaretaker(c *fiber.Ctx) error {
 	return c.JSON(patients)
 }
 
+// DeletePatient ลบผู้ป่วย (DELETE /api/patients/:id) — กฎสิทธิ์เดียวกับ UpdatePatient
+// - caregiver ทั่วไป: ลบได้เฉพาะผู้ป่วยที่ผูกกับตัวเองผ่าน caregiver_patients (แถวที่ยังไม่ถูก soft delete)
+// - admin: ลบได้ทุกคน
 func DeletePatient(c *fiber.Ctx) error {
-	patientID := c.Params("id")
+	patientID, ok := parseIDParam(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "รหัสผู้ป่วยไม่ถูกต้อง"})
+	}
+
+	currentUser, err := middleware.CurrentUser(c)
+	if err != nil {
+		return middleware.IdentityError(c, err)
+	}
 
 	var patient models.Patient
 	// 🟢 1. เปลี่ยนชื่อ Preload ให้ตรงกับ Model ใหม่ (DeviceAssignments)
@@ -218,9 +208,25 @@ func DeletePatient(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ป่วยในระบบ"})
 	}
 
+	// 🟢 1.1 ตรวจสิทธิ์: ไม่ใช่ admin ต้องเป็นผู้ดูแลที่ผูกกับผู้ป่วยรายนี้ (Count ผ่าน model กรอง deleted_at ให้เอง)
+	if currentUser.Role != "admin" {
+		var linkCount int64
+		if err := database.DB.Model(&models.CaregiverPatient{}).
+			Where("patient_id = ? AND user_id = ?", patient.ID, currentUser.ID).
+			Count(&linkCount).Error; err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์"})
+		}
+		if linkCount == 0 {
+			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+				"error": "ไม่พบข้อมูลผู้ป่วย หรือคุณไม่มีสิทธิ์ลบผู้ป่วยรายนี้",
+			})
+		}
+	}
+
 	// 🟢 2. ทำงานทุกอย่างภายใน Transaction เพื่อความปลอดภัยของข้อมูล
+	var deactivatedMACs []string
 	txErr := database.DB.Transaction(func(tx *gorm.DB) error {
-		
+
 		// 2.1 ล้างความสัมพันธ์ในตาราง Many-to-Many (Caregivers)
 		if err := tx.Model(&patient).Association("Caregivers").Clear(); err != nil {
 			return err // โยน Error กลับไปให้ Transaction ทำการ Rollback
@@ -232,6 +238,17 @@ func DeletePatient(c *fiber.Ctx) error {
 			if err := tx.Where("patient_id = ?", patient.ID).Delete(&models.Device_patient{}).Error; err != nil {
 				return err
 			}
+
+			// 🟢 2.2.1 ปิด is_active ของบอร์ดที่ไม่ได้ผูกกับผู้ป่วยรายอื่นแล้ว
+			deviceIDs := make([]uint, 0, len(patient.DeviceAssignments))
+			for _, a := range patient.DeviceAssignments {
+				deviceIDs = append(deviceIDs, a.DeviceID)
+			}
+			macs, err := deactivateUnboundDevices(tx, deviceIDs)
+			if err != nil {
+				return err
+			}
+			deactivatedMACs = macs
 		}
 
 		// 2.3 ลบข้อมูลผู้ป่วยออกจากตาราง Patients
@@ -249,9 +266,56 @@ func DeletePatient(c *fiber.Ctx) error {
 		})
 	}
 
+	// 🟢 ล้าง cache สถานะ activation หลัง commit แล้วเท่านั้น
+	for _, mac := range deactivatedMACs {
+		InvalidateDeviceCache(mac)
+	}
+
 	return c.JSON(fiber.Map{
 		"message": "ลบข้อมูลผู้ป่วยและยกเลิกการผูกอุปกรณ์เรียบร้อยแล้ว",
 	})
+}
+
+// 🟢 parseIDParam แปลง :id ใน URL เป็นเลขจำนวนเต็มบวกก่อนส่งให้ GORM
+// ห้ามส่ง string ดิบเข้า First(&x, id): GORM ถือว่า string ที่ไม่ใช่ตัวเลขเป็น SQL condition ดิบ (SQL injection)
+func parseIDParam(c *fiber.Ctx) (uint, bool) {
+	id, err := strconv.ParseUint(strings.TrimSpace(c.Params("id")), 10, 64)
+	if err != nil || id == 0 {
+		return 0, false
+	}
+	return uint(id), true
+}
+
+// 🟢 deactivateUnboundDevices ตั้ง is_active=false ให้บอร์ดใน deviceIDs ที่ไม่มีแถว device_patients
+// (ที่ยังไม่ถูก soft delete) เหลืออยู่แล้ว ต้องเรียกหลังลบแถวผูกของผู้ป่วยออกใน transaction เดียวกัน
+// คืน MAC ของบอร์ดที่ถูกปิด เพื่อให้ผู้เรียกล้าง cache device:activation หลัง commit
+func deactivateUnboundDevices(tx *gorm.DB, deviceIDs []uint) ([]string, error) {
+	if len(deviceIDs) == 0 {
+		return nil, nil
+	}
+
+	var devices []models.Device
+	if err := tx.
+		Where("id IN ?", deviceIDs).
+		Where("NOT EXISTS (SELECT 1 FROM device_patients dp WHERE dp.device_id = devices.id AND dp.deleted_at IS NULL)").
+		Find(&devices).Error; err != nil {
+		return nil, err
+	}
+	if len(devices) == 0 {
+		return nil, nil
+	}
+
+	ids := make([]uint, 0, len(devices))
+	macs := make([]string, 0, len(devices))
+	for _, d := range devices {
+		ids = append(ids, d.ID)
+		macs = append(macs, d.MacAddress)
+	}
+
+	if err := tx.Model(&models.Device{}).Where("id IN ?", ids).Update("is_active", false).Error; err != nil {
+		return nil, err
+	}
+	return macs, nil
 }
 
 // ==========================================
@@ -274,27 +338,20 @@ type UpdatePatientInput struct {
 // 🟢 หมายเหตุ: โค้ดนี้สมมติว่า models.User มีฟิลด์ Role string (เช่น "admin")
 // ถ้าฟิลด์/ค่าจริงต่างจากนี้ ให้ปรับบรรทัด isAdmin ด้านล่างให้ตรงกับ model จริง
 func UpdatePatient(c *fiber.Ctx) error {
-	patientID := c.Params("id")
-
-	// ==========================================
-	// 1. ตรวจสอบผู้ใช้งานจาก Token (pattern เดียวกับ RegisterPatientWithDevice)
-	// ==========================================
-	tokenString := middleware.ExtractToken(c)
-	if tokenString == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "กรุณาล็อกอินก่อนทำรายการ"})
+	patientID, ok := parseIDParam(c)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "รหัสผู้ป่วยไม่ถูกต้อง"})
 	}
 
-	claims, err := utils.ParseToken(tokenString)
+	// ==========================================
+	// 1. ตรวจสอบผู้ใช้งานจาก Token (RequireAuth) โหลดจาก DB ด้วย user_id
+	// ==========================================
+	currentUser, err := middleware.CurrentUser(c)
 	if err != nil {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Session หมดอายุหรือไม่ถูกต้อง"})
-	}
-
-	var currentUser models.User
-	if err := database.DB.Where("email = ?", claims.Email).First(&currentUser).Error; err != nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ใช้งาน กรุณาล็อกอินใหม่"})
 	}
 
-	// 🟢 ปรับตรงนี้ถ้าชื่อฟิลด์/ค่า Role ของ models.User ในโปรเจกต์จริงไม่ตรงกัน
+	// 🟢 role อ่านจาก DB (CurrentUser) ไม่ใช่จาก claim ใน token
 	isAdmin := currentUser.Role == "admin"
 
 	// ==========================================
@@ -309,8 +366,9 @@ func UpdatePatient(c *fiber.Ctx) error {
 		}
 	} else {
 		// ผู้ดูแลทั่วไป: ต้องเป็น caregiver ที่ผูกกับผู้ป่วยรายนี้เท่านั้น
+		// 🟢 กรอง caregiver_patients.deleted_at ด้วย ไม่งั้นผู้ดูแลที่ถูกถอดออก (soft delete) ยังผ่านการเช็คสิทธิ์ได้
 		err := database.DB.
-			Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id").
+			Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id AND caregiver_patients.deleted_at IS NULL").
 			Where("patients.id = ? AND caregiver_patients.user_id = ?", patientID, currentUser.ID).
 			First(&patient).Error
 		if err != nil {
@@ -363,25 +421,31 @@ func UpdatePatient(c *fiber.Ctx) error {
 }
 
 func StreamPatients(c *fiber.Ctx) error {
+	// 🟢 ข้อมูลเป็นของเจ้าของ token เสมอ (?email= ของคนอื่นใช้ได้เฉพาะ admin) ตรวจก่อนเปิด stream
+	targetUser, err := middleware.ResolveTargetUser(c, c.Query("email"))
+	if err != nil {
+		return middleware.IdentityError(c, err)
+	}
+	targetUserID := targetUser.ID
+
 	c.Set("Content-Type", "text/event-stream")
 	c.Set("Cache-Control", "no-cache")
 	c.Set("Connection", "keep-alive")
-
-	// รับ email ที่ส่งมาจาก React
-	targetEmail := c.Query("email")
 
 	c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 		ticker := time.NewTicker(1 * time.Second) // ส่งข้อมูลอัปเดตทุก 5 วินาที
 		defer ticker.Stop()
 
 		for range ticker.C {
-			if targetEmail == "" {
-				continue
-			}
-
 			// ดึงรายชื่อผู้ป่วยที่ผูกกับผู้ดูแลรายนี้
-			patientsData, err := fetchPatientsFromDB(targetEmail)
+			patientsData, err := fetchPatientsFromDB(targetUserID)
 			if err != nil {
+				// 🟢 DB error: ส่ง SSE comment แทนการ continue เงียบๆ เพื่อให้ Flush ตรวจได้ว่า client ยังเชื่อมต่ออยู่ไหม
+				fmt.Fprint(w, ": keep-alive\n\n")
+				if err := w.Flush(); err != nil {
+					fmt.Println("Client disconnected from Patients SSE stream")
+					return
+				}
 				continue
 			}
 
@@ -405,18 +469,14 @@ func StreamPatients(c *fiber.Ctx) error {
 }
 
 // 🟢 Helper Function สำหรับ Query รายชื่อผู้ป่วยจาก DB
-func fetchPatientsFromDB(email string) ([]models.Patient, error) {
-	var user models.User
-	if err := database.DB.Where("email = ?", email).First(&user).Error; err != nil {
-		return []models.Patient{}, nil // ถ้าหาผู้ใช้งานไม่เจอ ให้ส่ง array เปล่า
-	}
-
+func fetchPatientsFromDB(userID uint) ([]models.Patient, error) {
 	var patients []models.Patient
 
 	// ดึงผู้ป่วยที่มีความสัมพันธ์กับ user_id นี้ผ่านตาราง caregiver_patients
 	err := database.DB.Table("patients").
-		Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id").
-		Where("caregiver_patients.user_id = ?", user.ID).
+		Joins("JOIN caregiver_patients ON caregiver_patients.patient_id = patients.id AND caregiver_patients.deleted_at IS NULL").
+		Where("caregiver_patients.user_id = ?", userID).
+		Where("patients.deleted_at IS NULL"). // 🟢 เขียนกำกับไว้ชัดๆ (GORM ใส่ scope ให้จาก Dest อยู่แล้ว แต่ไม่ควรพึ่ง Table())
 		Find(&patients).Error
 
 	if err != nil {

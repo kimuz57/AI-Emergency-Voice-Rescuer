@@ -1,22 +1,20 @@
 package database
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
-
-	"github.com/redis/go-redis/v9"
 )
 
 // ─────────────────────────────────────────────
 //  Key helpers — ชื่อ key มาตรฐานทั้งระบบ
 // ─────────────────────────────────────────────
 
-func KeySession(userID uint) string      { return fmt.Sprintf("session:%d", userID) }
 func KeyDeviceStatus(deviceID uint) string { return fmt.Sprintf("device:%d:status", deviceID) }
-func KeyDeviceCache(deviceID uint) string  { return fmt.Sprintf("device:%d:data", deviceID) }
-func KeyPatientCache(patientID uint) string { return fmt.Sprintf("patient:%d:data", patientID) }
-func KeyRateLimit(ip string) string       { return fmt.Sprintf("ratelimit:%s", ip) }
+
+// KeyTelegramLink token ใช้ครั้งเดียวสำหรับผูก Telegram (ค่า = user ID, TTL 15 นาที)
+func KeyTelegramLink(token string) string { return fmt.Sprintf("telegram:link:%s", token) }
 
 // ─────────────────────────────────────────────
 //  Generic helpers
@@ -48,29 +46,41 @@ func GetJSON(key string, dest any) (bool, error) {
 	return true, nil
 }
 
+// SetNX ตั้งค่า key พร้อม TTL เฉพาะเมื่อ key ยังไม่มีอยู่ (atomic)
+// คืน true เมื่อตั้งค่าสำเร็จ (ยังไม่เคยมี key) และ false เมื่อมี key อยู่แล้ว — ใช้ทำ throttle
+func SetNX(key string, value any, ttl time.Duration) (bool, error) {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return false, fmt.Errorf("redis SetNX marshal: %w", err)
+	}
+	// จำกัดเวลา: ใช้ในเส้นทางแจ้งเหตุฉุกเฉิน ถ้า Redis ค้างต้อง fail open ให้เร็ว ไม่ใช่รอ dial/retry หลายวินาที
+	ctx, cancel := context.WithTimeout(Ctx, 2*time.Second)
+	defer cancel()
+	ok, err := RDB.SetNX(ctx, key, b, ttl).Result()
+	if err != nil {
+		return false, fmt.Errorf("redis SetNX: %w", err)
+	}
+	return ok, nil
+}
+
+// GetDel อ่านค่าแล้วลบ key ทิ้งในคำสั่งเดียว (atomic, ต้องใช้ Redis >= 6.2)
+// ใช้กับ token ที่ใช้ได้ครั้งเดียว คืน found=false เมื่อ key ไม่มี (หมดอายุหรือถูกใช้ไปแล้ว)
+func GetDel(key string) (string, bool, error) {
+	ctx, cancel := context.WithTimeout(Ctx, 2*time.Second)
+	defer cancel()
+	val, err := RDB.GetDel(ctx, key).Result()
+	if isRedisNil(err) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("redis GetDel: %w", err)
+	}
+	return val, true, nil
+}
+
 // Del ลบ key หนึ่งตัวหรือหลายตัว (ใช้ตอน logout หรือข้อมูลเปลี่ยน)
 func Del(keys ...string) error {
 	return RDB.Del(Ctx, keys...).Err()
-}
-
-// ─────────────────────────────────────────────
-//  Session helpers
-// ─────────────────────────────────────────────
-
-// SetSession เก็บข้อมูล user session (userID → struct ใดก็ได้)
-// TTL ปกติ = 24 ชั่วโมง
-func SetSession(userID uint, data any, ttl time.Duration) error {
-	return SetJSON(KeySession(userID), data, ttl)
-}
-
-// GetSession ดึง session กลับมา คืน false เมื่อ session หมดอายุหรือไม่มี
-func GetSession(userID uint, dest any) (bool, error) {
-	return GetJSON(KeySession(userID), dest)
-}
-
-// DeleteSession ลบ session ทันที (ใช้ตอน logout)
-func DeleteSession(userID uint) error {
-	return Del(KeySession(userID))
 }
 
 // ─────────────────────────────────────────────
@@ -82,63 +92,6 @@ func DeleteSession(userID uint) error {
 // SetDeviceOnline บันทึกสถานะ online ของ device ลง Redis โดยใช้ deviceID (uint)
 func SetDeviceOnline(deviceID uint, ttl time.Duration) error {
 	return RDB.Set(Ctx, KeyDeviceStatus(deviceID), "online", ttl).Err()
-}
-
-// (Optional) หากมีส่วนอื่นในระบบใช้ MAC Address สามารถสร้างฟังก์ชันนี้เพิ่มได้
-func SetDeviceOnlineByMAC(macAddress string, ttl time.Duration) error {
-	key := fmt.Sprintf("device:online:%s", macAddress)
-	return RDB.Set(Ctx, key, "online", ttl).Err()
-}
-
-// IsDeviceOnline ตรวจสอบว่า device ยัง online อยู่ไหม
-func IsDeviceOnline(deviceID uint) (bool, error) {
-	val, err := RDB.Get(Ctx, KeyDeviceStatus(deviceID)).Result()
-	if isRedisNil(err) {
-		return false, nil // key หมดอายุ = offline
-	}
-	if err != nil {
-		return false, err
-	}
-	return val == "online", nil
-}
-
-// ─────────────────────────────────────────────
-//  Rate limit helpers
-// ─────────────────────────────────────────────
-
-// IncrRateLimit เพิ่ม counter สำหรับ IP นี้ คืนจำนวนครั้งปัจจุบัน
-// ครั้งแรกที่เรียกจะตั้ง TTL ให้อัตโนมัติ
-func IncrRateLimit(ip string, window time.Duration) (int64, error) {
-	key := KeyRateLimit(ip)
-	pipe := RDB.Pipeline()
-	incr := pipe.Incr(Ctx, key)
-	pipe.Expire(Ctx, key, window)
-	if _, err := pipe.Exec(Ctx); err != nil {
-		return 0, err
-	}
-	return incr.Val(), nil
-}
-
-// ─────────────────────────────────────────────
-//  Pub/Sub helpers
-// ─────────────────────────────────────────────
-
-// PublishEmergency ส่ง emergency alert เข้า Redis channel
-// ให้ subscriber (เช่น WebSocket hub) รับและ broadcast ต่อให้ client
-func PublishEmergency(deviceID uint, payload any) error {
-	b, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("PublishEmergency marshal: %w", err)
-	}
-	channel := fmt.Sprintf("emergency:%d", deviceID)
-	return RDB.Publish(Ctx, channel, b).Err()
-}
-
-// SubscribeEmergency subscribe channel ของ device นั้น
-// คืน *redis.PubSub ให้ caller ไป .ReceiveMessage() ใน goroutine ของตัวเอง
-func SubscribeEmergency(deviceID uint) *redis.PubSub {
-	channel := fmt.Sprintf("emergency:%d", deviceID)
-	return RDB.Subscribe(Ctx, channel)
 }
 
 // ─────────────────────────────────────────────
