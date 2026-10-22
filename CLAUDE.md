@@ -226,7 +226,7 @@ inference throws.
   tooltip; `compact={false}` renders labelled rows (admin diagnostics page).
 - `PatientFormModal.tsx` — shared add/edit form. Only `mode="edit"` has a caller
   today; the `add` branch is wired but unused.
-- `BlinkingAlert.tsx`, `DirectionCompass.tsx`, `Navbar.tsx`, `Sidebar.tsx`
+- `BlinkingAlert.tsx`, `Navbar.tsx`, `Sidebar.tsx`
 - Hooks: `useAdminGuard.ts` only (the unused components and hooks were removed)
 
 **Authentication & roles:**
@@ -456,8 +456,8 @@ Never put credentials back into `main.c`.
   upstream and surfaced on `GET /api/alerts/history`.
 
 **Frontend (นนท์):**
-- ✅ Task 1 — Dashboard alert cards with blinking status (direction/coordinates
-  are still mock data; the backend sends no angle)
+- ✅ Task 1 — Dashboard alert cards with blinking status. The direction compass
+  (`DirectionCompass.tsx`) was removed because the backend sends no angle data
 - ✅ Task 2 — `WaveformAudioPlayer` with a load-failure fallback UI
 - ✅ Task 3 — Patients registry: working Edit modal, Delete auth fix, device
   column fix

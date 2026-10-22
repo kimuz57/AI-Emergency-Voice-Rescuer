@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import WaveformAudioPlayer from "@/components/WaveformAudioPlayer"; // ปรับ Path ให้ตรง
 import BlinkingAlert from "@/components/BlinkingAlert";
-import DirectionCompass from "@/components/DirectionCompass";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
@@ -58,12 +57,6 @@ function connectSSE(url: string, label: string, onData: (data: any) => void): ()
   };
 }
 
-type Coordinates = {
-  angle_degrees: number;
-  distance_meters: number | null;
-  confidence: number;
-};
-
 type EmergencyAlert = {
   ID?: number; // รองรับทั้ง ID และ id ตามที่ Go ส่งมา
   id?: number;
@@ -72,7 +65,6 @@ type EmergencyAlert = {
   created_at: string;
   audio_url: string;
   status: string;
-  coordinates?: Coordinates; // Phase 3: ข้อมูลพิกัดจาก 4-mic array
 };
 
 export default function Dashboard() {
@@ -89,13 +81,7 @@ export default function Dashboard() {
       created_at: new Date().toISOString(),
       audio_url: "/api/audio/emergency_001.wav",
       status: "pending",
-      coordinates: {
-        angle_degrees: 45, // ทิศตะวันออกเฉียงเหนือ
-        distance_meters: 2.5, // 2.5 เมตร
-        confidence: 0.87, // 87% มั่นใจ
-      },
     },
-    // เพิ่มตัวอย่างที่ 2 (ไม่มีระยะทาง)
     {
       id: -2,
       patient_name: "นางสาวมานี สุขใจ",
@@ -103,11 +89,6 @@ export default function Dashboard() {
       created_at: new Date(Date.now() - 300000).toISOString(), // 5 นาทีก่อน
       audio_url: "/api/audio/emergency_002.wav",
       status: "pending",
-      coordinates: {
-        angle_degrees: 180, // ทิศใต้
-        distance_meters: null, // ไม่ทราบระยะ
-        confidence: 0.65,
-      },
     },
   ];
 
@@ -362,14 +343,8 @@ export default function Dashboard() {
               intensity="high"
             >
               <article className="relative overflow-hidden bg-[var(--tb-surface)] border border-[var(--tb-border)] rounded-[var(--tb-radius-lg)] shadow-[var(--tb-shadow-card)]">
-                {/* แถบสีแดง 4px ด้านซ้าย — stream ส่งมาเฉพาะเหตุที่ยังไม่รับทราบ ทุกใบจึงมีแถบนี้ */}
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-y-0 left-0 w-1 bg-[var(--tb-danger)]"
-                />
-
                 {/* หัวการ์ด: สถานะ + เวลา */}
-                <div className="flex flex-wrap items-center gap-2 pl-6 pr-5 py-4 border-b border-[var(--tb-border)]">
+                <div className="flex flex-wrap items-center gap-2 px-5 py-4 border-b border-[var(--tb-border)]">
                   <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border border-[var(--tb-danger)]/25 bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)] animate-pulse">
                     <svg
                       className="w-3.5 h-3.5 shrink-0"
@@ -408,7 +383,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* เนื้อหาการ์ด */}
-                <div className="pl-6 pr-5 py-5">
+                <div className="px-5 py-5">
                   <h2 className="text-2xl font-bold text-[var(--tb-text)] break-words">
                     {alert.patient_name}
                   </h2>
@@ -431,38 +406,9 @@ export default function Dashboard() {
                     </span>
                   </p>
 
-                  {/* สองคอลัมน์: เข็มทิศ | เสียง (จอเล็กเรียงลงมา) */}
-                  <div className="mt-5 flex flex-col md:flex-row gap-4">
-                    {/* Left column: Direction Compass */}
-                    {alert.coordinates && (
-                      <section className="md:w-80 shrink-0 p-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface-2)]">
-                        <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--tb-muted)]">
-                          <svg
-                            className="w-4 h-4 shrink-0"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            viewBox="0 0 24 24"
-                            aria-hidden="true"
-                          >
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="m16.24 7.76-2.12 6.36-6.36 2.12 2.12-6.36 6.36-2.12z" />
-                          </svg>
-                          ทิศทางของเสียง
-                        </h3>
-                        <DirectionCompass
-                          angle={alert.coordinates.angle_degrees}
-                          distance={alert.coordinates.distance_meters}
-                          confidence={alert.coordinates.confidence}
-                        />
-                      </section>
-                    )}
-
-                    {/* Right column: Audio player
-                        ตัวเล่นจัดกึ่งกลางแนวตั้งในพื้นที่ที่เหลือ เพราะกล่องนี้เตี้ยกว่า
-                        กล่องเข็มทิศ ถ้าชิดบนจะเหลือที่ว่างค้างด้านล่าง */}
+                  {/* เข็มทิศทิศทางเสียงถูกเอาออก — backend ไม่ส่งข้อมูลทิศทาง (voice/angle ไม่มีใครรับ) */}
+                  <div className="mt-5 flex flex-col gap-4">
+                    {/* ตัวเล่นเสียง */}
                     <section className="flex-1 min-w-0 flex flex-col p-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface-2)]">
                       <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--tb-muted)]">
                         <span aria-hidden="true" className="relative flex w-2.5 h-2.5 shrink-0">
@@ -485,7 +431,7 @@ export default function Dashboard() {
                 </div>
 
                 {/* Footer: ปุ่มรับทราบ */}
-                <div className="flex md:justify-end pl-6 pr-5 py-4 border-t border-[var(--tb-border)]">
+                <div className="flex md:justify-end px-5 py-4 border-t border-[var(--tb-border)]">
                   <button
                     type="button"
                     onClick={() => {

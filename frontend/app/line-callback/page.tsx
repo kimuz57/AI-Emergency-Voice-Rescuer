@@ -43,7 +43,7 @@ function CallbackContent() {
         expectedState = null;
       }
       if (!expectedState || !returnedState || returnedState !== expectedState) {
-        setStatus("❌ คำขอเชื่อมต่อ LINE ไม่ถูกต้องหรือหมดอายุ กรุณากดเชื่อมต่อใหม่จากหน้าตั้งค่าการแจ้งเตือน");
+        setStatus("คำขอเชื่อมต่อ LINE ไม่ถูกต้องหรือหมดอายุ กรุณากดเชื่อมต่อใหม่จากหน้าตั้งค่าการแจ้งเตือน");
         return;
       }
 
