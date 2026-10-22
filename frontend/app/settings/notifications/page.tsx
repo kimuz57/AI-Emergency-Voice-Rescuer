@@ -219,7 +219,7 @@ export default function NotificationSettingsPage() {
 
         <div className="neu-inset p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-bold neu-text">LINE Notify</p>
+            <p className="text-sm font-bold neu-text">LINE</p>
             <p className="text-xs neu-text-muted mt-0.5">
               ส่งข้อความเตือนภัยและตำแหน่งห้องเข้า LINE ทันทีเมื่อเกิดเหตุ
             </p>
@@ -234,7 +234,7 @@ export default function NotificationSettingsPage() {
               onClick={connectLine}
               className="neu-btn px-4 py-2.5 text-xs font-semibold shrink-0"
             >
-              เชื่อมต่อ LINE Notify
+              เชื่อมต่อ LINE
             </button>
           )}
         </div>

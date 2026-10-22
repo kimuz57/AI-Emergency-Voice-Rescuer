@@ -218,8 +218,8 @@ export default function LandingPage() {
             </h3>
 
             <p className="text-sm neu-text-muted leading-relaxed">
-              ส่งสัญญาณแจ้งเตือนไปยังแดชบอร์ดผู้ดูแล ผ่านโปรโตคอล WebSocket และ
-              MQTT แบบเรียลไทม์
+              รับเสียงจากอุปกรณ์ผ่าน MQTT และส่งการแจ้งเตือนขึ้นแดชบอร์ดผู้ดูแลแบบเรียลไทม์
+              ด้วย Server-Sent Events (SSE)
             </p>
           </div>
 

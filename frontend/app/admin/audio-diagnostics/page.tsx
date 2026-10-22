@@ -1,19 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import MicLevelIndicator from "@/components/MicLevelIndicator";
+import { useCallback, useEffect, useState } from "react";
+import MicLevelIndicator, { MIC_LABELS } from "@/components/MicLevelIndicator";
 import { useAdminGuard } from "@/hooks/useAdminGuard";
+import { authHeaders } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-
-const getAuthToken = () => {
-  if (typeof window === "undefined") return "";
-  const fromStorage = localStorage.getItem("token");
-  if (fromStorage) return fromStorage;
-  const match = document.cookie.match(/(?:^|; )token_public=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : "";
-};
 
 // รูปร่างเดียวกับ models.HistoryResponse ฝั่ง Go + mic_levels ที่ยังรอเพิ่ม
 type DiagnosticRow = {
@@ -26,13 +18,15 @@ type DiagnosticRow = {
   decibel_level: number;
   audio_url: string;
   status: string;
-  mic_levels?: number[]; // ⏳ Backend ยังไม่ส่งฟิลด์นี้ (รอกิตเพิ่มใน Alert model)
+  // ระดับสัญญาณของไมค์ 2 ตัว (0-1) — backend ยังไม่ส่งฟิลด์นี้ ต้องรอให้อุปกรณ์
+  // ส่งเสียง 2 ช่องแยกกันก่อน แล้วฝั่ง AI คำนวณระดับของแต่ละช่องส่งต่อมา
+  mic_levels?: number[];
 };
 
-// ข้อมูลตัวอย่างสำหรับพัฒนา UI ระหว่างรอ backend — ชุดเดียวกับที่ dashboard เคยใช้
+// ข้อมูลตัวอย่างสำหรับดูหน้าตาระหว่างพัฒนา — ปุ่มเปิดมีเฉพาะตอน development
 const MOCK_ROWS: DiagnosticRow[] = [
   {
-    id: 1,
+    id: -1,
     created_at: new Date().toISOString(),
     device_mac: "AA:BB:CC:DD:EE:01",
     patient_name: "นายสมชาย ใจดี",
@@ -41,10 +35,10 @@ const MOCK_ROWS: DiagnosticRow[] = [
     decibel_level: 72.4,
     audio_url: "/api/audio/emergency_001.wav",
     status: "pending",
-    mic_levels: [0.8, 0.95, 0.65, 0.45],
+    mic_levels: [0.82, 0.64],
   },
   {
-    id: 2,
+    id: -2,
     created_at: new Date(Date.now() - 300000).toISOString(),
     device_mac: "AA:BB:CC:DD:EE:02",
     patient_name: "นางสาวมานี สุขใจ",
@@ -53,11 +47,11 @@ const MOCK_ROWS: DiagnosticRow[] = [
     decibel_level: 68.1,
     audio_url: "/api/audio/emergency_002.wav",
     status: "resolved",
-    mic_levels: [0.45, 0.55, 0.92, 0.6],
   },
 ];
 
-const MIC_LABELS = ["ไมค์ 1", "ไมค์ 2", "ไมค์ 3", "ไมค์ 4"];
+const hasLevels = (r: DiagnosticRow) =>
+  Array.isArray(r.mic_levels) && r.mic_levels.length >= MIC_LABELS.length;
 
 const formatTime = (iso: string) => {
   const d = new Date(iso);
@@ -70,37 +64,32 @@ const formatTime = (iso: string) => {
   });
 };
 
+const badgeClass =
+  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold tabular-nums border border-[var(--tb-border)] bg-[var(--tb-surface-2)] text-[var(--tb-text)]";
+
 export default function AudioDiagnosticsPage() {
   const { isAdmin, isChecking } = useAdminGuard();
 
   const [rows, setRows] = useState<DiagnosticRow[]>([]);
-  const [useMockData, setUseMockData] = useState(true);
-  const [isLoading, setIsLoading] = useState(false);
+  const [useMockData, setUseMockData] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // เรียกจาก event handler เท่านั้น (สลับ toggle / กดโหลดใหม่)
-  // ไม่เรียกใน useEffect เพราะค่าเริ่มต้นคือใช้ mock — ยังไม่ต้องยิง API ตอน mount
-  const fetchRows = async () => {
-    setIsLoading(true);
-    setLoadError("");
+  // ทุก setState อยู่หลัง await — เรียกจาก effect ได้โดยไม่ setState แบบ synchronous
+  const fetchRows = useCallback(async () => {
     try {
-      const token = getAuthToken();
       const res = await fetch(`${API_URL}/api/alerts/history`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
       });
-
       if (!res.ok) {
         setLoadError(`ดึงข้อมูลไม่สำเร็จ (HTTP ${res.status})`);
         setRows([]);
         return;
       }
-
       const data = await res.json();
+      setLoadError("");
       setRows(Array.isArray(data) ? data : []);
     } catch {
       setLoadError("ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง");
@@ -108,16 +97,26 @@ export default function AudioDiagnosticsPage() {
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    // fetchRows แตะ state หลัง await ทั้งหมด แต่ตัวกฎมองเข้าไปในฟังก์ชันไม่ได้ — ปิดเฉพาะบรรทัดนี้
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchRows();
+  }, [isAdmin, fetchRows]);
+
+  const reload = () => {
+    setIsLoading(true);
+    fetchRows();
   };
 
   // ระหว่างรอผลตรวจสิทธิ์ อย่าเพิ่งวาดอะไรที่เป็นข้อมูลฝั่ง admin
   if (isChecking) {
     return (
       <div className="max-w-5xl mx-auto px-4 py-20 flex flex-col items-center gap-3">
-        <div className="w-8 h-8 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-sm neu-text-muted">
-          กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...
-        </p>
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin" />
+        <p className="text-sm text-[var(--tb-muted)]">กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...</p>
       </div>
     );
   }
@@ -126,173 +125,143 @@ export default function AudioDiagnosticsPage() {
   if (!isAdmin) return null;
 
   const displayRows = useMockData ? MOCK_ROWS : rows;
-  const withLevels = displayRows.filter(
-    (r) => Array.isArray(r.mic_levels) && r.mic_levels.length === 4,
-  );
-  const missingLevels = displayRows.length - withLevels.length;
+  const missingLevels = displayRows.filter((r) => !hasLevels(r)).length;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
-      {/* ---------- Header ---------- */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[10px] font-bold uppercase tracking-widest">
-              Admin
-            </span>
-            <span className="text-[11px] neu-text-muted">
-              เฉพาะผู้ดูแลระบบ
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold neu-text">
-            วิเคราะห์สัญญาณเสียง
-          </h1>
-          <p className="text-sm neu-text-muted mt-1">
-            ระดับสัญญาณของไมโครโฟนทั้ง 4 ตัวในแต่ละเหตุการณ์
+    <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      {/* ---------- หัวหน้า ---------- */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[var(--tb-muted)]">ผู้ดูแลระบบ</p>
+          <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">วิเคราะห์สัญญาณเสียง</h1>
+          <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
+            ระดับสัญญาณของไมโครโฟนทั้ง 2 ตัวในแต่ละเหตุการณ์
             ใช้ตรวจสอบว่าอุปกรณ์รับเสียงได้ครบและสมดุลหรือไม่
           </p>
         </div>
 
-        <Link
-          href="/dashboard"
-          className="text-sm font-medium neu-text-muted hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors inline-flex items-center min-h-[44px]"
-        >
-          ← กลับหน้าแดชบอร์ด
-        </Link>
+        <div className="flex flex-wrap gap-2 sm:gap-3">
+          {process.env.NODE_ENV === "development" && (
+            <button
+              type="button"
+              onClick={() => setUseMockData(!useMockData)}
+              aria-pressed={useMockData}
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
+            >
+              <span
+                aria-hidden="true"
+                className={`w-2 h-2 rounded-full ${useMockData ? "bg-[var(--tb-warning)]" : "bg-[var(--tb-success)]"}`}
+              />
+              {useMockData ? "ข้อมูลตัวอย่าง: เปิด" : "ข้อมูลตัวอย่าง: ปิด"}
+            </button>
+          )}
+          {!useMockData && (
+            <button
+              type="button"
+              onClick={reload}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors disabled:opacity-60 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
+            >
+              <svg className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </svg>
+              {isLoading ? "กำลังโหลด..." : "โหลดใหม่"}
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* ---------- แถบควบคุมแหล่งข้อมูล ---------- */}
-      <div className="neu-card flex flex-wrap items-center gap-3 p-4">
-        <label className="flex items-center gap-2 text-sm neu-text-muted cursor-pointer">
-          <input
-            type="checkbox"
-            checked={useMockData}
-            onChange={(e) => {
-              const next = e.target.checked;
-              setUseMockData(next);
-              // สลับมาโหมดข้อมูลจริงเมื่อไหร่ ค่อยยิง API
-              if (!next) fetchRows();
-            }}
-            className="w-5 h-5 accent-indigo-600"
-          />
-          ใช้ข้อมูลตัวอย่าง (สำหรับพัฒนา UI)
-        </label>
-
-        {!useMockData && (
-          <button
-            type="button"
-            onClick={fetchRows}
-            disabled={isLoading}
-            className="ml-auto px-3 py-1.5 text-xs font-semibold rounded-lg border border-slate-200 dark:border-slate-600 neu-text-muted hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors disabled:opacity-50"
-          >
-            {isLoading ? "กำลังโหลด..." : "โหลดใหม่"}
-          </button>
-        )}
-      </div>
-
-      {/* ---------- แจ้งเตือน: backend ยังไม่ส่ง mic_levels ---------- */}
+      {/* ---------- ยังไม่มีข้อมูลระดับสัญญาณ ---------- */}
       {missingLevels > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/40 rounded-2xl p-4 flex items-start gap-3">
-          <svg
-            className="w-5 h-5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z"
-            />
+        <div className="mb-6 flex items-start gap-3 rounded-[var(--tb-radius-lg)] border border-[var(--tb-warning)]/30 bg-[var(--tb-warning-tint)] p-4">
+          <svg className="w-5 h-5 shrink-0 mt-0.5 text-[var(--tb-warning-text)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+            <path d="M12 9v4" />
+            <path d="M12 17h.01" />
           </svg>
-          <div className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">
-            <p className="font-bold mb-0.5">
-              มี {missingLevels} เหตุการณ์ที่ยังไม่มีข้อมูลระดับสัญญาณไมค์
-            </p>
-            <p>
-              ตอนนี้ Backend ยังไม่ส่งฟิลด์{" "}
-              <code className="font-mono">mic_levels</code> มากับข้อมูลเหตุการณ์
-              — รอเพิ่มใน Alert model และให้ DSP pipeline
-              ส่งค่าไมค์ทั้ง 4 ตัวมาด้วย
+          <div className="text-sm leading-relaxed text-[var(--tb-warning-text)]">
+            <p className="font-semibold">มี {missingLevels} เหตุการณ์ที่ยังไม่มีข้อมูลระดับสัญญาณแยกไมค์</p>
+            <p className="mt-0.5">
+              ระบบจะแสดงค่านี้เมื่ออุปกรณ์ส่งเสียง 2 ช่องแยกกัน
+              และเซิร์ฟเวอร์ส่งค่า <code className="font-mono">mic_levels</code> มากับเหตุการณ์
             </p>
           </div>
         </div>
       )}
 
       {/* ---------- ข้อผิดพลาดตอนดึงข้อมูล ---------- */}
-      {loadError && (
-        <div className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/40 rounded-2xl p-4">
-          <p className="text-xs font-medium text-rose-700 dark:text-rose-300">
-            {loadError}
-          </p>
+      {!useMockData && loadError && (
+        <div role="alert" className="mb-6 rounded-[var(--tb-radius-lg)] border border-[var(--tb-danger)]/25 bg-[var(--tb-danger-tint)] p-4 text-sm font-medium text-[var(--tb-danger-text)]">
+          {loadError}
         </div>
       )}
 
       {/* ---------- รายการเหตุการณ์ ---------- */}
-      {withLevels.length === 0 ? (
-        <div className="neu-card p-12 text-center">
-          <svg className="w-10 h-10 mx-auto mb-3 neu-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-            <line x1="12" x2="12" y1="19" y2="22" />
-          </svg>
-          <p className="text-sm font-semibold neu-text-muted">
-            ยังไม่มีข้อมูลระดับสัญญาณให้แสดง
-          </p>
-          <p className="text-xs neu-text-muted mt-1">
-            ติ๊ก &quot;ใช้ข้อมูลตัวอย่าง&quot;
-            เพื่อดูหน้าตาของหน้านี้ระหว่างรอ Backend
-          </p>
+      {!useMockData && isLoading ? (
+        <div className="space-y-4">
+          {[0, 1].map((i) => (
+            <div key={i} className="h-40 rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] animate-pulse" />
+          ))}
+        </div>
+      ) : displayRows.length === 0 ? (
+        <div className="flex flex-col items-center text-center px-6 py-12 rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)]">
+          <span className="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+              <line x1="12" x2="12" y1="19" y2="22" />
+            </svg>
+          </span>
+          <p className="text-base font-semibold text-[var(--tb-text)]">ยังไม่มีเหตุการณ์ให้วิเคราะห์</p>
+          <p className="mt-1 text-sm text-[var(--tb-muted)]">เมื่อระบบตรวจพบเสียงขอความช่วยเหลือ เหตุการณ์จะแสดงที่นี่</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {withLevels.map((row) => {
-            const levels = row.mic_levels as number[];
-            const maxLevel = Math.max(...levels);
-            const maxIndex = levels.indexOf(maxLevel);
+          {displayRows.map((row) => {
+            const levels = hasLevels(row) ? (row.mic_levels as number[]) : null;
+            const maxLevel = levels ? Math.max(...levels.slice(0, MIC_LABELS.length)) : 0;
+            const maxIndex = levels ? levels.indexOf(maxLevel) : -1;
 
             return (
-              <div
+              <article
                 key={row.id}
-                className="neu-card p-5 space-y-4"
+                className="rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)]"
               >
-                {/* หัวการ์ด */}
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-bold neu-text">
+                <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-4 border-b border-[var(--tb-border)]">
+                  <div className="min-w-0">
+                    <p className="text-base font-semibold text-[var(--tb-text)]">
                       {row.patient_name || "ไม่ทราบชื่อผู้ป่วย"}
-                      <span className="ml-2 text-xs font-medium neu-text-muted">
+                      <span className="ml-2 text-sm font-medium text-[var(--tb-muted)]">
                         ห้อง {row.room_number || "—"}
                       </span>
                     </p>
-                    <p className="text-[11px] font-mono neu-text-muted mt-0.5">
-                      {row.device_mac || "—"} · {formatTime(row.created_at)}
+                    <p className="mt-0.5 text-sm text-[var(--tb-muted)]">
+                      <span className="font-mono">{row.device_mac || "—"}</span> · {formatTime(row.created_at)}
                     </p>
                   </div>
-
-                  <div className="flex items-center gap-2 text-[11px]">
-                    <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 neu-text-muted font-semibold tabular-nums">
-                      ความมั่นใจ {Math.round((row.confidence || 0) * 100)}%
-                    </span>
-                    <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 neu-text-muted font-semibold tabular-nums">
-                      {(row.decibel_level || 0).toFixed(1)} dB
-                    </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={badgeClass}>ความมั่นใจ {Math.round((row.confidence || 0) * 100)}%</span>
+                    <span className={badgeClass}>{(row.decibel_level || 0).toFixed(1)} dB</span>
                   </div>
                 </div>
 
-                {/* แถบสัญญาณ 4 ไมค์ (โหมดเต็ม ไม่ต้องพึ่ง tooltip) */}
-                <div className="neu-card-sm p-4">
-                  <MicLevelIndicator levels={levels} compact={false} />
+                <div className="p-5">
+                  {levels ? (
+                    <>
+                      <MicLevelIndicator levels={levels} compact={false} />
+                      <p className="mt-4 text-sm text-[var(--tb-muted)]">
+                        ไมค์ที่รับเสียงดังที่สุด:{" "}
+                        <span className="font-semibold text-[var(--tb-success-text)]">
+                          {MIC_LABELS[maxIndex]} ({Math.round(maxLevel * 100)}%)
+                        </span>
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-[var(--tb-muted)]">ยังไม่มีข้อมูลระดับสัญญาณของเหตุการณ์นี้</p>
+                  )}
                 </div>
-
-                <p className="text-xs neu-text-muted">
-                  ไมค์ที่รับเสียงดังที่สุด:{" "}
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    {MIC_LABELS[maxIndex]} ({Math.round(maxLevel * 100)}%)
-                  </span>
-                </p>
-              </div>
+              </article>
             );
           })}
         </div>
