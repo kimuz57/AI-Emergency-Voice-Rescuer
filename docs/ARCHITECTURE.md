@@ -33,9 +33,9 @@
 
 ระบบนี้ตรวจจับเสียงร้องขอความช่วยเหลือของผู้ป่วยหรือผู้สูงอายุแบบ real-time แล้วแจ้งผู้ดูแล การทำงานจริงตามโค้ดมีดังนี้
 
-1. **บันทึกเสียง:** บอร์ด ESP32 ต่อไมค์ INMP441 สองตัวบนบัส I2S เดียวกัน (stereo L/R) อ่านเสียงที่ 8000 Hz ต่อเนื่องตลอดเวลา ไม่มี VAD บอร์ดคำนวณมุมทิศทางเสียงด้วย TDOA แล้วมิกซ์ L/R ลงเป็น mono จากนั้น publish เป็นก้อนละ 2048 bytes ผ่าน MQTT (`firmwareV2/main/main.c` → `audio_record_task()` L609-684)
-2. **รับเสียงและจำแนก:** โปรเซส `uvicorn app:app` ของ `api/` รวมสองส่วนไว้ด้วยกัน คือ MQTT receiver (`api/mqtt_audio_receiver.py`) และโมเดล `BCResNet_M` (`api/app.py`, `api/bcresnet.py`) receiver ต่อก้อนเสียงเป็น window ขนาด `SAMPLE_RATE × 4` bytes (2.048 วินาทีของเสียงจริงเมื่อตั้ง `SAMPLE_RATE=8000` แต่ค่า default ในโค้ดคือ 16000 ซึ่งได้ประมาณ 4 วินาที ดูหัวข้อ 2.4) แล้วเรียก `run_kws_inference()` ในโปรเซสเดียวกัน ไม่ได้เรียกผ่าน HTTP (`api/app.py` → `lifespan()` L51-67 ส่ง callback ให้ `mqtt_audio_receiver.start_receiver()` L309) ผลที่ได้มี 2 class คือ `yes` (ฉุกเฉิน) และ `no`
-3. **ส่งผลต่อ:** receiver POST ไฟล์ WAV แบบ multipart ไปที่ Go backend ถ้าผลเป็น `yes` จะไปที่ `/api/audio/emergency` ถ้าไม่ใช่จะไปที่ `/api/audio/negative` (`api/mqtt_audio_receiver.py` → `_process_and_forward()` L191-228)
+1. **บันทึกเสียง:** บอร์ด ESP32 ต่อไมค์ INMP441 สองตัวบนบัส I2S เดียวกัน (stereo L/R) อ่านเสียงที่ 8000 Hz ต่อเนื่องตลอดเวลา ไม่มี VAD บนบอร์ด แปลงเป็น PCM 16 บิตแล้ว publish **ทั้งสองช่องสลับกัน `L,R,L,R,…`** ก้อนละ 1024 frame = 4096 byte ผ่าน MQTT ไม่ mixdown และไม่คำนวณมุมบนบอร์ด (`firmwareV2/main/main.c` → `audio_record_task()` L608-678) (ส่ง 2 ช่องตั้งแต่ branch `feat/firmware-stereo`, DSP ฝั่ง server ตั้งแต่ `feat/dsp-2mic` / `feat/sliding-decision`)
+2. **รับเสียงและจำแนก:** โปรเซส `uvicorn app:app` ของ `api/` รวม MQTT receiver (`api/mqtt_audio_receiver.py`), DSP (`api/dsp.py`) และโมเดล (`api/app.py`, `api/bcresnet.py`) receiver ต่อก้อนเสียงเป็นหน้าต่าง 2 วินาที (16000 ค่าตัวอย่างต่อช่อง) เลื่อนทีละ 0.5 วินาที แยก L/R แล้วผ่าน HPF → AGC → VAD → GCC-PHAT → beamformer (`DSP_MODE` = `mono` / `das_pf` / `mvdr`) ได้เสียงช่องเดียว 8 kHz เฉพาะหน้าต่างที่ VAD พบเสียงพูดจึงเรียก `run_kws_inference()` ในโปรเซสเดียวกัน (ไม่ผ่าน HTTP) แล้วเฉลี่ย P(ร้องขอความช่วยเหลือ) ของ 3 หน้าต่างล่าสุด (ดูหัวข้อ 4)
+3. **ส่งผลต่อ:** เมื่อค่าเฉลี่ยเกินเกณฑ์ receiver POST WAV ช่องเดียว (หลัง DSP) แบบ multipart พร้อม `X-Internal-Key` ไปที่ `/api/audio/emergency` แล้วพักอุปกรณ์นั้น `ALERT_COOLDOWN_SECONDS` วินาที ส่วนหน้าต่างปกติที่มีเสียงพูดส่ง `/api/audio/negative` ไม่เกิน 1 ครั้งต่อ 2 วินาที (`api/mqtt_audio_receiver.py` → `_process_window()` L378)
 4. **บันทึกและแจ้งเตือน:** Go backend (Fiber) บันทึกไฟล์เสียงและแถว `detection_logs` ลง PostgreSQL หา patient ที่ผูกกับอุปกรณ์ แล้วส่ง push ไปยัง LINE และ Telegram ของผู้ดูแลทุกคนของ patient นั้น (`backend/controllers/audio_controller.go` → `SaveEmergencyAudio()` L110-232)
 5. **แสดงผล:** หน้า dashboard ของ Next.js เปิด SSE ไปที่ Go (`/api/alerts/stream`) ฝั่ง Go จะ query DB ทุก 1 วินาทีแล้วส่ง snapshot รายการ alert ที่ยังไม่ resolve กลับมา (`backend/controllers/alert_controller.go` → `StreamAlerts()` L119-155) ผู้ดูแลกด "รับทราบ" ได้ทั้งจาก dashboard (`PUT /api/alerts/:id/resolve`) และจากหน้า `/alert` ที่ลิงก์มาใน LINE (`POST /api/alerts/acknowledge`)
 6. **ส่วนประกอบรอบข้าง:**
@@ -43,13 +43,13 @@
    - ทะเบียนผู้ป่วยและอุปกรณ์ หน้า admin
    - การ provisioning อุปกรณ์ผ่าน SoftAP + captive portal เมื่อ `POST /connect` สำเร็จ หน้าเว็บของบอร์ดจะแสดง URL `https://kws.wattanapong.com/register-patient?mac=<MAC 12 หลักไม่มี colon>` เป็น**ข้อความให้ผู้ใช้กดค้างเพื่อคัดลอก**ไปเปิดเองในเบราว์เซอร์ (ไม่ใช่ลิงก์ที่กดได้) จากนั้นหน้า frontend จะเติม colon ให้ MAC ด้วย `formatMacAddress()` (`firmwareV2/main/web_server.h` L11-18, `connect_post_handler()` L189-278 โดย MAC สร้างที่ L229-230 และแทรก `SERVER_URL` ที่ L249; `frontend/app/register-patient/page.tsx` → `formatMacAddress()` L8)
 
-สิ่งที่เอกสารหรือคำขอกล่าวถึงแต่**ไม่พบในโค้ด**: Delay-and-Sum / Coherence post-filter / MVDR beamforming, Whisper + keyword fallback, Auth0, WebSocket ฝั่ง server, การนำมุม `voice/angle/{MAC}` ไปใช้ (ไม่มี subscriber) และค่า `mic_levels` (รายละเอียดอยู่ในหัวข้อ 4, 5, 6, 9 และ 12)
+สิ่งที่เอกสารหรือคำขอกล่าวถึงแต่**ไม่พบในโค้ด**: Whisper + keyword fallback, Auth0, WebSocket ฝั่ง server และค่า `mic_levels` (Delay-and-Sum / Coherence post-filter / MVDR มีแล้วใน `api/dsp.py`; topic `voice/angle/{MAC}` และ TDOA บนบอร์ดถูกลบแล้ว — รายละเอียดอยู่ในหัวข้อ 4, 5, 6, 9 และ 12)
 
 ### 1.2 หน้าที่ของแต่ละโฟลเดอร์และ service
 
 | โฟลเดอร์ / ไฟล์ | บทบาท | ภาษา / framework | Port | Entry point | หมายเหตุ |
 |---|---|---|---|---|---|
-| `firmwareV2/` | firmware ESP32 ไมค์ 2 ตัว (I2S stereo) ทำ TDOA, มิกซ์เป็น mono, publish MQTT, Wi-Fi provisioning ด้วย SoftAP + captive DNS, HTTP check-in ไปที่ Go | C, ESP-IDF 5.5.2 (`firmwareV2/sdkconfig` L3), FreeRTOS, esp-mqtt, esp_http_server | HTTP server ใช้ `HTTPD_DEFAULT_CONFIG()` (`web_server.h` → `start_web_server()` L386-388) ไม่ได้กำหนดพอร์ตเอง, captive DNS ใช้ UDP 53 (`main.c` → `captive_dns_task()` L692) | `firmwareV2/main/main.c` → `app_main()` (L768) | build เฉพาะ `main.c` (`firmwareV2/main/CMakeLists.txt` → `SRCS "main.c"`, `EMBED_TXTFILES "wifi.html"`) ส่วน `web_server.h` ถูก `#include` ที่ `main.c` L27 ไฟล์ `firmwareV2/main_fixed.c` และ `firmwareV2/old.c` อยู่นอกโฟลเดอร์ component `main/` และไม่อยู่ใน `SRCS` จึง**ไม่ถูก compile** (`firmwareV2/CMakeLists.txt` มีแค่ `project(guardian_ai_voice_recorder)`) ข้อควรรู้: `web_server.h` L11 `#define IS_LOCAL_ENV 0` ถูก include ก่อนที่ `main.c` L82 จะ `#define IS_LOCAL_ENV 2` ซ้ำ (macro ถูก redefine ด้วยค่าต่างกัน) ดังนั้น `#if` ใน `web_server.h` ใช้ค่า 0 ส่วนโค้ดหลัง L82 ของ `main.c` ใช้ค่า 2 และใช้ driver I2S แบบ legacy (`#include "driver/i2s.h"` L9) |
+| `firmwareV2/` | firmware ESP32 ไมค์ 2 ตัว (I2S stereo) publish PCM 2 ช่องสลับ L,R ทาง MQTT, Wi-Fi provisioning ด้วย SoftAP + captive DNS, HTTP check-in ไปที่ Go | C, ESP-IDF 5.5.2 (`firmwareV2/sdkconfig` L3), FreeRTOS, esp-mqtt, esp_http_server | HTTP server ใช้ `HTTPD_DEFAULT_CONFIG()` (`web_server.h` → `start_web_server()` L386-388) ไม่ได้กำหนดพอร์ตเอง, captive DNS ใช้ UDP 53 (`main.c` → `captive_dns_task()` L692) | `firmwareV2/main/main.c` → `app_main()` (L768) | build เฉพาะ `main.c` (`firmwareV2/main/CMakeLists.txt` → `SRCS "main.c"`, `EMBED_TXTFILES "wifi.html"`) ส่วน `web_server.h` ถูก `#include` ที่ `main.c` L27 ไฟล์ `firmwareV2/main_fixed.c` และ `firmwareV2/old.c` อยู่นอกโฟลเดอร์ component `main/` และไม่อยู่ใน `SRCS` จึง**ไม่ถูก compile** (`firmwareV2/CMakeLists.txt` มีแค่ `project(guardian_ai_voice_recorder)`) ข้อควรรู้: `web_server.h` L11 `#define IS_LOCAL_ENV 0` ถูก include ก่อนที่ `main.c` L82 จะ `#define IS_LOCAL_ENV 2` ซ้ำ (macro ถูก redefine ด้วยค่าต่างกัน) ดังนั้น `#if` ใน `web_server.h` ใช้ค่า 0 ส่วนโค้ดหลัง L82 ของ `main.c` ใช้ค่า 2 และใช้ driver I2S แบบ legacy (`#include "driver/i2s.h"` L9) |
 | `mosquitto/` + `docker-compose.yml` | MQTT broker | `eclipse-mosquitto:2` (`docker-compose.yml` L3) | 1883 TCP, 8083 WebSocket + TLS, 9001 WebSocket (`mosquitto/config/mosquitto.conf` L6, L9-12, L18-19, `docker-compose.yml` L5-8) | `mosquitto/config/mosquitto.conf` | `allow_anonymous false` และใช้ `password_file` (L2-3) แต่ไฟล์ `passwd` และ certs ไม่อยู่ใน repo ใน compose มี service เดียวคือ `mosquitto` |
 | `api/` | MQTT audio receiver + AI inference (BCResNet_M) + HTTP endpoint สำหรับทดสอบ `POST /need-help` | Python `>=3.12` (`api/pyproject.toml` L6), FastAPI, PyTorch, torchaudio, nnAudio, paho-mqtt, requests | 8000 (`api/app.py` L170 หรือคำสั่ง `uvicorn app:app --port 8000`) | `api/app.py` → object `app` (L72) และ `lifespan()` (L51) ซึ่งเรียก `mqtt_audio_receiver.start_receiver()` | ไฟล์ที่ใช้จริงคือ `app.py`, `bcresnet.py`, `mqtt_audio_receiver.py` และ `models/best_m.pth` ไฟล์ที่ไม่ถูก import คือ `model.py`, `models.py`, `main.py`, `config.py` (ดูหัวข้อ 5.1) ตอน import `mqtt_audio_receiver` จะเรียก `get_env_required()` สำหรับ `MQTT_BROKER_HOST` และ `GO_SERVER_URL` (L19-29) ถ้าไม่ได้ตั้งจะ `raise ValueError` ทำให้ `import mqtt_audio_receiver` ใน `app.py` L17 ล้ม และ `uvicorn app:app` เริ่มไม่ได้ |
 | `backend/` | REST API, SSE, auth (JWT), จัดการผู้ใช้ ผู้ป่วย และอุปกรณ์, รับผลจาก AI, บันทึกไฟล์เสียง, แจ้งเตือน LINE/Telegram, ส่งอีเมล | Go 1.26.2 (`backend/go.mod` L3), Fiber v2.52.12, GORM v1.31.1 + `gorm.io/driver/postgres` v1.6.0, go-redis v9.22.0, line-bot-sdk-go v7 | `PORT` default `8080` (`backend/main.go` L41) | `backend/main.go` → `main()` (L20) และ `backend/routes/routes.go` → `SetupRoutes()` (L11) | `backend/services/mqtt_service.go` → `InitMQTT()` (L95) **ไม่ถูกเรียกจากที่ใดเลย** (dead code; ไม่มีไฟล์ใด import package `services`) ตอนเริ่ม `main()` จะ `log.Fatalf` ถ้าไม่ได้ตั้ง `LINE_CHANNEL_SECRET`, `LINE_CHANNEL_TOKEN`, `JWT_SECRET` (`main.go` L33-37) หรือ `DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` (`database/database.go` L19-22) ผ่าน `config.GetEnvRequired()` (`backend/config/config.go` L30-36) |
@@ -70,7 +70,7 @@ flowchart LR
     subgraph DEV["อุปกรณ์ ESP32 (firmwareV2/main/main.c)"]
         MICL["INMP441 ซ้าย (L/R ต่อ GND)"]
         MICR["INMP441 ขวา (L/R ต่อ 3.3V)"]
-        ESP["audio_record_task: TDOA + mono mix"]
+        ESP["audio_record_task: PCM 16-bit 2 ช่อง L,R"]
         WEB["SoftAP Smartvoice-XXXXXX + web_server.h + captive DNS 192.168.4.1"]
     end
 
@@ -99,12 +99,10 @@ flowchart LR
     NEXT["Next.js frontend (frontend/) + route handlers /api/auth, /api/session-token, /api/logout, /api/line/webhook"]
     BR["Browser ของผู้ดูแล / admin"]
     PHONE["มือถือที่ใช้ตั้งค่า Wi-Fi ของบอร์ด"]
-    NOSUB["ไม่มี subscriber"]
 
     MICL -- "I2S slot ซ้าย 8 kHz 32-bit" --> ESP
     MICR -- "I2S slot ขวา 8 kHz 32-bit" --> ESP
-    ESP -- "MQTT publish voice/audio/MAC (PCM 2048 B QoS0)" --> BRK
-    ESP -- "MQTT publish voice/angle/MAC (ASCII QoS0)" --> BRK
+    ESP -- "MQTT publish voice/audio/MAC (PCM L,R 4096 B QoS0)" --> BRK
     ESP -- "device/status/MAC online retain + LWT offline" --> BRK
     ESP -- "HTTPS GET /api/device/checkin?mac, ip" --> GO
     ESP -- "SNTP" --> NTP
@@ -112,7 +110,6 @@ flowchart LR
     PHONE -- "คัดลอก URL /register-patient?mac= ไปเปิดเอง" --> NEXT
 
     BRK -- "subscribe voice/audio/# และ device/status/# QoS0" --> RX
-    BRK -. "voice/angle/MAC" .-> NOSUB
     BRK -. "voice/audio/# QoS1 (dead code)" .-> GOMQTT
     RX -- "เรียกฟังก์ชันในโปรเซส _ai_inference_function" --> AI
     TESTER -- "HTTP POST /need-help multipart sound" --> AI
@@ -145,7 +142,7 @@ flowchart LR
 | จาก | ไป | Protocol | Endpoint / topic | อ้างอิง |
 |---|---|---|---|---|
 | INMP441 x2 | ESP32 | I2S master RX, `I2S_CHANNEL_FMT_RIGHT_LEFT`, SCK 26 / WS 25 / DIN 22 (ไมค์ทั้งสองตัวใช้ขา DIN ร่วมกัน) | — | `firmwareV2/main/main.c` → `init_i2s_audio()` L541-556, `#define` L38-41 |
-| ESP32 | MQTT broker | MQTT 3.1.1 (`CONFIG_MQTT_PROTOCOL_311=y`, `firmwareV2/sdkconfig` L1769) over WSS ตรวจ cert ด้วย `esp_crt_bundle_attach`, keepalive 30 s, user `kws` และรหัสผ่านที่ hardcode ไว้ในซอร์ส (`PASS` = `31J***` ที่ L98 ส่วน ENV_LOCAL/ENV_LAB ใช้ `kws***` ที่ L90, L106 ไฟล์นี้ถูก track ใน git ดูหัวข้อ 12) | URI `TARGET_MQTT_URI` = `wss://mqtt.wattanapong.com:443/mqtt` เพราะ `IS_LOCAL_ENV 2` (ENV_SERVER) topics `voice/audio/{MAC}`, `voice/angle/{MAC}`, `device/status/{MAC}` (MAC รูปแบบ `AA:BB:CC:DD:EE:FF` ตัวพิมพ์ใหญ่ `app_main()` L784-797) ตัวแปร `mqtt_broker_uri_dynamic` (L59) ที่โหลดจาก NVS (`load_mqtt_uri_from_nvs()` L132) และแก้ได้ผ่าน `POST /host` **ไม่ถูกใช้** ตอนสร้าง client เพราะ `restart_mqtt_client()` ใช้ `TARGET_MQTT_URI` ตรง ๆ (L332) | `main.c` L82, L92-98, `restart_mqtt_client()` L317-366, `audio_record_task()` L649, L660, L671 |
+| ESP32 | MQTT broker | MQTT 3.1.1 (`CONFIG_MQTT_PROTOCOL_311=y`, `firmwareV2/sdkconfig` L1769) over WSS ตรวจ cert ด้วย `esp_crt_bundle_attach`, keepalive 30 s, user `kws` และรหัสผ่านที่ hardcode ไว้ในซอร์ส (`PASS` = `31J***` ที่ L98 ส่วน ENV_LOCAL/ENV_LAB ใช้ `kws***` ที่ L90, L106 ไฟล์นี้ถูก track ใน git ดูหัวข้อ 12) | URI `TARGET_MQTT_URI` = `wss://mqtt.wattanapong.com:443/mqtt` เพราะ `IS_LOCAL_ENV 2` (ENV_SERVER) topics `voice/audio/{MAC}`, `device/status/{MAC}` (MAC รูปแบบ `AA:BB:CC:DD:EE:FF` ตัวพิมพ์ใหญ่ `app_main()` L784-797) ตัวแปร `mqtt_broker_uri_dynamic` (L59) ที่โหลดจาก NVS (`load_mqtt_uri_from_nvs()` L132) และแก้ได้ผ่าน `POST /host` **ไม่ถูกใช้** ตอนสร้าง client เพราะ `restart_mqtt_client()` ใช้ `TARGET_MQTT_URI` ตรง ๆ (L332) | `main.c` L82, L92-98, `restart_mqtt_client()` L317-366, `audio_record_task()` L649, L660, L671 |
 | ESP32 | Go backend | HTTPS GET (`esp_http_client`, `crt_bundle_attach`, timeout 5 s) | `https://kwsb.wattanapong.com/api/device/checkin?mac=%s&ip=%s` เรียกครั้งเดียวทุกครั้งที่ได้ IP | `main.c` L94, `kwsapi_task()` L204-240, `wifi_event_handler()` L472-487; ฝั่ง Go คือ `backend/routes/routes.go` L89 → `controllers/activate.go` → `CheckinDeviceIP()` L14 |
 | ESP32 | NTP | SNTP (poll mode) | `th.pool.ntp.org`, `time.google.com`, `pool.ntp.org` | `main.c` → `sync_time_via_sntp()` L410-417 |
 | มือถือผู้ใช้ | ESP32 | Wi-Fi SoftAP (WPA2, SSID `Smartvoice-XXXXXX` จาก MAC 3 byte ท้าย, รหัสผ่าน `SV_` + MAC 3 byte แรก ซึ่งถูก log ออก serial ที่ L793), HTTP (ไม่มีการยืนยันตัวตน), DNS ตอบทุก query เป็น 192.168.4.1 | `GET /` (ส่ง `wifi.html`), `POST /connect`, `GET /api/scan`, `GET /admin`, `GET`/`POST /host`, `GET /scanwifi`, `GET /reconnect` และ 404 ทุกตัว redirect 302 ไป `http://192.168.4.1/` หน้า `/admin` มีลิงก์ `/wifi` แต่ route นี้ถูก comment ไว้ (L400-401) | `main.c` L789-793, `init_wifi()` L490-536, `captive_dns_task()` L692-728; `web_server.h` → `start_web_server()` L386-428, `captive_portal_404_handler()` L300-306 |
@@ -173,7 +170,7 @@ flowchart LR
 **การเชื่อมต่อที่ไม่พบในโค้ด**
 - Go backend ไม่ได้เรียก Python AI server เลย (ไม่มี HTTP call จาก `backend/` ไปที่พอร์ต 8000)
 - frontend ไม่มี MQTT client และไม่มี WebSocket (`frontend/hooks/useWebSocket.ts` เป็นแค่ placeholder ที่ไม่ถูก import)
-- ไม่มี subscriber ของ `voice/angle/{MAC}` ใน `api/`, `backend/` หรือ `frontend/`
+- topic `voice/angle/{MAC}` ไม่มีแล้ว (ลบพร้อม TDOA บนบอร์ดใน `feat/firmware-stereo`)
 - ไม่มีการใช้ Redis จาก Python หรือ frontend และไม่มี Redis pub/sub ที่ใช้งานจริง (`PublishEmergency()` / `SubscribeEmergency()` ใน `backend/database/redis_cache.go` L128-142 ไม่มีผู้เรียก)
 - Auth0: ไม่พบในโค้ด
 - ESP32 ต่อไปที่ `wss://mqtt.wattanapong.com:443/mqtt` แต่ `mosquitto.conf` ไม่มี listener 443 และ `docker-compose.yml` map แค่ 1883, 9001, 8083 ส่วนจะมี reverse proxy ที่พอร์ต 443 ส่งต่อไปยัง Mosquitto ตัวนี้หรือไม่นั้น ไม่พบในโค้ด
@@ -197,25 +194,27 @@ flowchart LR
 
 ### 2.2 ขั้นตอนทีละขั้น
 
+> แถว 1-17 ปรับตามโค้ดปัจจุบัน (เสียง 2 ช่อง, `dsp.py`, หน้าต่างเลื่อน) ส่วนแถว 18-22 และเส้นทางรองด้านล่างเขียนก่อน branch `fix/architecture-audit` รายละเอียดฝั่ง Go หลายจุด (auth middleware, throttle, static `/api/audio`) แก้ไปแล้ว — พฤติกรรมปัจจุบันดู `CLAUDE.md` และหัวข้อ 9
+
 | # | ขั้นตอน | สิ่งที่เกิดขึ้นในโค้ด | อ้างอิง |
 |---|---|---|---|
 | 1 | ไมค์ 2 ตัวจับเสียง → I2S | INMP441 ตัวซ้ายต่อขา L/R ลง GND ตัวขวาต่อ 3.3V ทั้งคู่ใช้ SD เส้นเดียวกัน (DIN = GPIO22) ESP32 เป็น I2S master RX ที่ 8000 Hz, slot 32-bit, `I2S_CHANNEL_FMT_RIGHT_LEFT` (stereo interleave), DMA 8 buffer × 1024 frame | `firmwareV2/main/main.c` → `init_i2s_audio()` L541-556, `#define` L33-41 |
 | 2 | อ่านก้อนเสียง | `i2s_read()` ขนาด `AUDIO_CHUNK_SAMPLES * 2 * sizeof(int32_t)` = 8192 bytes (1024 frame = 128 ms) และรอแบบ `portMAX_DELAY` | `main.c` → `audio_record_task()` L629 |
-| 3 | แยก L/R และแปลงเป็น 16-bit | `l = raw[2i] >> 16`, `r = raw[2i+1] >> 16` ไม่มี gain, filter หรือการลบ DC (มี comment ว่าถ้า L/R สลับกันให้สลับ index เอง) | `main.c` L632-640 |
-| 4 | TDOA และมุม | `compute_tdoa_seconds()` หา cross-correlation แบบไม่ normalize ในช่วง lag −4..+4 sample แล้วทำ parabolic interpolation จากนั้น `tdoa_to_angle_deg()` คำนวณ `asin(343·τ/0.10)` ได้มุม −90..90 องศา คำนวณทุก chunk แม้เป็นช่วงเงียบ | `main.c` L563-598, L602-607, L645-646 |
-| 5 | Mixdown เป็น mono | `chunk_buf[i] = (l + r) / 2` เป็นการเฉลี่ยตรง ๆ **ไม่มีการชดเชย delay** ระหว่างไมค์ | `main.c` L641 |
-| 6 | **DSP แบบ beamforming** | Delay-and-Sum Beamforming: **ไม่พบในโค้ด**<br>Coherence-based Post-filter: **ไม่พบในโค้ด**<br>MVDR Beamforming: **ไม่พบในโค้ด**<br>สิ่งที่มีจริงบนอุปกรณ์มีแค่ขั้น 4 (TDOA) กับขั้น 5 (เฉลี่ย L/R) | ค้นทั้ง `firmwareV2/`, `api/`, `backend/` (ดูหัวข้อ 4.1) |
-| 7 | Publish MQTT | เสียง mono 2048 bytes ไป `voice/audio/{MAC}` (QoS 0, retain 0) มุมแบบ ASCII `"%.1f"` ไป `voice/angle/{MAC}` (QoS 0) และทุก 50 chunk ส่ง `"online"` ไป `device/status/{MAC}` (QoS 0, retain 1) LWT คือ `"offline"` (QoS 1, retain 1) ถ้า publish ได้ `-1` จะหน่วง 50 ms และ chunk นั้นหาย ถ้า MQTT ยังไม่ต่อ ข้อมูลจะถูกทิ้งแล้วรอ 50 ms | `main.c` L649-672, L677-682, `restart_mqtt_client()` L352-360 |
+| 3 | แปลงเป็น 16-bit โดยคงลำดับ L,R | `pcm[2i] = raw[2i] >> 16` (L), `pcm[2i+1] = raw[2i+1] >> 16` (R) ไม่มี gain, filter หรือการลบ DC (comment บอกให้สลับ index ฝั่ง `raw` ถ้า L/R สลับกันจริง) | `main.c` → `audio_record_task()` L631-636 |
+| 4 | ~~TDOA และมุม~~ | **ไม่มีแล้ว** — ความหน่วงระหว่างไมค์หาฝั่ง server ด้วย GCC-PHAT (ขั้น 12) | — |
+| 5 | ~~Mixdown เป็น mono~~ | **ไม่มีแล้ว** — ส่งทั้งสองช่อง | — |
+| 6 | DSP แบบ beamforming | **อยู่ฝั่ง server** (`api/dsp.py`): Delay-and-Sum + Coherence post-filter (`das_pf`) หรือ MVDR (`mvdr`) — ดูขั้น 12 และหัวข้อ 4.4 | `api/dsp.py` |
+| 7 | Publish MQTT | PCM 2 ช่องสลับ L,R 4096 byte ไป `voice/audio/{MAC}` (QoS 0, retain 0) และทุก 50 chunk ส่ง `"online"` ไป `device/status/{MAC}` (QoS 0, retain 1) LWT คือ `"offline"` (QoS 1, retain 1) ถ้า publish ได้ `-1` จะหน่วง 50 ms และ chunk นั้นหาย ถ้า MQTT ยังไม่ต่อ ข้อมูลจะถูกทิ้งแล้วรอ 50 ms | `main.c` L644-676, `restart_mqtt_client()` L301 |
 | 8 | Broker ส่งต่อ | ESP32 ต่อ `wss://mqtt.wattanapong.com:443/mqtt` (`TARGET_MQTT_URI`, ENV_SERVER) ส่วน broker ใน repo คือ Mosquitto ที่ listen 1883 / 8083 / 9001 จะมีอะไรเชื่อมพอร์ต 443 เข้ากับ Mosquitto ตัวนี้หรือไม่นั้น **ไม่พบในโค้ด** | `main.c` L82, L95; `mosquitto/config/mosquitto.conf` L6-19 |
 | 9 | Python รับข้อความ | `on_message()` ทิ้ง `device/status/*` ทันที สำหรับ `voice/audio/*` จะเอา MAC จากส่วนท้ายของ topic อัปเดต `_device_last_seen` แล้วเรียก `is_device_activated()` (HTTP GET `/api/device/check-activation`, timeout 5 s, รันใน callback ของ paho) ถ้าผ่านจะ `put_nowait` เข้า `audio_data_queue` (maxsize 20 และทิ้งเมื่อคิวเต็ม) | `api/mqtt_audio_receiver.py` → `on_message()` L256-278, `is_device_activated()` L89-145, L47 |
 | 10 | ฝั่ง Go ตอบเรื่อง activation | เช็ค Redis `device:activation:{mac}` ก่อนด้วย `database.GetJSON()` (ใช้ `mac` ตามที่ส่งมา ไม่ normalize) ถ้า hit ตอบ `{is_active, source:"cache"}` ถ้า miss จะ query `devices` ด้วย `UPPER(mac_address) = UPPER(?)` แล้ว `SetJSON()` cache ไว้ 1 ชั่วโมงถ้า active หรือ 10 วินาทีถ้าไม่ active ตอบ `{is_active, is_verified, source:"db"}` ถ้าไม่พบอุปกรณ์ตอบ `{is_active:false}` โดยไม่ cache ฝั่ง Python ก็ cache ใน RAM ด้วย และถ้าเคยได้ active แล้วจะจำไว้ตลอดอายุโปรเซส | `backend/controllers/activate.go` → `CheckDeviceActivation()` L60-101; `mqtt_audio_receiver.py` L94-99 |
-| 11 | รวมเป็น window | `ai_worker()` (thread ที่เริ่มตอน import, L301) ต่อ payload ตาม MAC จนครบ `_BYTES_PER_WINDOW = SAMPLE_RATE × 1 × 2 × 2` แล้วเรียก `_flush_buffer()` window ไม่ซ้อนกันและไม่มี VAD | `mqtt_audio_receiver.py` L31-39, `ai_worker()` L280-298 |
-| 12 | Gain และสร้าง WAV | `amplify_audio(pcm, 3.0)` คูณด้วย `min(3.0, 32767/peak)` แล้ว `_build_wav_in_memory()` เขียน header WAV แบบ 1 ch, 16-bit, `framerate = SAMPLE_RATE` (ค่าจาก env, default 16000) | `mqtt_audio_receiver.py` → `_flush_buffer()` L230-246, `amplify_audio()` L147-167, `_build_wav_in_memory()` L169-176 |
-| 13 | เรียกโมเดลในโปรเซส | `_process_and_forward()` เรียก `_ai_inference_function(wav_bytes)` ซึ่ง `lifespan()` ตั้งให้เป็น `run_kws_inference` **ไม่ผ่าน HTTP `/need-help`** | `mqtt_audio_receiver.py` L191-199; `api/app.py` → `lifespan()` L51-67 |
+| 11 | รวมเป็นหน้าต่าง | payload ที่ไม่ลงตัว 4 byte ถูกทิ้ง (`on_message()` L471) `ai_worker()` ต่อ payload ตาม MAC ลง `bytearray` แล้ว `_take_windows()` ตัดหน้าต่างละ 64000 byte (2 วิ × 2 ช่อง) เลื่อนทีละ 16000 byte (0.5 วิ) | `mqtt_audio_receiver.py` → `ai_worker()` L505, `_take_windows()` L443 |
+| 12 | DSP และสร้าง WAV | `dsp.split_stereo_pcm()` → `DSPProcessor.process()` (HPF → AGC → VAD → GCC-PHAT → `DSP_MODE`) ได้ช่องเดียว 8 kHz ถ้า VAD ไม่พบเสียงพูดจะไม่เข้าโมเดล (นับ P = 0) มีเสียงพูดจึง `_build_wav_in_memory()` เป็น WAV 1 ช่อง 16-bit 8000 Hz | `mqtt_audio_receiver.py` → `_process_window()` L378, `_build_wav_in_memory()` L296; `api/dsp.py` |
+| 13 | เรียกโมเดลในโปรเซส | `_process_window()` เรียก `_ai_inference_function(wav_bytes)` ซึ่ง `lifespan()` ตั้งให้เป็น `run_kws_inference` **ไม่ผ่าน HTTP `/need-help`** | `mqtt_audio_receiver.py` L378; `api/app.py` → `lifespan()` L58-62 |
 | 14 | Preprocessing | `preprocess_audio()`:<br>1. `torchaudio.load()`<br>2. ถ้า sample rate ใน header ≠ 8000 ให้ `T.Resample` เป็น 8000<br>3. เฉลี่ยเป็น mono ถ้ามีหลาย channel<br>4. pad หรือตัดให้เหลือ 16000 sample (2 s)<br>5. peak normalize<br>6. `MelSpectrogram(sr=8000, n_fft=256, win_length=200, hop_length=80, n_mels=128)` แล้ว `torch.log(mel + 1e-6)`<br>7. `unsqueeze(0)` ได้ `[1, 1, 128, T]` | `api/app.py` L85-93, `preprocess_audio()` L112-141 |
 | 15 | BC-ResNet | `model = BCResNet_M(2)` โหลด `models/best_m.pth` บน CPU ถ้าโหลดไม่ได้จะใช้ weight แบบสุ่มต่อไปพร้อม log เตือน ผลลัพธ์คือ logits `[1, 2]` | `api/app.py` L95-107; `api/bcresnet.py` → `BCResNet_M` L117-141 |
-| 16 | ตัดสินผล | `softmax` ให้ index 0 = `prob_yes`, index 1 = `prob_no` แล้ว `detected = "yes"` ถ้า `prob_yes > prob_no` (เท่ากับ argmax) `probability` คือค่าความน่าจะเป็นของ class ที่ชนะ ปัดเป็นทศนิยม 4 ตำแหน่ง ถ้าเกิด exception จะได้ `{"detected": "error", "probability": 0.0}` **ไม่มี threshold** (`EMERGENCY_THRESHOLD` อยู่ใน `api/config.py` L45 ซึ่งไม่ถูก import) | `api/app.py` → `run_kws_inference()` L26-46 |
-| 17 | ส่งผลให้ Go | `detected == "yes"` → `POST {GO_SERVER_URL}/api/audio/emergency` (ไฟล์ `emergency.wav`) กรณีอื่นรวมถึง `"error"` → `POST .../api/audio/negative` (ไฟล์ `negative.wav`) เป็น multipart field `audio` + `device_mac`, `event_type` (`needs_help`/`normal`), `confidence` ยิงจาก thread แยก, timeout 5 s, `verify=not is_local` และ**ไม่ส่ง `decibel_level`** | `mqtt_audio_receiver.py` → `_process_and_forward()` L200-225, `_send_to_go_async()` L178-189 |
+| 16 | ตัดสินผล | `run_kws_inference()` คืน `prob_yes` (softmax index 0) เพิ่มจาก `detected` / `probability` แล้ว `DecisionSmoother` เฉลี่ย `prob_yes` ของ `DECISION_WINDOWS` (3) หน้าต่างล่าสุด แจ้งเหตุเมื่อครบ 3 หน้าต่างและค่าเฉลี่ย > `DECISION_THRESHOLD` (0.5) แล้วล้างประวัติ | `api/app.py` → `run_kws_inference()` L31; `mqtt_audio_receiver.py` → `DecisionSmoother` L327 |
+| 17 | ส่งผลให้ Go | แจ้งเหตุ (และไม่อยู่ในช่วงพัก `ALERT_COOLDOWN_SECONDS`) → `POST {GO_SERVER_URL}/api/audio/emergency` (WAV ของหน้าต่างที่ P สูงสุด, `confidence` = ค่าเฉลี่ย) ระหว่างพักแค่ log; หน้าต่างปกติที่มีเสียงพูด → `/api/audio/negative` ไม่เกิน 1 ครั้งต่อ 2 วิ; inference error → ทิ้งหน้าต่าง ทุก request แนบ `X-Internal-Key` | `mqtt_audio_receiver.py` → `_process_window()` L378, `_send_to_go_async()` L305 |
 | 18a | Go บันทึกเหตุฉุกเฉิน | `SaveEmergencyAudio()`:<br>1. อ่าน `FormFile("audio")` และเปลี่ยน MAC เป็นตัวพิมพ์ใหญ่<br>2. บันทึก `./audio_recordings/emergency_<UnixNano>.wav`<br>3. หา `devices` ด้วย `UPPER(mac_address)` แล้วหา `device_patients` ด้วย `device_id` เพื่อได้ `patientID`<br>4. INSERT `detection_logs` (`patient_id` ซึ่งเป็น NULL ได้ถ้าไม่พบการผูก, `device_mac` ตัวพิมพ์ใหญ่, `event_type` จากฟอร์ม (Python ส่ง `needs_help`), `status = "needs_help"`, `is_resolved = false`, `audio_url = /api/audio/<file>`, `confidence`, `decibel_level = 0` เพราะ Python ไม่ได้ส่ง)<br>5. ตอบ `{success, message, log_id}`<br>ใน path นี้**ไม่มีการใช้ Redis และไม่มีการ push SSE** และ endpoint นี้**ไม่มี auth middleware** (`routes.go` L116) | `backend/controllers/audio_controller.go` → `SaveEmergencyAudio()` L110-232 (อ่านฟอร์ม L112-124, ชื่อไฟล์ L138, save L144, query L154-165, INSERT L168-183) |
 | 18b | Go บันทึกเสียงปกติ | `SaveNegativeAudio()` บันทึก `./negative/negative_<UnixMilli>.wav` แล้ว `cleanupOldNegativeFiles(saveDir, 10)` เก็บไว้ 10 ไฟล์ล่าสุด **ไม่เขียน DB** และไม่ใช้ `device_mac` หรือ `confidence` | `audio_controller.go` → `SaveNegativeAudio()` L256-278, `cleanupOldNegativeFiles()` L281 |
 | 19 | แจ้งเตือน LINE / Telegram | ถ้ามี `patientID` จะ `Preload("Caregivers")` แล้ววนผู้ดูแลทุกคน:<br>- มี `user_line_mappings`: `go sendLineOAPushMessage()` → `POST https://api.line.me/v2/bot/message/push` ข้อความประกอบด้วยชื่อผู้ป่วย ห้อง เวลา และลิงก์ `FRONTEND_URL/alert?mac=<MAC>`<br>- มี `user_telegram_mapping` ที่ connected และ notify: `go sendTelegramPushMessage()` → `api.telegram.org/bot<token>/sendMessage` (ข้อความเดียวกันแต่ไม่มีลิงก์)<br>path นี้**ไม่มี throttle** จึงส่งทุกครั้งที่ window ใดได้ผล `yes` throttle ผ่าน Redis มีเฉพาะใน `CreateAlert()` (route `POST /api/alerts/ai` และ `POST /api/alerts/`, `routes.go` L98-99) ซึ่งไม่พบผู้เรียกใน `api/` และ `frontend/` และ throttle นั้นเองก็**ใช้งานไม่ได้**: `SetJSON(throttleKey, true, 5*time.Minute)` เก็บ JSON `true` แต่ `GetJSON(throttleKey, &struct{}{})` จะ unmarshal `true` ลง `struct{}` ไม่ได้ จึงคืน `hit = false` เสมอ (`alert_controller.go` L73-79; `backend/database/redis_cache.go` → `GetJSON()` L36-49) ส่วน LINE ใช้ HTTP client timeout 10 s ส่วน Telegram ใช้ `http.Post` ไม่มี timeout | `audio_controller.go` L190-224; `backend/controllers/line_alert_controller.go` → `sendLineOAPushMessage()` L42-86; `backend/controllers/telegram_alert_controller.go` → `sendTelegramPushMessage()` L31-60; `backend/controllers/alert_controller.go` → `CreateAlert()` L72-80 |
@@ -251,11 +250,9 @@ sequenceDiagram
 
     loop ทุก 1024 frame ประมาณ 128 ms
         MIC->>ESP: I2S stereo 8 kHz 32-bit slot, 8192 bytes
-        ESP->>ESP: แยก L และ R ด้วย shift 16, TDOA, มุม, mono เท่ากับ (L+R)/2
-        ESP->>BRK: publish voice/audio/MAC PCM16 mono 2048 bytes QoS0
-        ESP->>BRK: publish voice/angle/MAC ข้อความมุม QoS0
+        ESP->>ESP: shift 16 bit คงลำดับ L,R
+        ESP->>BRK: publish voice/audio/MAC PCM16 L,R 4096 bytes QoS0
     end
-    Note over BRK: voice/angle ไม่มี subscriber
     BRK->>RX: on_message voice/audio/MAC ทุก chunk
     opt RAM cache ของ Python ไม่มีค่า หรือเป็น false ที่เก่ากว่า 10 s
         RX->>GO: GET /api/device/check-activation?mac=MAC
@@ -266,20 +263,20 @@ sequenceDiagram
         end
         GO-->>RX: is_active
     end
-    RX->>RX: เข้าคิว maxsize 20, ai_worker รวม window ตาม _BYTES_PER_WINDOW
-    RX->>RX: amplify_audio gain 3.0 แล้ว _build_wav_in_memory
+    RX->>RX: เข้าคิว maxsize 20, ai_worker ตัดหน้าต่าง 2 วิ เลื่อน 0.5 วิ
+    RX->>RX: dsp.py HPF AGC VAD GCC-PHAT beamformer ได้ช่องเดียว แล้ว _build_wav_in_memory
     RX->>AI: run_kws_inference(wav_bytes) เรียกในโปรเซส
     AI->>AI: resample เป็น 8 kHz, ตัดหรือเติมเป็น 16000 sample, normalize, log-mel 128 bins
-    AI->>AI: BCResNet_M แล้ว softmax, yes ถ้า prob_yes มากกว่า prob_no
-    AI-->>RX: detected และ probability
-    alt detected เป็น yes
+    AI->>AI: BCResNet_M แล้ว softmax
+    AI-->>RX: prob_yes แล้ว RX เฉลี่ย 3 หน้าต่างล่าสุด
+    alt ค่าเฉลี่ยเกิน 0.5 และไม่อยู่ในช่วงพัก
         RX->>GO: POST /api/audio/emergency multipart audio, device_mac, event_type, confidence
         GO->>GO: บันทึกไฟล์ ./audio_recordings/emergency_UnixNano.wav
         GO->>PG: หา devices และ device_patients แล้ว INSERT detection_logs status needs_help
         GO->>PG: Preload Caregivers และหา LINE และ Telegram mapping
         GO-)LT: push ข้อความต่อผู้ดูแลแต่ละคน (goroutine)
         GO-->>RX: success และ log_id
-    else no หรือ error
+    else หน้าต่างปกติที่มีเสียงพูด (ไม่เกิน 1 ครั้งต่อ 2 วิ)
         RX->>GO: POST /api/audio/negative multipart audio
         GO->>GO: บันทึก ./negative/negative_ms.wav เก็บ 10 ไฟล์ล่าสุด
     end
@@ -303,43 +300,26 @@ sequenceDiagram
 
 | ขั้น | Sample rate | Bit depth | Channels | ขนาด chunk / message | Container / encoding | อ้างอิง |
 |---|---|---|---|---|---|---|
-| INMP441 → I2S DMA | 8000 Hz (`I2S_SAMPLE_RATE`) | slot 32-bit (`I2S_BITS_PER_SAMPLE_32BIT`) | 2, interleave L,R (`I2S_CHANNEL_FMT_RIGHT_LEFT`) | DMA 8 × 1024 frame, `i2s_read` ครั้งละ 8192 B = 1024 frame = 128 ms | frame I2S `int32_t` ดิบ (Philips `I2S_COMM_FORMAT_STAND_I2S`) | `firmwareV2/main/main.c` L34, L36, L64, `init_i2s_audio()` L541-556, L629 |
-| แยก L/R | 8000 Hz | 16-bit (`raw >> 16`) | 2 buffer แยกกัน | 1024 sample ต่อช่อง (2048 B ต่อช่อง) | array `int16_t` ใน RAM | `main.c` L615-617, L636-640 |
-| ข้อมูลเข้า TDOA → มุม | 8000 Hz | 16-bit เข้า, `float` ออก | 2 เข้า, ค่าเดียวออก | 1024 sample ต่อช่องต่อการคำนวณ | ไม่มี container (คำนวณในหน่วยความจำ) | `main.c` L563-607, L645-646 |
-| mono mixdown | 8000 Hz | 16-bit | 1 | 1024 sample = 2048 B | array `int16_t` | `main.c` L614, L641 |
-| MQTT `voice/audio/{MAC}` | 8000 Hz (ไม่ได้ระบุใน payload) | 16-bit signed ตาม byte order ของ ESP32 (cast `int16_t*` เป็น `char*` ตรง ๆ) | 1 | 2048 B ต่อ message เมื่ออ่านได้เต็มก้อน (`num_frames * sizeof(int16_t)`) ≈ 128 ms ≈ 7.8 msg/s | **raw PCM ไม่มี header** เป็น binary payload QoS 0 retain 0 | `main.c` L649 |
-| MQTT `voice/angle/{MAC}` | — | — | — | ข้อความไม่กี่ byte (buffer 16 B) | ASCII `"%.1f"` องศา −90.0..90.0 | `main.c` L657-660 |
-| MQTT `device/status/{MAC}` | — | — | — | 6 B (`online`) / LWT `offline` | ASCII | `main.c` L670-672, L352-360 |
-| คิวของ Python receiver | เท่าเดิม | 16-bit | 1 | เก็บได้สูงสุด 20 message (≈ 40 KB ≈ 2.56 s ที่ 8 kHz, คำนวณ) | tuple `(bytes, mac)` | `api/mqtt_audio_receiver.py` L47, L276 |
-| window ที่ส่งเข้าโมเดล | ข้อมูลจริง 8000 Hz | 16-bit | 1 | flush เมื่อ ≥ `_BYTES_PER_WINDOW`:<br>- `SAMPLE_RATE=8000`: เกณฑ์ 32000 B ได้จริง 32768 B (16 chunk = 2.048 s)<br>- **default `SAMPLE_RATE=16000`**: เกณฑ์ 64000 B ได้จริง 65536 B (32 chunk = 4.096 s ของเสียงจริง)<br>(คำนวณจากโค้ด ไม่ได้รัน) | ต่อ `bytes` ตรง ๆ (`b"".join`) | `mqtt_audio_receiver.py` L31-39, L235, L292-296 |
-| หลัง `amplify_audio` | เท่าเดิม | 16-bit (clip ±32767/−32768) | 1 | เท่าเดิม | PCM `array('h')` | `mqtt_audio_receiver.py` L147-167, L236 |
-| WAV ในหน่วยความจำ | **header = ค่า env `SAMPLE_RATE`** (default 16000 ซึ่งไม่ตรงกับข้อมูลจริง 8000 ถูกต้องเฉพาะเมื่อตั้ง `SAMPLE_RATE=8000`) | 16-bit (`setsampwidth(2)`) | 1 (`setnchannels(1)`) | ขนาด PCM ของ window + header WAV | RIFF/WAVE PCM จาก Python module `wave` | `mqtt_audio_receiver.py` → `_build_wav_in_memory()` L169-176 |
-| ข้อมูลเข้า `preprocess_audio` หลังโหลด | resample เป็น 8000 Hz ถ้า header ≠ 8000 | tensor float จาก `torchaudio.load` แล้ว peak-normalize ให้ max abs = 1 | 1 (เฉลี่ยถ้า > 1) | pad หรือตัดเหลือ 16000 sample (2 s)<br>- header 16 kHz: 32768 sample → resample เหลือ 16384 → ตัดเหลือ 16000 เสียงจริงประมาณ 4 s ถูกบีบเป็น 2 s<br>- header 8 kHz: 16384 → ตัดเหลือ 16000 ทิ้ง 384 sample ท้าย (48 ms)<br>(คำนวณ ไม่ได้รัน) | `torch.Tensor` | `api/app.py` L85-87, `preprocess_audio()` L112-132 |
-| feature เข้าโมเดล | 8000 Hz (`sr=8000` ใน MelSpectrogram) | float32 log-mel (`log(mel + 1e-6)`) | 1 | `[1, 1, 128, T]` ถ้า nnAudio ใช้ `center=True` ตาม default จะได้ T = 1 + 16000/80 = 201 (คำนวณ ไม่ได้รัน ส่วนค่า `center` ไม่ได้กำหนดในโค้ด) | tensor (nnAudio `MelSpectrogram`, `n_fft=256`, `win_length=200`, `hop_length=80`, `n_mels=128`) | `api/app.py` L90-93, L134-138 |
-| output ของโมเดล | — | float logits → softmax | — | `[1, 2]` (index 0 = yes, 1 = no) | tensor → dict `{"detected","probability"}` | `api/app.py` → `run_kws_inference()` L29-43 |
-| Python → Go (HTTP) | ตาม header ของ WAV ในหน่วยความจำ (เป็นไฟล์เดียวกัน ยังไม่ resample และไม่ normalize แต่ผ่าน gain แล้ว) | 16-bit | 1 | 1 window ต่อ request | **multipart/form-data**: file field `audio` (`emergency.wav` / `negative.wav`, `audio/wav`) + form `device_mac`, `event_type`, `confidence` | `mqtt_audio_receiver.py` → `_send_to_go_async()` L178-189, L203-225 |
-| ไฟล์ที่ Go เก็บ | เท่ากับที่ได้รับ (Go ไม่แตะเนื้อไฟล์) | 16-bit | 1 | 1 ไฟล์ต่อ window | WAV บนดิสก์: `./audio_recordings/emergency_<UnixNano>.wav` (นามสกุลมาจาก `filepath.Ext(file.Filename)`) หรือ `./negative/negative_<UnixMilli>.wav` (เก็บ 10 ไฟล์ล่าสุด) | `backend/controllers/audio_controller.go` L127-146, L262-275 |
-| SSE ไป frontend | — | — | — | snapshot ทุก 1 s | text/event-stream `data: <JSON>\n\n` ไม่มีข้อมูลเสียง มีแค่ `audio_url` | `backend/controllers/alert_controller.go` L120-150 |
-| frontend เล่นเสียง | อ่านจาก header WAV (ถ้า header เป็น 16000 ทั้งที่ข้อมูลจริงคือ 8000 เสียงจะเล่นเร็วขึ้นประมาณ 2 เท่า ซึ่งเป็นการอนุมานจาก header ไม่ได้ทดสอบ) | 16-bit | 1 | ทั้งไฟล์ | HTTP GET `{NEXT_PUBLIC_API_URL}/api/audio/<file>.wav` เสิร์ฟด้วย `app.Static("/api/audio", "./audio_recordings")` แล้ว decode ด้วย wavesurfer.js | `backend/main.go` L23; `frontend/app/dashboard/page.tsx` L371-373; `frontend/components/WaveformAudioPlayer.tsx` L6-15 |
-| LINE / Telegram | — | — | — | 1 ข้อความต่อผู้ดูแลต่อเหตุการณ์ | ข้อความ JSON (text) **ไม่แนบไฟล์เสียง** LINE แนบลิงก์ `/alert?mac=` ซึ่งหน้านั้นเล่น `audio_url` ด้วย `<audio autoPlay>` | `line_alert_controller.go` L42-86; `telegram_alert_controller.go` L31-60; `frontend/app/alert/page.tsx` L191-195 |
+| INMP441 → I2S DMA | 8000 Hz (`I2S_SAMPLE_RATE`) | slot 32-bit | 2, interleave L,R (`I2S_CHANNEL_FMT_RIGHT_LEFT`) | DMA 8 × 1024 frame, `i2s_read` ครั้งละ 8192 B = 1024 frame = 128 ms | frame I2S `int32_t` ดิบ | `firmwareV2/main/main.c` → `init_i2s_audio()` L591, `audio_record_task()` L626 |
+| แปลงเป็น 16-bit | 8000 Hz ต่อช่อง | 16-bit (`raw >> 16`) | 2, ลำดับ L,R เดิม | 1024 frame = 4096 B | array `int16_t pcm_buf` | `main.c` L631-636 |
+| MQTT `voice/audio/{MAC}` | 8000 Hz ต่อช่อง (ไม่ระบุใน payload) | 16-bit signed little-endian | **2 สลับ `L,R`** | 4096 B ต่อ message ≈ 128 ms ≈ 7.8 msg/s (32,000 B/s) | **raw PCM ไม่มี header**, QoS 0, retain 0 | `main.c` L646-648, หัวข้อ 3.12 |
+| MQTT `device/status/{MAC}` | — | — | — | 6 B (`online`) / LWT `offline` | ASCII | `main.c` L652, `restart_mqtt_client()` L333 |
+| คิวของ Python receiver | เท่าเดิม | 16-bit | 2 | สูงสุด 20 message (≈ 80 KB ≈ 2.56 s) payload ที่ไม่ลงตัว 4 byte ถูกทิ้งก่อนเข้าคิว | tuple `(bytes, mac)` | `api/mqtt_audio_receiver.py` L172, `on_message()` L471 |
+| หน้าต่าง | 8000 Hz ต่อช่อง | 16-bit | 2 | 64000 B = 16000 frame = 2 วิ, เลื่อนทีละ 16000 B (0.5 วิ) | `bytes` | `_take_windows()` L443 |
+| ใน `dsp.py` | 8000 Hz | float64 | 2 → 1 | 16000 ค่าตัวอย่าง | numpy array | `api/dsp.py` → `DSPProcessor.process()` (หัวข้อ 4.4) |
+| WAV ในหน่วยความจำ (เข้าโมเดลและส่ง Go) | 8000 Hz | 16-bit | **1** | 32044 B (16000 ค่าตัวอย่าง + header 44) | RIFF/WAVE PCM จาก module `wave` | `_build_wav_in_memory()` L296 |
+| ข้อมูลเข้า `preprocess_audio` | 8000 Hz (ไม่ต้อง resample) | float32 → peak-normalize | 1 | 16000 ค่าตัวอย่างพอดี (pad/trim ไม่ทำงาน) | `torch.Tensor` | `api/app.py` → `preprocess_audio()` L128 |
+| feature เข้าโมเดล | 8000 Hz | float32 log-mel | 1 | `[1, 1, 128, T≈201]` | nnAudio `MelSpectrogram` (`n_fft=256`, `win_length=200`, `hop_length=80`, `n_mels=128`) | `api/app.py` L96, L128 |
+| output ของโมเดล | — | logits → softmax | — | `[1, 2]` (index 0 = yes) | dict `{"detected", "probability", "prob_yes"}` | `api/app.py` → `run_kws_inference()` L31 |
+| Python → Go (HTTP) | 8000 Hz | 16-bit | 1 | 1 หน้าต่างต่อ request | multipart: `audio` (`emergency.wav` / `negative.wav`) + `device_mac`, `event_type`, `confidence` + header `X-Internal-Key` | `_send_to_go_async()` L305 |
+| ไฟล์ที่ Go เก็บ | เท่าที่ได้รับ | 16-bit | 1 | 1 ไฟล์ต่อเหตุ | `./audio_recordings/emergency_<UnixNano>.wav` หรือ `./negative/negative_<UnixMilli>.wav` (เก็บ 10 ไฟล์ล่าสุด) | `backend/controllers/audio_controller.go` → `SaveEmergencyAudio()` L184, `SaveNegativeAudio()` L354 |
+| frontend เล่นเสียง | 8000 Hz | 16-bit | 1 | ทั้งไฟล์ | `GET /api/audio/:filename` ตรวจสิทธิ์ (JWT หรือ alert token) แล้ว decode ด้วย wavesurfer.js | `audio_controller.go` → `GetAudioFile()` L98; `frontend/components/WaveformAudioPlayer.tsx` |
 
-**ข้อสังเกตของ flow นี้** (สรุปไว้ในหัวข้อ 12 ด้วย)
-1. **sample rate ไม่ตรงกัน:** firmware ส่ง 8 kHz แต่ `SAMPLE_RATE` ของ receiver มี default 16000 (`api/mqtt_audio_receiver.py` L31) และใน repo ไม่มี `api/.env` หรือที่ใดที่ตั้งค่านี้ ถ้าไม่ตั้ง env:
-   - window จะยาว 4 s แทน 2 s
-   - header WAV ผิด
-   - โมเดลได้เสียงที่ถูกเร่งความเร็ว 2 เท่า
-   - ไฟล์ที่เก็บไว้เป็นหลักฐานก็เล่นเร็วผิดไปด้วย
-2. **แจ้งเตือนซ้ำ:** ทุก window ที่ได้ผล `yes` จะสร้าง `detection_logs` ใหม่ 1 แถวและส่ง LINE/Telegram ใหม่ทุกครั้ง เพราะ `SaveEmergencyAudio()` ไม่มี throttle และ throttle ใน `CreateAlert()` ก็ใช้งานไม่ได้ (ดูขั้น 19)
-3. **ไม่มีการ push แบบ event:** dashboard เห็นเหตุใหม่ได้ก็ต่อเมื่อ SSE poll รอบถัดไป (ทุก 1 s) และเฉพาะ build development ที่สลับออกจาก mock data แล้ว
-4. **ข้อมูลทิศทางไม่ถึงผู้ใช้:** มุม TDOA ถูกส่งออกจากอุปกรณ์แต่ไม่มีผู้รับ ส่วนเข็มทิศบน dashboard ใช้ค่าจาก mock data เท่านั้น
-5. **ช่องโหว่ด้านความปลอดภัยบนเส้นทางนี้:**
-   - endpoint ที่ Python ใช้ (`/api/device/check-activation`, `/api/audio/emergency`, `/api/audio/negative`, `/api/device/status`) และ `/api/device/checkin` ของ ESP32 ไม่มี auth middleware ใด ๆ (`backend/routes/routes.go` L86-94, L114-117) ใครที่เข้าถึง backend ได้สามารถสร้าง `detection_logs` และสั่งส่ง LINE/Telegram ได้
-   - `/api/alerts/stream`, `PUT /api/alerts/:id/resolve`, `POST /api/alerts/acknowledge` ไม่ตรวจ token (`routes.go` L96-109; `alert_controller.go` → `AcknowledgeAlert()` L195-219)
-   - Python ไม่ตรวจ TLS cert เมื่อ `APP_ENV` = `development` ซึ่งเป็นค่า default (`api/mqtt_audio_receiver.py` L15, L17, `verify=not is_local` ที่ L58, L121, L186)
-6. **ความล้มเหลวที่ไม่มีใครเห็น:**
-   - ผล `"error"` จากโมเดลถูกส่งไป `/negative` เหมือนเสียงปกติ
-   - เสียงถูกทิ้งเงียบ ๆ เมื่อคิวเต็ม (`mqtt_audio_receiver.py` L277-278), เมื่อ MQTT หลุด หรือเมื่อ publish ได้ `-1` (`main.c` L651-655, L677-682)
-
+**ข้อสังเกตของ flow นี้**
+1. **firmware กับ receiver ต้องเป็นรุ่นเดียวกัน:** payload mono 2048 B ของ firmware รุ่นเก่าหาร 4 ลงตัว receiver แยกไม่ออกและจะตีความเป็น 2 ช่อง ต้องแฟลชทุกบอร์ดก่อน deploy receiver ชุดนี้
+2. **ไฟล์ที่เก็บเป็นเสียงหลัง DSP** (ช่องเดียว) ไม่ใช่เสียงดิบ 2 ช่อง — การทดลองในหัวข้อ 3.7.3 ที่ต้องใช้เสียงดิบต้องอัดแยก (ใช้ `api/eval_offline.py` กับ WAV 2 ช่อง)
+3. **เสียงหายแบบไม่แจ้ง:** คิวเต็ม (`on_message()`), MQTT หลุด หรือ publish ได้ `-1` บนบอร์ด (`main.c` L657-661, L671-676) และหน้าต่างที่ VAD ไม่พบเสียงพูดจะไม่ถูกเก็บที่ใด
+4. **SSE ไม่ใช่ push:** dashboard เห็นเหตุใหม่ในรอบ poll ถัดไปของ `/api/alerts/stream` (ทุก 1 วิ, วัดได้ ~1 วิ ใน `tests/api` TC-42)
 
 ---
 
@@ -535,10 +515,11 @@ MAC ในชื่อ topic เป็นรูปแบบตัวพิมพ
 
 | Topic | Payload | ขนาด | QoS | Retain | ความถี่ | อ้างอิง |
 |---|---|---|---|---|---|---|
-| `voice/audio/{MAC}` | raw PCM signed 16-bit little-endian, mono, 8000 Hz, **ไม่มี header** (ไม่ใช่ WAV) | `num_frames * 2` byte (ปกติ 2048 byte = 1024 samples = 128 ms) | 0 | 0 | ทุก chunk (~7.8 msg/s) | `audio_record_task()` L649 |
-| `voice/angle/{MAC}` | ข้อความ ASCII ทศนิยม 1 ตำแหน่ง `"%.1f"` หน่วยองศา ช่วง -90.0 ถึง 90.0 เช่น `"-12.3"` | 3-5 byte | 0 | 0 | ทุก chunk (~7.8 msg/s) | L658-660 |
-| `device/status/{MAC}` | ข้อความ `"online"` | 6 byte | 0 | 1 | ทุก 50 chunks (~6.4 วินาที) | L670-672 |
-| `device/status/{MAC}` (LWT) | ข้อความ `"offline"` | 7 byte | 1 | 1 | เมื่อ broker ตรวจว่าหลุด | L354-359 |
+| `voice/audio/{MAC}` | raw PCM signed 16-bit little-endian **2 ช่องสลับ `L,R`**, 8000 Hz ต่อช่อง, **ไม่มี header** (ไม่ใช่ WAV) | `num_frames * 2 * 2` byte (ปกติ 4096 byte = 1024 frame = 128 ms) | 0 | 0 | ทุก chunk (~7.8 msg/s) | `audio_record_task()` L646-648 |
+| `device/status/{MAC}` | ข้อความ `"online"` | 6 byte | 0 | 1 | ทุก 50 chunks (~6.4 วินาที) | L651-653 |
+| `device/status/{MAC}` (LWT) | ข้อความ `"offline"` | 7 byte | 1 | 1 | เมื่อ broker ตรวจว่าหลุด | `restart_mqtt_client()` L333 |
+
+topic `voice/angle/{MAC}` ไม่มีแล้ว (ลบพร้อม TDOA ใน `feat/firmware-stereo` — ไม่มีผู้ subscribe และตัดออกจากขอบเขตโครงงาน)
 
 หมายเหตุ: ไม่มีการ publish `"online"` ทันทีตอน `MQTT_EVENT_CONNECTED` — ต้องรอ chunk ที่ 50 (นับต่อเนื่องจาก `chunk_seq` ที่ไม่ reset)
 
@@ -598,34 +579,15 @@ flowchart TD
 
 ---
 
-### 3.6 TDOA (Time Difference of Arrival) และการคำนวณมุม
+### 3.6 TDOA และการคำนวณมุม — ลบออกจาก firmware แล้ว
 
-อ้างอิง: `firmwareV2/main/main.c` → `compute_tdoa_seconds()` (L563-598), `tdoa_to_angle_deg()` (L602-607), ค่าคงที่ L69-76
+`compute_tdoa_seconds()`, `tdoa_to_angle_deg()`, ค่าคงที่ `MIC_DISTANCE_M` / `SPEED_OF_SOUND_MPS` / `TDOA_MAX_LAG_SAMPLES` / `TDOA_MIN_ENERGY`, ตัวแปร `angle_topic_dynamic` และการ publish `voice/angle/{MAC}` ถูกลบทั้งหมดใน branch `feat/firmware-stereo` (2026-10-23) เพราะ
 
-**Cross-correlation ช่วงแคบ** (`compute_tdoa_seconds(left, right, n)`):
-- ทดลอง `lag` จาก `-TDOA_MAX_LAG_SAMPLES` ถึง `+TDOA_MAX_LAG_SAMPLES` (= -4 ถึง +4, รวม 9 ค่า)
-- `score(lag) = Σ left[i] * right[i - lag]` สำหรับ `i` ในช่วงที่ซ้อนทับ (`start = max(lag,0)`, `end = lag>=0 ? n : n+lag`), สะสมใน `int64_t`
-- เป็น correlation ดิบ **ไม่มี normalization, ไม่มี windowing, ไม่มี GCC-PHAT** — ไม่พบในโค้ด
-- เลือก `best_lag` ที่ score สูงสุด
-- **Parabolic interpolation** (L586-594): ถ้า `best_lag` ไม่อยู่ที่ขอบ (`-4 < best_lag < 4`) ใช้ `c_minus`, `c_0`, `c_plus` คำนวณ `frac = 0.5 * (c_minus - c_plus) / (c_minus - 2*c_0 + c_plus)` (ถ้า `|denom| > 1e-6`)
-- คืนค่า `τ = (best_lag + frac) / I2S_SAMPLE_RATE` (วินาที)
-- ต้นทุน ≈ 9 × 1024 ≈ 9.2k การคูณ-บวกต่อ chunk
+- มุมที่คำนวณไม่มีผู้ใช้ — ไม่มีผู้ subscribe `voice/angle/#` ใน `api/`, `backend/` หรือ `frontend/` และหน้า dashboard เลิกแสดงเข็มทิศแล้ว
+- ทิศทาง/ความหน่วงระหว่างไมค์ย้ายไปหาฝั่ง server ด้วย **GCC-PHAT** ใน `api/dsp.py` (ค้น ±3 ค่าตัวอย่าง ละเอียด 1/16 เฉพาะเฟรมที่มีเสียงพูด) และใช้จัดเวลาให้ beamformer เท่านั้น ไม่ได้แปลงเป็นองศา — ดูหัวข้อ 4.4.6
+- การลบทำให้ firmware เล็กลงพอใส่ partition ได้ (ดูหัวข้อ 3.1)
 
-**แปลงเป็นมุม** (`tdoa_to_angle_deg(tau)`):
-- `ratio = (SPEED_OF_SOUND_MPS * tau) / MIC_DISTANCE_M` แล้ว clamp ไว้ใน [-1, 1]
-- `angle = asinf(ratio) * 180 / M_PI` → 0° = ตรงหน้า (broadside), บวก = เอียงขวา, ลบ = เอียงซ้าย (ตาม comment L600-601 ซึ่งเตือนว่าเครื่องหมายขึ้นกับการต่อสาย L/R จริง)
-
-**ตัวเลขที่ได้จากค่าคงที่ปัจจุบัน** (คำนวณจาก `MIC_DISTANCE_M = 0.10`, `SPEED_OF_SOUND_MPS = 343`, `I2S_SAMPLE_RATE = 8000`):
-- lag สูงสุดทางกายภาพ = 0.10 / 343 × 8000 ≈ 2.33 samples (comment L72: ใช้ `ceil(...) + 1` = 4)
-- lag 1 sample (125 µs) ≈ 25.4° → ความละเอียดหยาบ จึงต้องพึ่ง parabolic interpolation
-- lag ที่ ≥ ~2.33 จะถูก clamp เป็น ±90°
-- กรณีสัญญาณเป็นศูนย์ทั้ง chunk (digital silence หรือไมค์ข้างใดข้างหนึ่งไม่ส่งข้อมูล): ทุก `score` = 0, `best_score` เริ่มที่ `-1e18f` (L565) และใช้ `>` แบบเข้มงวด (L577) → `best_lag = -4` (ค่าแรก) ซึ่งอยู่ที่ขอบจึงไม่ทำ interpolation → τ = -0.5 ms → ratio ≈ -1.715 → clamp → publish `"-90.0"` ทุก chunk
-
-**การจัดการ 2 channel หลังคำนวณ**: L/R ถูกใช้เพื่อ TDOA เท่านั้น แล้วส่งออกเฉพาะ mono — ข้อมูลแยกช่องไม่ออกจากอุปกรณ์
-
-**Beamforming / post-filter บนอุปกรณ์** (Delay-and-Sum, Coherence, MVDR): ไม่พบในโค้ด firmwareV2 — mixdown เป็นเพียงการเฉลี่ย L+R โดยไม่ชดเชย delay
-
-**ผู้ subscribe `voice/angle/#`**: ค้นทั้ง repo (`*.go`, `*.py`, `*.ts`, `*.tsx`) ไม่พบผู้ subscribe topic นี้ — `api/mqtt_audio_receiver.py` subscribe แค่ `TOPIC_SUBSCRIBE = "voice/audio/#"` (L33) และ `STATUS_TOPIC = "device/status/#"` (L34) ใน `client.subscribe(...)` (L251-252), `backend/services/mqtt_service.go` subscribe `voice/audio/#` QoS 1 (L114-115)
+ค่าความหน่วงที่ server หาได้ดูได้จาก log `[DSP] … delay=+2.00 gcc_peak=0.61` ของ receiver
 
 ---
 
@@ -637,7 +599,7 @@ flowchart TD
 1. `nvs_flash_init()` (ถ้า `ESP_ERR_NVS_NO_FREE_PAGES`/`NEW_VERSION_FOUND` → erase แล้ว init ใหม่) (L774-779)
 2. อ่าน MAC STA → `device_mac_str` และ `mac_str` (รูปแบบ `%02X:...`) (L781-787)
 3. สร้าง SoftAP SSID/password (L789-790)
-4. สร้าง topic `voice/audio/%s`, `device/status/%s`, `voice/angle/%s` (L795-797)
+4. สร้าง topic `voice/audio/%s`, `device/status/%s` (L819-820)
 5. `load_mqtt_uri_from_nvs()` (L803) — ค่าที่โหลดใช้แค่แสดงในหน้า `/admin` และ `/host`
 6. `init_led()` → `init_i2s_audio()` → `init_wifi()` (L805-807)
 7. `vTaskDelay(1000 ms)` → `start_web_server()` (L809-810)
@@ -686,38 +648,36 @@ Callback ที่รันบน default event loop task (stack `CONFIG_ESP_SYS
 
 ### 3.10 ตารางค่าคงที่ (`#define`) สำคัญ
 
-อ้างอิง: `firmwareV2/main/main.c` L31-110, `firmwareV2/main/web_server.h` L11-19
+อ้างอิง: `firmwareV2/main/main.c` L29-122 (ตาม branch `feat/firmware-stereo`)
 
 | ค่าคงที่ | ค่า | ความหมาย | บรรทัด |
 |---|---|---|---|
-| `WIFI_MAXIMUM_RETRY` | `5` | จำนวน retry STA ก่อนกลับเข้าโหมดรอตั้งค่า | main.c L31 |
-| `I2S_PORT` | `I2S_NUM_0` | I2S peripheral | L33 |
-| `I2S_SAMPLE_RATE` | `8000` | sample rate (Hz) ต่อช่อง | L34 |
-| `I2S_CHANNELS` | `1` | **ไม่ถูกใช้** (จริงอ่าน stereo) | L35 |
-| `I2S_BITS_PER_SAMPLE` | `I2S_BITS_PER_SAMPLE_32BIT` | ความกว้าง slot บนบัส | L36 |
-| `I2S_SCK_PIN` / `I2S_WS_PIN` / `I2S_DIN_PIN` / `I2S_DOUT_PIN` | `26` / `25` / `22` / `-1` | ขา I2S | L38-41 |
-| `STATUS_LED_PIN` | `2` | LED สถานะ Wi-Fi | L43 |
-| `RECORD_LED_PIN` | `4` | LED อัด/ส่งเสียง | L44 |
-| `SOFTAP_LED_PIN` | `16` | LED โหมด SoftAP | L45 |
-| `STATUS_BORD_PIN` | `14` | ขา output ตั้ง high ตลอด | L46 |
-| `AP_CHANNEL` / `AP_MAX_CONN` | `1` / `4` | channel และจำนวน client ของ SoftAP | L50-51 |
-| `RESET_BUTTON_PIN` | `13` | ปุ่ม factory reset | L53 |
-| `AUDIO_CHUNK_SAMPLES` | `1024` | samples ต่อช่องต่อ chunk (128 ms) | L63 |
-| `I2S_DMA_BUF_LEN` | `1024` | frames ต่อ DMA buffer | L64 |
-| `MIC_DISTANCE_M` | `0.10f` | ระยะห่างไมค์ L-R (เมตร) — comment ให้แก้ตามจริง | L69 |
-| `SPEED_OF_SOUND_MPS` | `343.0f` | ความเร็วเสียง (m/s) | L70 |
-| `TDOA_MAX_LAG_SAMPLES` | `4` | ช่วง lag ที่ค้น ±4 samples | L71 |
-| `M_PI` | `3.14159265358979323846f` (ถ้ายังไม่มี) | ค่า π | L74-76 |
-| `ENV_LOCAL` / `ENV_SERVER` / `ENV_LAB` | `1` / `2` / `3` | รหัส environment | L78-80 |
-| `IS_LOCAL_ENV` (main.c) | `2` | เลือก ENV_SERVER | L82 |
-| `TARGET_GO_API` | `https://kwsb.wattanapong.com/api/device/checkin?mac=%s&ip=%s` | URL check-in (ENV_SERVER) | L94 |
-| `TARGET_MQTT_URI` | `wss://mqtt.wattanapong.com:443/mqtt` | MQTT broker (ENV_SERVER) | L95 |
-| `SKIP_CERT_CHECK` | `false` | `skip_cert_common_name_check` (ENV_SERVER) | L96 |
-| `USER` / `PASS` | `kws` / `31J***` | MQTT credentials (ENV_SERVER) | L97-98 |
-| `IS_LOCAL_ENV` (web_server.h) | `0` | define ซ้ำคนละค่า ใช้เลือก `SERVER_URL` | web_server.h L11 |
-| `SERVER_URL` | `https://kws.wattanapong.com/register-patient?mac=%s` | ลิงก์ลงทะเบียนผู้ป่วยที่แสดงหลัง `/connect` | web_server.h L18 |
+| `secrets.h` | `MQTT_USER_*` / `MQTT_PASS_*` ต่อ environment | ไฟล์ gitignore — ไม่มีแล้ว build หยุดด้วย `#error` | L29-34 |
+| `ENV_LOCAL` / `ENV_SERVER` / `ENV_LAB` | `1` / `2` / `3` | รหัส environment | L40-42 |
+| `DEPLOY_ENV` | `ENV_SERVER` | สวิตช์เดียวที่เลือกค่าด้านล่าง (ต้องอยู่ก่อน `#include "web_server.h"`) | L44 |
+| `TARGET_GO_API` | `https://kwsb.wattanapong.com/api/device/checkin?mac=%s&ip=%s` | URL check-in (ENV_SERVER) | L46-79 |
+| `TARGET_MQTT_URI` | `wss://mqtt.wattanapong.com:443/mqtt` | MQTT broker (ENV_SERVER) | L46-79 |
+| `SKIP_CERT_CHECK` / `GO_API_USE_CRT_BUNDLE` | `false` / `1` | ตรวจ cert ของ broker / ใช้ CA bundle กับ check-in (ENV_SERVER) | L46-79 |
+| `MQTT_USERNAME` / `MQTT_PASSWORD` | `MQTT_USER_SERVER` / `MQTT_PASS_SERVER` จาก `secrets.h` | MQTT credentials | L46-79 |
+| `SERVER_URL` | `https://kws.wattanapong.com/register-patient?mac=%s` | ลิงก์ลงทะเบียนผู้ป่วยหลัง `/connect` (`web_server.h` ใช้ค่านี้) | L46-79 |
+| `WIFI_MAXIMUM_RETRY` | `5` | จำนวน retry STA ก่อนกลับเข้าโหมดรอตั้งค่า | L85 |
+| `I2S_PORT` | `I2S_NUM_0` | I2S peripheral | L87 |
+| `I2S_SAMPLE_RATE` | `8000` | sample rate (Hz) ต่อช่อง | L88 |
+| `I2S_BITS_PER_SAMPLE` | `I2S_BITS_PER_SAMPLE_32BIT` | ความกว้าง slot บนบัส | L89 |
+| `I2S_SCK_PIN` / `I2S_WS_PIN` / `I2S_DIN_PIN` / `I2S_DOUT_PIN` | `26` / `25` / `22` / `-1` | ขา I2S | L91-94 |
+| `STATUS_LED_PIN` / `RECORD_LED_PIN` / `SOFTAP_LED_PIN` | `2` / `4` / `16` | LED | L96-98 |
+| `STATUS_BORD_PIN` | `14` | ขา output ตั้ง high ตลอด | L99 |
+| `AP_CHANNEL` / `AP_MAX_CONN` | `1` / `4` | channel และจำนวน client ของ SoftAP | L102-103 |
+| `RESET_BUTTON_PIN` | `13` | ปุ่ม factory reset | L105 |
+| `AUDIO_CHUNK_SAMPLES` | `1024` | frame (ค่าตัวอย่างต่อช่อง) ต่อ message = 128 ms | L114 |
+| `I2S_DMA_BUF_LEN` | `1024` | frames ต่อ DMA buffer | L115 |
+| `AUDIO_CHANNELS` | `2` | จำนวนช่องใน payload (L,R สลับกัน) | L118 |
+| `AUDIO_PAYLOAD_BYTES` | `1024 × 2 × 2 = 4096` | ขนาด payload `voice/audio/{MAC}` | L119 |
+| `MQTT_OUT_BUFFER_SIZE` | `4096 + 128` | `buffer.out_size` ของ esp-mqtt (ส่ง 1 message ในการเขียนครั้งเดียว) | L122 |
 
-ตัวแปร global ที่สำคัญ: `mqtt_topic_dynamic[128]`, `status_topic_dynamic[128]`, `angle_topic_dynamic[128]`, `device_mac_str[18]`, `mqtt_broker_uri_dynamic[128]` (ค่าเริ่ม `wss://mqtt.wattanapong.com:443/mqtt`), `ap_ssid_dynamic[32]`, `ap_password_dynamic[64]` (main.c L55-61)
+ค่าที่ลบไปแล้ว: `I2S_CHANNELS`, `MIC_DISTANCE_M`, `SPEED_OF_SOUND_MPS`, `TDOA_MAX_LAG_SAMPLES`, `TDOA_MIN_ENERGY`, `M_PI`, `IS_LOCAL_ENV` (แทนด้วย `DEPLOY_ENV`) และรหัสผ่านที่เคย hardcode (ย้ายไป `secrets.h`)
+
+ตัวแปร global ที่สำคัญ: `mqtt_topic_dynamic[128]`, `status_topic_dynamic[128]`, `device_mac_str[18]`, `mqtt_broker_uri_dynamic[128]` (แสดงในหน้า `/admin` เท่านั้น ไม่ได้ใช้ต่อ broker), `ap_ssid_dynamic[32]`, `ap_password_dynamic[64]` (L107-112)
 
 ---
 
@@ -730,7 +690,7 @@ Callback ที่รันบน default event loop task (stack `CONFIG_ESP_SYS
 | Sample rate | 8000 | 16000 (L32) | 16000 (L29) |
 | Channel format | `RIGHT_LEFT` (2 ไมค์) | `ONLY_LEFT` (L468) | `ONLY_LEFT` (L425) |
 | `AUDIO_CHUNK_SAMPLES` | 1024 | 2048 (L57) | 2048 (L54) |
-| TDOA / `voice/angle` | มี | ไม่มี | ไม่มี |
+| TDOA / `voice/angle` | ไม่มี (ลบใน `feat/firmware-stereo`) | ไม่มี | ไม่มี |
 | SoftAP | SSID/pass จาก MAC | `AP_SSID "SmartVoice-ESP32"` + password คงที่ `sma***` (L46-47) | เหมือน main_fixed (L43-44) |
 | `IS_LOCAL_ENV` | 2 (3 environment) | 1 (local/server 2 ทาง) (L64) | 1 (L61) |
 | Check-in URL | `/api/device/checkin?mac=%s&ip=%s` | `/api/checkin?ip=%s` (L67, L72) | `/api/checkin?ip=%s` (L64, L69) |
@@ -777,7 +737,7 @@ Callback ที่รันบน default event loop task (stack `CONFIG_ESP_SYS
 - root `README.md` L107-108 ระบุ "publish binary PCM ทุก 2 วินาที" — โค้ด publish ทุก 128 ms (1024 samples)
 - root `README.md` L9 ระบุ "INMP441 x4" และ `CLAUDE.md` กล่าวถึง `MicLevelIndicator` 4 ไมค์ — firmwareV2 รองรับ 2 ไมค์ และไม่ส่งระดับสัญญาณไมค์ (mic levels) ใด ๆ
 - `PROJECT_SPEC.md` L60 ระบุ payload เป็น "Binary WAV audio (16 kHz, 16-bit, mono)" — โค้ดส่ง raw PCM ไม่มี WAV header ที่ 8 kHz
-- `CLAUDE.md` บอกว่า `voice/angle/{mac}` เป็นส่วนของสถาปัตยกรรม แต่ไม่พบผู้ subscribe ใน repo
+- ~~`CLAUDE.md` บอกว่า `voice/angle/{mac}` เป็นส่วนของสถาปัตยกรรม~~ — แก้แล้ว: topic นี้ถูกลบและ `CLAUDE.md` อัปเดตแล้ว
 - `api/mqtt_audio_receiver.py` L31 default `SAMPLE_RATE = 16000` (ใช้ใน `wf.setframerate` L174) ขณะ firmware ส่ง 8000 Hz — ถ้าไม่ตั้ง env จะได้ WAV ที่ header ผิด และ `_BYTES_PER_WINDOW` (L39) = 16000 × 1 × 2 × 2 = 64,000 byte ซึ่งที่ 8 kHz เท่ากับเสียง 4 วินาที ไม่ใช่ `SECONDS_PER_WINDOW = 2` (L32) — ใช้ตัดหน้าต่างที่ L295
 
 **ความเสี่ยงด้านความปลอดภัย**
@@ -801,8 +761,8 @@ Callback ที่รันบน default event loop task (stack `CONFIG_ESP_SYS
 - **Stack buffer overflow ใน `connect_post_handler()`** (`web_server.h` L205-212): `httpd_query_key_value()` คัดลอกค่าได้สูงสุด 255 ตัวอักษรลง `ssid_raw[256]`/`pass_raw[256]` แต่ `url_decode()` เขียนผลลง `ssid[128]`/`password[128]` โดยไม่จำกัดความยาว (L40-62) → body ที่ `ssid=` หรือ `password=` ยาวเกิน 127 ตัวอักษร (ไม่ encode) จะเขียนทับ stack ของ httpd task. ผู้ที่ต่อ SoftAP ได้ (หรืออยู่ใน LAN เดียวกันหลังเข้า STA) ส่งได้โดยไม่ต้อง auth. (`host_post_handler()` ไม่มีปัญหานี้เพราะ `uri_val` และ `decoded_uri` ขนาด 128 เท่ากัน)
 - **หน้า HTML ถูกตัด** เพราะ `html_header` ยาว 830 byte: `reconnect_get_handler()` ใช้ `response[500]` (L286) → ส่งได้แค่ส่วนต้นของ `<head>`/CSS ไม่มีข้อความและ `<script>` redirect เลย; `scanwifi_get_handler()` chunk แรก `chunk[512]` (L164-165) → หัวข้อ `<h2>`/`<ul>` และ `</head><body>` หาย; `root_get_handler()` (`/admin`) และ `host_post_handler()` ใช้ `response[1024]` (L75, L142) แต่เนื้อหารวม (header 830 + template ~550 / ~235 byte + URI + footer) เกิน 1023 byte → `/admin` เสียลิงก์ท้าย ๆ (เช่น `/reconnect`) และ `host_post_handler()` เสีย `<script>` redirect ไป `/admin`. `host_get_handler()` (`response[1500]`) และ `connect_post_handler()` (`malloc(4096)`) พอ
 - `captive_dns_task()` (main.c L708-724) คัดลอก query ทั้งก้อนแล้วต่อ answer record ท้ายสุด แก้แค่ flags และ ANCOUNT โดยไม่ล้าง NSCOUNT/ARCOUNT → ถ้า query มี additional record (เช่น EDNS OPT) answer จะไปอยู่หลัง additional section ทำให้ client อาจ parse ผิด; และตอบ A record `192.168.4.1` กับทุก QTYPE (รวม AAAA)
-- TDOA คำนวณและ publish ทุก chunk แม้เป็นความเงียบ/noise (ไม่มี energy gate) และใช้ correlation ดิบไม่ normalize → มุมที่ได้ในช่วงเงียบไม่มีความหมาย
-- Mixdown เฉลี่ย L+R โดยไม่ชดเชย delay → อาจเกิด comb filtering เล็กน้อยกับเสียงที่มาจากด้านข้าง
+- ~~TDOA คำนวณและ publish ทุก chunk แม้เป็นความเงียบ~~ — TDOA ถูกลบแล้ว
+- ~~Mixdown เฉลี่ย L+R โดยไม่ชดเชย delay~~ — ไม่ mixdown แล้ว การรวมสองช่องทำฝั่ง server หลังจัดเวลาด้วย GCC-PHAT
 - ข้อมูลเสียงถูกทิ้งเงียบ ๆ ทั้งตอน MQTT ยังไม่เชื่อม (L677-682) และตอน `msg_id == -1` (L651-655)
 - Dead code: `I2S_CHANNELS` (L35), `client_connected` (เขียนแต่ไม่อ่าน, L113), `sta_netif`/`ap_netif` (เก็บค่าแต่ไม่ใช้), `server_cert` (L263), `init_mqtt()` (L368 ไม่มีผู้เรียก), `system_monitor_task()` (loop ว่าง), `device_mac_str` ซ้ำกับ `mac_str` ใน `app_main()`, `#include "esp_crt_bundle.h"` ซ้ำ (L2, L22), handler `/wifi` ถูก comment แต่ยังมีลิงก์ใน `/admin`, `Makefile` (GNU Make ใช้ไม่ได้กับ ESP-IDF 5.x), `main_fixed.c`, `old.c`
 
@@ -1240,58 +1200,46 @@ flowchart LR
     BRK["Mosquitto broker (eclipse-mosquitto:2)"]
     PY["api/mqtt_audio_receiver.py (ภายใน uvicorn app:app)"]
     GO["backend/services/mqtt_service.go InitMQTT (ไม่ถูกเรียก)"]
-    NONE["ไม่มี subscriber"]
 
-    ESP -- "voice/audio/MAC (PCM binary, QoS0)" --> BRK
-    ESP -- "voice/angle/MAC (ASCII float, QoS0)" --> BRK
+    ESP -- "voice/audio/MAC (PCM 2 ช่อง L,R, QoS0)" --> BRK
     ESP -- "device/status/MAC (online QoS0 retain / LWT offline QoS1 retain)" --> BRK
     BRK -- "voice/audio/# QoS0" --> PY
     BRK -- "device/status/# QoS0 (รับแล้วทิ้ง)" --> PY
     BRK -. "voice/audio/# QoS1 (dead code)" .-> GO
-    BRK -. "voice/angle/#" .-> NONE
 ```
 
 ### 6.2 ตาราง topic ทั้งหมด
 
-ชื่อ topic ถูกสร้างใน `firmwareV2/main/main.c` → `app_main()` (L795–797) ด้วย `snprintf(..., "voice/audio/%s", mac_str)` เป็นต้น โดย `mac_str` คือ MAC ของ Wi-Fi STA (`esp_read_mac(mac, ESP_MAC_WIFI_STA)` L782) ในรูปแบบ `%02X:%02X:%02X:%02X:%02X:%02X` (L787) คือ **ตัวพิมพ์ใหญ่และมีเครื่องหมาย `:`** เช่น `voice/audio/AA:BB:CC:DD:EE:FF`
+ชื่อ topic ถูกสร้างใน `firmwareV2/main/main.c` → `app_main()` (L819–820) ด้วย `snprintf(..., "voice/audio/%s", mac_str)` และ `"device/status/%s"` โดย `mac_str` คือ MAC ของ Wi-Fi STA รูปแบบ `AA:BB:CC:DD:EE:FF` ตัวพิมพ์ใหญ่
 
 | Topic | Publisher (ไฟล์ + ฟังก์ชัน) | Subscriber (ไฟล์ + ฟังก์ชัน) | Payload | QoS | Retain |
 |---|---|---|---|---|---|
-| `voice/audio/{MAC}` | `firmwareV2/main/main.c` → `audio_record_task()` L649: `esp_mqtt_client_publish(mqtt_client, mqtt_topic_dynamic, (const char *)chunk_buf, num_frames * sizeof(int16_t), 0, 0)` | (1) `api/mqtt_audio_receiver.py` → `on_connect()` L251 `client.subscribe("voice/audio/#", qos=0)` → `on_message()` L261–278 → `ai_worker()` L280–298<br>(2) `backend/services/mqtt_service.go` → `InitMQTT()` L114–115 `client.Subscribe("voice/audio/#", 1, nil)` — **ไม่ถูกเรียก (dead)** | **Binary** raw PCM ไม่มี header: signed 16-bit little-endian (`int16_t` บน ESP32), mono (มิกซ์ L/R แล้ว `(l + r) / 2` L641), 8000 Hz (`I2S_SAMPLE_RATE` L34) ขนาดปกติ 1024 sample = **2048 bytes** ต่อ message (`AUDIO_CHUNK_SAMPLES` L63; `num_frames = bytes_read / (2 * sizeof(int32_t))` L632) ≈ 128 ms ต่อ message ≈ 7.8 message/วินาที | 0 | 0 |
-| `voice/angle/{MAC}` | `firmwareV2/main/main.c` → `audio_record_task()` L658–660: `snprintf(angle_payload, 16, "%.1f", angle_deg)` แล้ว `esp_mqtt_client_publish(..., angle_topic_dynamic, angle_payload, angle_len, 0, 0)` | **ไม่พบในโค้ด** — ไม่มี subscriber ใดใน `api/`, `backend/`, `frontend/` (wildcard `voice/audio/#` ไม่ครอบคลุม `voice/angle/...`) | ข้อความ ASCII ทศนิยม 1 ตำแหน่ง หน่วยองศา ช่วง −90.0 ถึง 90.0 (มาจาก `asinf()` ใน `tdoa_to_angle_deg()` L602–607) เช่น `"12.5"` ส่ง 1 ครั้งต่อ audio chunk | 0 | 0 |
-| `device/status/{MAC}` (ข้อความ `online`) | `firmwareV2/main/main.c` → `audio_record_task()` L670–672: ทุก ๆ 50 chunk (`chunk_seq % 50 == 0`) ≈ ทุก 6.4 วินาที `esp_mqtt_client_publish(..., status_topic_dynamic, "online", 6, 0, 1)` | `api/mqtt_audio_receiver.py` → `on_connect()` L252 `client.subscribe("device/status/#", qos=0)` แต่ `on_message()` L258–259 `return` ทันที (**รับแล้วทิ้ง ไม่ได้ใช้**) | ข้อความ ASCII `online` (6 bytes) | 0 (comment L669 ระบุว่าเปลี่ยนจาก 1 เป็น 0) | 1 |
+| `voice/audio/{MAC}` | `firmwareV2/main/main.c` → `audio_record_task()` L646-648: `esp_mqtt_client_publish(mqtt_client, mqtt_topic_dynamic, (const char *)pcm_buf, num_frames * AUDIO_CHANNELS * sizeof(int16_t), 0, 0)` | `api/mqtt_audio_receiver.py` → `on_connect()` L466 subscribe `voice/audio/#` QoS 0 → `on_message()` L471 | PCM 16-bit LE **2 ช่องสลับ `L,R`**, 4096 byte ต่อ message, ไม่มี header | 0 | 0 |
+| `device/status/{MAC}` (ข้อความ `online`) | `firmwareV2/main/main.c` → `audio_record_task()` L651–653: ทุก ๆ 50 chunk (`chunk_seq % 50 == 0`) ≈ ทุก 6.4 วินาที `esp_mqtt_client_publish(..., status_topic_dynamic, "online", 6, 0, 1)` | `api/mqtt_audio_receiver.py` subscribe `device/status/#` (L467) แต่ `on_message()` ทิ้งทันที (L473) | `online` | 0 | 1 |
 | `device/status/{MAC}` (LWT `offline`) | Broker publish แทน ESP32 เมื่อการเชื่อมต่อหลุด — ตั้งใน `restart_mqtt_client()` L352–360: `.last_will = { .topic = status_topic_dynamic, .msg = "offline", .qos = 1, .retain = 1 }` (keepalive 30 วินาที L353) | เหมือนแถวบน (รับแล้วทิ้ง) | ข้อความ ASCII `offline` | 1 | 1 |
 
 ข้อสังเกตเกี่ยวกับ topic
 
-- **Topic ที่ publish แต่ไม่มีใคร subscribe:** `voice/angle/{MAC}` — มุมทิศทางที่คำนวณด้วย TDOA บน ESP32 ไม่ถูกนำไปใช้ที่ใดในระบบ (ค้น `angle` ใน `backend/` ไม่พบ) ส่วน `frontend/components/DirectionCompass.tsx` รับ prop `angle` แบบ 0–360 องศา และใน `frontend/app/dashboard/page.tsx` ค่า `angle_degrees` มาจาก mock data (เช่น L44 `45`, L58 `180`) ไม่ได้มาจาก topic นี้ ช่วงค่าก็ต่างกัน (firmware −90..90)
+- **ไม่มี topic ที่ publish แล้วไม่มีผู้รับ** — `voice/angle/{MAC}` ถูกลบพร้อม TDOA ใน `feat/firmware-stereo`
 - **Topic ที่ subscribe แต่ไม่ได้ใช้ข้อมูล:** `device/status/#` ใน `api/mqtt_audio_receiver.py` → `on_message()` L258–259 ระบบตรวจ online/offline ใช้วิธีจับเวลาจากข้อความเสียงแทน คือ `on_message()` บันทึก `_device_last_seen[mac]` (L265) แล้ว `device_monitor_worker()` (L64–87, ตื่นทุก 2 วินาที L69) จะส่ง HTTP `POST {GO_SERVER_URL}/api/device/status` พร้อม JSON `{"mac": mac, "status": "offline"}` (L82) ผ่าน `_send_status_to_go_async()` (L49–61) ถ้าไม่ได้รับเสียงเกิน 10 วินาที (`TIMEOUT_SECONDS = 10` L65)
 - **บั๊กฝั่งรับสถานะ offline:** route `POST /api/device/status` (`backend/routes/routes.go` L91) ชี้ไปที่ `backend/controllers/device_controller.go` → `UpdateDevices()` (L64) ซึ่งอ่าน `c.Params("id")` (L65) แต่ path ไม่มี `:id` จึงได้ string ว่าง และ struct `UpdatePayload` (L68–73) ไม่มีฟิลด์ `mac` → `database.DB.First(&device, id)` (L81) กับ `""` ใน GORM v1.31.1 (`statement.go` → `BuildCondition()` คืน `nil` เมื่อ `s == ""`) จะไม่มีเงื่อนไข WHERE ได้ **อุปกรณ์แถวแรกตาม primary key** แล้วตั้ง `status = "offline"` ให้แถวนั้น ไม่ใช่อุปกรณ์ที่หลุดจริง นอกจากนี้ route group `/api/device` (L86–94) **ไม่มี middleware auth** และ `UpdateDevices()` รับ `is_active`, `patient_name`, `device_name` ได้ด้วย ใครก็เรียกเปลี่ยนค่าได้
 - **ไม่มีการส่งสถานะ `online` จาก Python:** `_device_is_online[mac] = True` (L266) เก็บแค่ใน RAM ไม่ได้ยิง API สถานะ online ใน DB ถูกตั้งเฉพาะตอน ESP32 เรียก `GET /api/device/checkin` → `backend/controllers/activate.go` → `CheckinDeviceIP()` (L14, ตั้ง `"status": "online"` L46–50) ซึ่งเกิดเฉพาะตอนได้ IP (`firmwareV2/main/main.c` → `wifi_event_handler()` L472–487)
 - **ไม่พบ topic อื่น** เช่น `esp32/...` หรือ topic ที่ backend/frontend publish กลับไปหาอุปกรณ์ (ไม่มีการ publish จาก `api/` หรือ `backend/` เลย และ `frontend/` ไม่มี MQTT client — `frontend/hooks/useWebSocket.ts` เป็นแค่ placeholder ที่ `console.log`)
 - ESP32 publish เฉพาะตอน `mqtt_connected == true` (L631) และ **ไม่ publish `online` ตอน `MQTT_EVENT_CONNECTED`** (`mqtt_event_handler()` L250–261 แค่ตั้ง flag และกระพริบ LED) ข้อความ `online` จะออกเมื่อ `chunk_seq % 50 == 0` เท่านั้น และ `chunk_seq` (L624) ไม่ถูก reset ตอนต่อใหม่ ดังนั้นหลังต่อใหม่ retained message `offline` จาก LWT ครั้งก่อนจะยังค้างอยู่ได้สูงสุดประมาณ 50 chunk (≈ 6.4 วินาที)
-- ถ้า publish เสียงคืนค่า `-1` firmware จะหน่วง 50 ms (L651–655) ไม่ retry chunk นั้น (chunk หายไป) และยังคง publish มุมของ chunk นั้นต่อ (L658–660) ไม่ตรวจค่าคืนของ publish มุม/สถานะ
+- ถ้า publish เสียงคืนค่า `-1` firmware จะหน่วง 50 ms (L657–661) ไม่ retry chunk นั้น (chunk หายไป)
 
 ### 6.3 การประมวลผลฝั่ง subscriber (Python)
 
-อ้างอิง `api/mqtt_audio_receiver.py`
+อ้างอิง `api/mqtt_audio_receiver.py` (รายละเอียดเต็มอยู่ในหัวข้อ 4.3)
 
 | ขั้น | ฟังก์ชัน | รายละเอียด |
 |---|---|---|
-| 1 | `on_message()` L256–278 | แยก MAC จาก topic ด้วย `topic.split('/')[-1]` (L262–263), อัปเดต `_device_last_seen` / `_device_is_online`, ตรวจ `is_device_activated()` แล้ว `audio_data_queue.put_nowait((data, device_mac))` ถ้าคิวเต็ม (`queue.Queue(maxsize=20)` L47) จะทิ้งข้อมูลและ print เตือน |
-| 2 | `is_device_activated()` L89–145 | cache ใน RAM (`_device_activation_cache` L41) ถ้าเคยได้ `is_active == True` จะคืน `True` **ตลอดอายุโปรเซส** (L96–97 — ถ้า admin ปิด `is_active` ภายหลัง Python จะยังส่งเสียงต่อจนกว่าจะ restart) ถ้าไม่ active จะคืน `False` ทันทีโดยไม่ถามใหม่เป็นเวลา 10 วินาที (L98–99) ถามด้วย `GET {GO_SERVER_URL}/api/device/check-activation?mac=...` (header `X-Tunnel-Skip-AntiPhishing-Page: true`, timeout 5 วินาที, `verify=not is_local`) อ่านฟิลด์ `is_active` ฝั่ง Go คือ `backend/controllers/activate.go` → `CheckDeviceActivation()` (L60–101) ซึ่งเช็ค Redis key `device:activation:{mac}` ก่อน (L73) ถ้า miss จะ query `devices` ด้วย `UPPER(mac_address) = UPPER(?)` (L83) แล้ว cache ด้วย TTL 1 ชั่วโมงถ้า active หรือ 10 วินาทีถ้าไม่ active (L91–95) **การเรียก HTTP นี้รันใน callback `on_message()` ของ paho (network thread ของ `loop_start()`) จึงบล็อกการรับข้อความได้สูงสุด 5 วินาที** |
-| 3 | `ai_worker()` L280–298 (thread daemon เริ่มตอน import L301) | สะสม payload ต่อ MAC ใน `_device_states[mac]["buffer"]` จนครบ `_BYTES_PER_WINDOW = SAMPLE_RATE * CHANNELS * SAMPLE_WIDTH * SECONDS_PER_WINDOW` (L39) โดย `CHANNELS = 1`, `SAMPLE_WIDTH = 2`, `SECONDS_PER_WINDOW = 2` แล้วเรียก `_flush_buffer()` |
-| 4 | `_flush_buffer()` L230–246 | รวม buffer → `amplify_audio(pcm, VOLUME_GAIN=3.0)` (L147–167, จำกัด gain ไม่ให้เกิน `32767/peak`) → `_process_and_forward()` |
-| 5 | `_process_and_forward()` L191–228 | `_build_wav_in_memory()` (L169–176) ใส่ WAV header mono / 16-bit / `SAMPLE_RATE` → เรียก `_ai_inference_function(wav_bytes)` ซึ่งคือ `api/app.py` → `run_kws_inference()` แบบ in-process (ไม่ผ่าน HTTP) → ส่งไฟล์ (`files={"audio": ...}`) และ form `device_mac`, `event_type` (`needs_help`/`normal`), `confidence` ไป `POST {GO_SERVER_URL}/api/audio/emergency` ถ้า `detected == "yes"` มิฉะนั้นไป `/api/audio/negative` (thread แยกผ่าน `_send_to_go_async()` L178–189, timeout 5 วินาที, ไม่ retry) — ถ้า inference error `run_kws_inference()` คืน `{"detected": "error"}` ซึ่งจะถูกส่งไป `/negative` ด้วย `event_type = "normal"` ฝั่ง Go `backend/controllers/audio_controller.go` → `SaveEmergencyAudio()` อ่าน `FormFile("audio")` L112, `device_mac` L118, `event_type` L122, `confidence` L123 และ `decibel_level` L124 (Python **ไม่ได้ส่ง** `decibel_level` จึงเป็น 0.0 เสมอ) |
+| 1 | `on_message()` L471 | ทิ้ง `device/status/*`, ตรวจรูปแบบ topic/MAC, อัปเดต `_device_last_seen`, ตรวจ `is_device_activated()` (cache ใน RAM 60 วิ ถ้า active / 10 วิ ถ้าไม่) แล้วทิ้ง payload ที่ไม่ลงตัว 4 byte ก่อน `audio_data_queue.put_nowait()` (maxsize 20) |
+| 2 | `ai_worker()` L505 | ต่อ payload ลง `bytearray` ต่อ MAC แล้ว `_take_windows()` (L443) ตัดหน้าต่าง 64000 byte (2 วิ × 2 ช่อง) เลื่อนทีละ 16000 byte (0.5 วิ) |
+| 3 | `_process_window()` L378 | `dsp.split_stereo_pcm()` → `DSPProcessor.process()` → (มีเสียงพูด) WAV ช่องเดียว 8 kHz → `run_kws_inference()` → `DecisionSmoother` (เฉลี่ย 3 หน้าต่าง > 0.5) → `/api/audio/emergency` (มีช่วงพัก `ALERT_COOLDOWN_SECONDS`) หรือ `/api/audio/negative` |
+| 4 | `device_monitor_worker()` L193 | อุปกรณ์ที่เงียบเกิน 10 วิ → `POST /api/device/status {mac, status: offline}` |
 
-ขนาด window จริงขึ้นกับ env `SAMPLE_RATE` (default **16000** ที่ L31) ขณะที่ ESP32 ส่ง 8000 Hz:
-
-| `SAMPLE_RATE` ของ receiver | `_BYTES_PER_WINDOW` | flush จริงที่ (chunk 2048 bytes) | ความยาวเสียงจริงที่ 8 kHz | sample rate ใน WAV header |
-|---|---|---|---|---|
-| ไม่ตั้ง (default 16000) | 64000 | 32 chunk = 65536 bytes | ≈ 4.10 วินาที | 16000 (**ผิดจากความจริง**) |
-| ตั้งเป็น 8000 | 32000 | 16 chunk = 32768 bytes | ≈ 2.05 วินาที | 8000 (ตรง) |
-
-ผลของกรณี default 16000: `api/app.py` → `preprocess_audio()` (L112–142) อ่าน `sr` จาก WAV header แล้วถ้า `sr != SAMPLE_RATE` (8000, L85) จะ `T.Resample(orig_freq=16000, new_freq=8000)` (L118–120) — เสียงจริง 8 kHz ≈ 4.10 วินาทีจึงถูกลด sample ลงครึ่งหนึ่งเหลือ 32768 sample ซึ่งเทียบเท่าการเล่นเร็ว 2 เท่า (pitch สูงขึ้น 1 octave) แล้วถูกตัดเหลือ `TARGET_SAMPLES = 16000` (L87, L125–129) ก่อนเข้า `mel_transform` ข้อมูลที่เข้าโมเดลจึงผิดรูปจากเสียงจริง ส่วนไฟล์ WAV ที่ส่งต่อให้ Go ก็มี header 16000 Hz ทำให้ฟังย้อนหลังได้เสียงเร็วเป็น 2 เท่า
+ขนาดหน้าต่างคงที่ที่ 16000 ค่าตัวอย่างต่อช่อง (`SAMPLE_RATE` default 8000 ตรงกับ firmware) ส่วนเกินยกไปหน้าต่างถัดไป WAV ที่เข้าโมเดลยาว 16000 ค่าตัวอย่างพอดี ไม่ต้อง resample หรือ pad/trim
 
 ### 6.4 Broker address ที่แต่ละ client ใช้
 
