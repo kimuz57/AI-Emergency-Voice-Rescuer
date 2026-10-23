@@ -10,3 +10,7 @@ models/*
 __pycache__/
 # Keep the env template tracked (root .gitignore ignores .env*)
 !.env.example
+
+# เสียงอัดจากผู้ทดลอง (tools/mqtt_record.py) และผลการทดลอง — ห้าม commit
+data/
+results/

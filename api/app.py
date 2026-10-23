@@ -15,7 +15,7 @@ from nnAudio.features.mel import MelSpectrogram
 # Import โมเดลของคุณ
 # from models import BCResNet
 from bcresnet import BCResNet1, BCResNet_M, BCResNet_Tiny  # Assuming bcresnet.py is in the same directory
-# 🌟 1. Import ไฟล์ MQTT
+# 🌟 1. Import ไฟล์ MQTT (load_dotenv() ของ api/.env ถูกเรียกตอน import นี้ จึงต้องมาก่อนอ่าน MODEL_PATH / MODEL_ARCH)
 import mqtt_audio_receiver
 
 # ตั้งค่า Logger ของ Uvicorn เพื่อให้แสดงผลใน Console ชัดเจน
@@ -43,12 +43,13 @@ def run_kws_inference(audio_bytes: bytes) -> dict:
         final_prob = prob_yes if detected == "yes" else prob_no
         # print(prob_yes, prob_no)
         return {
-            "detected": detected,
-            "probability": round(final_prob, 4)
+            "detected": detected,                 # ผลของหน้าต่างเดียว (ใช้กับ /need-help)
+            "probability": round(final_prob, 4),
+            "prob_yes": prob_yes,                 # P(ร้องขอความช่วยเหลือ) — receiver เอาไปเฉลี่ยหลายหน้าต่าง
         }
     except Exception as e:
         logger.error(f"❌ [AI Core] Inference Error: {e}")
-        return {"detected": "error", "probability": 0.0}
+        return {"detected": "error", "probability": 0.0, "prob_yes": None}
 
 # =========================================================================
 # 🌟 3. Lifespan สำหรับสั่งรัน MQTT ตอนเปิดเซิร์ฟเวอร์
@@ -98,19 +99,28 @@ mel_transform = MelSpectrogram(
 ).to(device)
 
 # Load model and weights safely on CPU
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
-MODEL_PATH = os.path.join(BASE_DIR, "models", "best_m.pth")
-model = BCResNet_M(2)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 🌟 เลือกไฟล์ weight และคลาสได้จาก env (ไว้เทียบหลายโมเดล) ค่าเริ่มต้น = models/best_m.pth + BCResNet_M เหมือนเดิม
+MODEL_ARCHS = {"BCResNet_M": BCResNet_M, "BCResNet1": BCResNet1, "BCResNet_Tiny": BCResNet_Tiny}
+MODEL_ARCH = os.getenv("MODEL_ARCH", "").strip() or "BCResNet_M"
+if MODEL_ARCH not in MODEL_ARCHS:
+    raise ValueError(f"MODEL_ARCH must be one of {', '.join(MODEL_ARCHS)} (got {MODEL_ARCH!r})")
+MODEL_PATH = os.getenv("MODEL_PATH", "").strip() or os.path.join("models", "best_m.pth")
+if not os.path.isabs(MODEL_PATH):
+    MODEL_PATH = os.path.join(BASE_DIR, MODEL_PATH)  # path สัมพัทธ์นับจากโฟลเดอร์ api/
+model = MODEL_ARCHS[MODEL_ARCH](2)
 
 try:
     state_dict = torch.load(MODEL_PATH, map_location=device, weights_only=True)
     model.load_state_dict(state_dict)
     model.eval()
-    logger.info("✅ Model successfully loaded on CPU.")
+    logger.info(f"✅ Model {MODEL_ARCH} loaded on CPU from {MODEL_PATH}")
 except Exception as e:
     # 🌟 ห้ามรันต่อด้วย weight สุ่ม: ผลที่ได้จะดูเหมือนจริงแต่ไม่มีความหมาย
-    logger.error(f"❌ Could not load model weights from {MODEL_PATH}: {e}")
-    raise RuntimeError(f"Could not load model weights from {MODEL_PATH}") from e
+    # (weight กับ MODEL_ARCH ไม่ตรงกันก็มาตกที่นี่: load_state_dict แจ้ง key / ขนาดไม่ตรง)
+    logger.error(f"❌ Could not load {MODEL_ARCH} weights from {MODEL_PATH}: {e}")
+    raise RuntimeError(f"Could not load {MODEL_ARCH} weights from {MODEL_PATH}") from e
 
 # -------------------------------------------------------------------------
 # 2. Preprocessing Utility
