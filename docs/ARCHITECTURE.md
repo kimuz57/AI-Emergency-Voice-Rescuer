@@ -366,8 +366,8 @@ sequenceDiagram
 |---|---|---|
 | ESP-IDF version (header comment) | `5.5.2` | L3 |
 | `CONFIG_IDF_TARGET` | `"esp32"` | L255 |
-| `CONFIG_ESPTOOLPY_FLASHSIZE` | `"2MB"` | L409 |
-| `CONFIG_PARTITION_TABLE_SINGLE_APP` | `y` (`partitions_singleapp.csv`, ไม่มี OTA) | L423, L429 |
+| `CONFIG_ESPTOOLPY_FLASHSIZE` | `"4MB"` — ตรงกับชิปจริงบนบอร์ด (เดิมตั้ง 2MB ดูหมายเหตุใต้ตาราง) | L403, L409 |
+| `CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE` | `y` (`partitions_singleapp_large.csv`, ไม่มี OTA — ไม่พบ `esp_ota_*` ในโค้ด) | L424, L429 |
 | `CONFIG_COMPILER_OPTIMIZATION_DEBUG` | `y` (-Og) | L437 |
 | `CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ` | `160` | L1076 |
 | `CONFIG_FREERTOS_HZ` | `100` (1 tick = 10 ms) | L1302 |
@@ -385,6 +385,21 @@ sequenceDiagram
 | `CONFIG_LWIP_DHCPS` / `_MAX_STATION_NUM` | `y` / `8` | L1491, L1493 |
 | `CONFIG_HTTPD_MAX_URI_LEN` / `CONFIG_HTTPD_MAX_REQ_HDR_LEN` | `512` / `1024` | L850, L849 |
 | `CONFIG_HTTPD_WS_SUPPORT` | not set | L854 |
+
+**Flash และ partition** (แก้ใน branch `feat/firmware-stereo`, 2026-10-23)
+
+- ขนาด flash จริง: log ของ `idf.py monitor` บนบอร์ด DevKit V1 (MAC `14:08:08:A4:B9:E8`) ขึ้นว่า `spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k)` และ `Detected boya flash chip` คือชิป Boya 4 MB แต่ไฟล์ถูก build เป็น 2 MB ระบบจึงใช้ได้แค่ครึ่งเดียว — แก้ `CONFIG_ESPTOOLPY_FLASHSIZE` เป็น 4MB แล้ว
+- เดิมใช้ `partitions_singleapp.csv` (factory 1 MB) และแอปโตจน build ไม่ผ่าน (0x100450 byte เกิน 1 MB) — หลังลบ TDOA เหลือ 0xffca0 byte ที่ว่าง 864 byte. เปลี่ยนเป็น `partitions_singleapp_large.csv` โดยคง `-Og` (`CONFIG_COMPILER_OPTIMIZATION_DEBUG`) ไว้
+
+| Name | Type | SubType | Offset | Size |
+|---|---|---|---|---|
+| nvs | data | nvs | 0x9000 | 24K (เดิมเท่ากัน) |
+| phy_init | data | phy | 0xF000 | 4K (เดิมเท่ากัน) |
+| factory | app | factory | 0x10000 | **1500K** (เดิม 1M) |
+
+- ขนาดหลัง build (ESP-IDF 5.5.2): แอป 0xFFCA0 = 1,047,712 byte ใน partition 0x177000 = 1,536,000 byte **เหลือ 0x77360 = 488,288 byte (32%)**; bootloader 0x66C0 เหลือ 0x940 (8%)
+- ตำแหน่ง NVS ไม่เปลี่ยน จึงไม่ต้อง erase flash ก่อนแฟลชรุ่นนี้ (SSID/รหัส Wi-Fi ใน NVS ยังอยู่) — ดู `firmwareV2/README.md`
+- flash ตั้งแต่ 0x187000 ถึง 0x400000 (0x279000 ≈ 2.5 MB) ยังไม่ได้ใช้ ถ้าอนาคตต้องการ OTA ต้องทำ `partitions.csv` เอง
 
 ---
 
@@ -2673,7 +2688,7 @@ Endpoint ฝั่ง Next.js เอง: `GET /api/auth/session` (`Navbar.tsx:36
    - Production: `npm run build` แล้ว `npm run start`
    - Backend ต้องตั้ง `FRONTEND_URL` ให้ตรงกับ origin ของ frontend เพราะ CORS (`backend/main.go` L26–31) อนุญาต origin นั้นเท่านั้นพร้อม `AllowCredentials: true`
 7. **Flash firmwareV2**
-   - ใช้ ESP-IDF (ไฟล์ `firmwareV2/sdkconfig` L3 ระบุว่าสร้างโดย ESP-IDF **5.5.2**, target `esp32` L255, flash 2MB L409) แก้ `IS_LOCAL_ENV`, `TARGET_*`, `USER`/`PASS` ใน `firmwareV2/main/main.c` ให้ตรงกับ broker/backend ของตัวเอง
+   - ใช้ ESP-IDF (ไฟล์ `firmwareV2/sdkconfig` L3 ระบุว่าสร้างโดย ESP-IDF **5.5.2**, target `esp32` L255, flash 4MB L409, partition `partitions_singleapp_large.csv`) แก้ `IS_LOCAL_ENV`, `TARGET_*`, `USER`/`PASS` ใน `firmwareV2/main/main.c` ให้ตรงกับ broker/backend ของตัวเอง
    - `cd firmwareV2` → `idf.py build` → `idf.py -p COMx flash monitor` (component มีแค่ `main.c` + `wifi.html` ที่ embed ตาม `firmwareV2/main/CMakeLists.txt`; `firmwareV2/main_fixed.c` และ `firmwareV2/old.c` อยู่นอกโฟลเดอร์ component จึง **ไม่ถูก compile**)
    - ตั้ง Wi-Fi: บอร์ดเปิด SoftAP ชื่อ `Smartvoice-XXXXXX` (3 byte ท้ายของ MAC) รหัส `SV_XXXXXX` (3 byte แรกของ MAC) ตาม `app_main()` L789–790 (ข้อสังเกต: 3 byte แรกของ MAC คือส่วน vendor prefix ที่เหมือนกันในบอร์ดรุ่นเดียวกัน รหัส SoftAP จึงเดาได้ง่าย และ SSID/รหัสถูก log ออก serial ที่ L792–793; ชื่อ SSID ไม่ตรงกับ `SmartVoice_AP` ที่ `CLAUDE.md` และ `README.md` L282 ระบุ) พร้อม captive DNS ตอบทุกชื่อเป็น `192.168.4.1` (`captive_dns_task()` L692–728) แล้วตั้งค่าผ่านหน้าเว็บใน `firmwareV2/main/web_server.h` (`/`, `/scanwifi`, `/connect`, `/reconnect`, `/host`, `/admin`, `/api/scan`)
    - เมื่อได้ IP บอร์ดจะ sync เวลา SNTP (`sync_time_via_sntp()` L410), เรียก `GET TARGET_GO_API` (`kwsapi_task()` L204 → `backend/controllers/activate.go` → `CheckinDeviceIP()`) แล้วต่อ MQTT (`restart_mqtt_client()`)
