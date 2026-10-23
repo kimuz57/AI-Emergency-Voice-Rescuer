@@ -27,6 +27,7 @@ import (
 	"go_backend/utils"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 const (
@@ -93,7 +94,11 @@ func main() {
 
 	// ConnectDB ใช้แค่ PostgreSQL (และ AutoMigrate ให้) — seed ไม่ต้องใช้ Redis
 	database.ConnectDB()
-	db := database.DB
+	// seed ค้นด้วย First() ก่อนสร้างทุกแถว — ไม่ให้ logger ของ GORM พิมพ์ "record not found" ทุกครั้งที่ยังไม่มีข้อมูล
+	db := database.DB.Session(&gorm.Session{Logger: logger.New(
+		log.New(os.Stdout, "", log.LstdFlags),
+		logger.Config{SlowThreshold: 200 * time.Millisecond, LogLevel: logger.Warn, IgnoreRecordNotFoundError: true, Colorful: true},
+	)})
 
 	ensureUser(db, "SEED_ADMIN_EMAIL", adminEmail, "ผู้ดูแลระบบ (ตัวอย่าง)", "admin", adminPassword)
 	caregiver := ensureUser(db, "SEED_CAREGIVER_EMAIL", caregiverEmail, "ผู้ดูแล (ตัวอย่าง)", "caregiver", caregiverPassword)
