@@ -285,6 +285,39 @@ print(r.json())
 
 ---
 
+## ย้อนกลับไปเวอร์ชันไมค์ช่องเดียว (`v1.0-mono`)
+
+| Tag | Commit | เนื้อหา |
+|---|---|---|
+| `v1.0-mono` | `d203485` | ไมค์ช่องเดียว (firmware mixdown เป็น mono) ที่ใช้งานได้ |
+| `v2.0-2mic-untested` | `b7977b7` | ระบบ 2 ไมค์ครบชุด ยังไม่ได้ทดสอบกับบอร์ดจริง |
+
+**firmware และ receiver (`api/`) ต้องย้อนพร้อมกัน** — receiver รุ่น 2 ไมค์ตีความเสียง mono ผิด และรุ่นเดิมก็ตีความเสียง 2 ช่องผิด
+ส่วน Go backend และ frontend ใช้ของ `main` ต่อได้ (รับ WAV mono 16 บิตจาก receiver รุ่นเดิมได้)
+
+```powershell
+git fetch --tags
+git worktree add ..\kws-v1.0 v1.0-mono          # ไม่แตะ branch main
+
+# 1) หยุด uvicorn รุ่น 2 ไมค์ก่อน
+
+# 2) firmware: sdkconfig ใน tag เดิมตั้ง partition 1 MB ซึ่งแอปล้น (build ไม่ผ่าน) ให้ใช้ sdkconfig ของ v2 (4MB + large partition)
+cd ..\kws-v1.0\firmwareV2
+git show v2.0-2mic-untested:firmwareV2/sdkconfig | Out-File -Encoding ascii sdkconfig
+copy ..\..\kws\firmwareV2\main\secrets.h main\secrets.h
+idf.py -p COM3 flash monitor                      # ไม่ต้อง erase-flash ตำแหน่ง NVS เดิม ค่า Wi-Fi ยังอยู่ — แฟลชทุกบอร์ด
+
+# 3) receiver รุ่นเดิม ใช้ api/.env เดิมได้ (ตัวแปรของรุ่น 2 ไมค์ถูกข้าม) ต้องมี SAMPLE_RATE=8000
+cd ..\api
+copy ..\..\kws\api\.env .env
+uv sync
+uv run uvicorn app:app --host 0.0.0.0 --port 8000
+```
+
+กลับมาใช้ 2 ไมค์: หยุด uvicorn ของ `..\kws-v1.0`, แฟลช firmware จาก `main`, รัน receiver จาก `main` แล้ว `git worktree remove ..\kws-v1.0`
+
+---
+
 ## Branch Strategy
 
 | Branch             | เนื้อหา                                              |
