@@ -1,4 +1,3 @@
-import array
 import io
 import os
 import sys
@@ -14,6 +13,9 @@ import paho.mqtt.client as mqtt
 import requests
 from dotenv import load_dotenv
 import urllib3
+
+import dsp
+
 load_dotenv()
 
 # 🌟 ไฟล์นี้ print อีโมจิ/ภาษาไทยตั้งแต่ตอน import (คำเตือน security) ถ้า stdout เป็น cp1252
@@ -109,14 +111,27 @@ MQTT_USE_TLS = _resolve_use_tls()
 
 # ต้องตรงกับ I2S_SAMPLE_RATE ของ firmware (8000 Hz)
 SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", 8000))
-SECONDS_PER_WINDOW = 2            
-TOPIC_SUBSCRIBE = "voice/audio/#"   
-STATUS_TOPIC = "device/status/#"    
-CHANNELS = 1          
-SAMPLE_WIDTH = 2      
-VOLUME_GAIN = 3.0
+SECONDS_PER_WINDOW = 2
+TOPIC_SUBSCRIBE = "voice/audio/#"
+STATUS_TOPIC = "device/status/#"
+CHANNELS = 2          # 🎤🎤 firmwareV2 ส่ง PCM 16-bit สลับช่อง L,R,L,R,...
+SAMPLE_WIDTH = 2
+OUTPUT_CHANNELS = 1   # ผลจาก dsp.py เป็นช่องเดียว (WAV ที่เข้าโมเดลและส่งไป Go)
 
-_BYTES_PER_WINDOW = SAMPLE_RATE * CHANNELS * SAMPLE_WIDTH * SECONDS_PER_WINDOW
+_FRAME_BYTES = CHANNELS * SAMPLE_WIDTH                       # 1 frame = L + R = 4 byte
+_SAMPLES_PER_WINDOW = SAMPLE_RATE * SECONDS_PER_WINDOW       # ต่อช่อง (16000 ที่ 8 kHz)
+_BYTES_PER_WINDOW = _SAMPLES_PER_WINDOW * _FRAME_BYTES       # 64000 byte
+_MIN_FINAL_WINDOW_BYTES = _BYTES_PER_WINDOW // 4             # ตอนปิด server ประมวลผลเศษที่ยาวอย่างน้อย 0.5 วิ
+
+# 🌟 DSP (dsp.py): ค่า DSP_* อ่านจาก env — ค่าผิด = ValueError ตอน import เหมือน env ตัวอื่น
+DSP_CONFIG = dsp.DSPConfig.from_env(sample_rate=SAMPLE_RATE)
+_dsp = dsp.DSPProcessor(DSP_CONFIG)
+# log เวลาที่ใช้ของแต่ละขั้นทุกหน้าต่าง (ใช้ทดสอบ AR-04) ปิดได้ด้วย DSP_LOG_TIMING=false
+DSP_LOG_TIMING = os.getenv("DSP_LOG_TIMING", "true").strip().lower() not in ("false", "0", "no")
+
+_BAD_PAYLOAD_LOG_INTERVAL = 30  # วินาที: เตือน payload ผิดขนาดได้ไม่เกิน 1 ครั้งต่อช่วงนี้ต่ออุปกรณ์
+_bad_payloads = {}              # { "mac": {"last_log": ts, "dropped": n} }
+
 _device_states = {}
 _device_states_lock = threading.Lock()  # ai_worker กับ shutdown_receiver แตะ _device_states พร้อมกันได้
 
@@ -253,32 +268,10 @@ def _refresh_device_activation(device_mac: str) -> None:
             entry["expires_at"] = time.time() + ttl
             entry["refreshing"] = False
 
-def amplify_audio(pcm_data: bytes, volume_gain: float) -> bytes:
-    if volume_gain == 1.0: 
-        return pcm_data
-    samples = array.array('h', pcm_data)
-
-    if not samples:
-        return pcm_data
-
-    peak = max(abs(sample) for sample in samples)
-    if peak == 0:
-        return pcm_data
-
-    max_safe_gain = 32767 / peak
-    effective_gain = min(volume_gain, max_safe_gain)
-
-    for i in range(len(samples)):
-        val = int(samples[i] * effective_gain)
-        if val > 32767: val = 32767
-        elif val < -32768: val = -32768
-        samples[i] = val
-    return samples.tobytes()
-
 def _build_wav_in_memory(pcm_data: bytes) -> bytes:
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wf:
-        wf.setnchannels(CHANNELS)
+        wf.setnchannels(OUTPUT_CHANNELS)
         wf.setsampwidth(SAMPLE_WIDTH)
         wf.setframerate(SAMPLE_RATE)
         wf.writeframes(pcm_data)
@@ -300,17 +293,45 @@ def _send_to_go_async(url, wav_bytes, filename, payload):
     except Exception as exc:
         print(f"⚠️ [GO Backend] ยิง API ไม่สำเร็จ: {exc}")
 
-def _process_and_forward(pcm_bytes: bytes, device_mac: str) -> None:
-    wav_bytes = _build_wav_in_memory(pcm_bytes)
-    
+def _log_dsp(device_mac: str, result: "dsp.DSPResult", infer_ms: float | None = None, detected: str | None = None) -> None:
+    """1 บรรทัดต่อหน้าต่าง: ผล VAD/GCC-PHAT และเวลาที่ใช้ของแต่ละขั้น (ms)"""
+    if not DSP_LOG_TIMING:
+        return
+    parts = [f"[DSP] {device_mac} mode={DSP_CONFIG.mode}",
+             f"speech={'yes' if result.has_speech else 'no'} ratio={result.speech_ratio:.2f} gain={result.gain:.2f}"]
+    if result.delay_samples is not None:
+        parts.append(f"delay={result.delay_samples:+.2f} gcc_peak={result.gcc_peak:.2f}")
+    if result.noise_cov_source:
+        parts.append(f"rn={result.noise_cov_source}")
+    timings = " ".join(f"{name}={ms:.2f}" for name, ms in result.timings_ms.items())
+    if infer_ms is not None:
+        timings += f" infer={infer_ms:.2f}"
+    parts.append(f"| ms {timings}")
+    if detected is not None:
+        parts.append(f"-> {detected}")
+    print(" ".join(parts))
+
+def _process_and_forward(pcm_bytes: bytes, device_mac: str, dsp_state: "dsp.DSPState") -> None:
+    """หน้าต่างเสียง 2 ช่อง -> dsp.py -> (มีเสียงพูด) โมเดล -> Go"""
     if _ai_inference_function is None:
         print("❌ [MQTT] Error: AI Inference Function is not set! (app2.py did not send it)")
         return
 
     try:
+        left, right = dsp.split_stereo_pcm(pcm_bytes)
+        result = _dsp.process(left, right, dsp_state)
+        if not result.has_speech:
+            # 🔇 VAD: ไม่มีเสียงพูด ไม่ต้องเข้าโมเดลและไม่ส่งไป Go
+            _log_dsp(device_mac, result)
+            return
+
+        wav_bytes = _build_wav_in_memory(dsp.to_pcm16(result.audio))
+        started = time.perf_counter()
         ai_result = _ai_inference_function(wav_bytes)
+        infer_ms = (time.perf_counter() - started) * 1000
         detected = ai_result.get("detected", "error")
         probability = ai_result.get("probability", 0.0)
+        _log_dsp(device_mac, result, infer_ms, detected)
 
         # 🌟 โมเดลประมวลผลไม่สำเร็จ: ห้ามส่งไปเป็นเสียง 'normal' ทิ้ง window นี้ไป
         if detected not in ("yes", "no"):
@@ -344,26 +365,35 @@ def _process_and_forward(pcm_bytes: bytes, device_mac: str) -> None:
     except Exception as exc:
         print(f"[ERROR] ✗ Processing or Go Routing failed: {exc}")
 
-def _flush_buffer(device_mac: str) -> None:
-    # print(_device_states )
-    # ดึง buffer ออกมาแล้ว reset ภายใต้ lock ส่วน inference ทำนอก lock
+def _take_windows(buffer: bytearray, window_bytes: int = _BYTES_PER_WINDOW) -> list:
+    """ตัดหน้าต่างเต็ม (2 วิ = 16000 ค่าตัวอย่างต่อช่อง) ออกจากหัว buffer ส่วนที่เหลือค้างไว้รอ chunk ถัดไป
+    chunk ทุกก้อนยาวลงตัว 4 byte (เช็กใน on_message) ขอบหน้าต่างจึงตรงขอบ frame L,R เสมอ"""
+    windows = []
+    while len(buffer) >= window_bytes:
+        windows.append(bytes(buffer[:window_bytes]))
+        del buffer[:window_bytes]
+    return windows
+
+def _warn_bad_payload(device_mac: str, length: int) -> None:
+    entry = _bad_payloads.setdefault(device_mac, {"last_log": 0.0, "dropped": 0})
+    entry["dropped"] += 1
+    now = time.time()
+    if now - entry["last_log"] >= _BAD_PAYLOAD_LOG_INTERVAL:
+        print(f"⚠️ [MQTT] {device_mac}: payload {length} byte ไม่ลงตัวกับ frame 2 ช่อง ({_FRAME_BYTES} byte) -> ทิ้ง "
+              f"(ทิ้งไปแล้ว {entry['dropped']} ก้อนในช่วงนี้; firmware เป็นรุ่น stereo หรือยัง?)")
+        entry["last_log"] = now
+        entry["dropped"] = 0
+
+def _flush_remainder(device_mac: str) -> None:
+    """ตอนปิด server: ประมวลผลเศษที่ยังไม่ครบหน้าต่าง ถ้ายาวพอ (โมเดล zero-pad ให้)"""
     with _device_states_lock:
         state = _device_states.get(device_mac)
-        if not state or not state["buffer"]:
+        if not state:
             return
-        buffered = state["buffer"]
-        state["buffer"] = []
-        state["chunks"] = 0
-        state["start_time"] = time.time()
-
-    pcm_data = b"".join(buffered)
-    pcm_data = amplify_audio(pcm_data, VOLUME_GAIN)
-
-    if app_env == "development":
-        total_sec = len(pcm_data) / (SAMPLE_RATE * CHANNELS * SAMPLE_WIDTH)
-        print(f"[SEND] {device_mac} : {len(pcm_data) / 1024:.1f} KB ({total_sec:.1f}s) → Core AI")
-    
-    _process_and_forward(pcm_data, device_mac)
+        remainder = bytes(state["buffer"])
+        state["buffer"].clear()
+    if len(remainder) >= _MIN_FINAL_WINDOW_BYTES:
+        _process_and_forward(remainder, device_mac, state["dsp"])
 
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
@@ -397,6 +427,9 @@ def on_message(client, userdata, msg):
 
         data = msg.payload
         if not data: return
+        if len(data) % _FRAME_BYTES:
+            _warn_bad_payload(device_mac, len(data))
+            return
 
         # 🌟 โยนเข้าคิวแล้วจบทันที ไม่รอ AI
         try:
@@ -411,17 +444,16 @@ def ai_worker():
         try:
             with _device_states_lock:
                 if device_mac not in _device_states:
-                    _device_states[device_mac] = {"buffer": [], "chunks": 0, "start_time": time.time()}
+                    # dsp = สถานะ HPF / ระดับพื้นหลัง VAD / noise covariance ของ MVDR ที่ต้องต่อเนื่องข้ามหน้าต่าง
+                    _device_states[device_mac] = {"buffer": bytearray(), "dsp": dsp.DSPState()}
 
                 state = _device_states[device_mac]
-                state["buffer"].append(data)
-                state["chunks"] += 1
+                state["buffer"] += data
+                windows = _take_windows(state["buffer"])
 
-                buffered_bytes = sum(len(b) for b in state["buffer"])
-
-            # ถ้าข้อมูลครบ 1 Window ให้ประมวลผล
-            if buffered_bytes >= _BYTES_PER_WINDOW:
-                _flush_buffer(device_mac)
+            # ประมวลผลนอก lock (ai_worker มี thread เดียว สถานะ dsp จึงไม่ถูกแตะพร้อมกัน)
+            for window in windows:
+                _process_and_forward(window, device_mac, state["dsp"])
         except Exception as exc:
             print(f"[ERROR] ✗ ai_worker failed for {device_mac}: {exc}")
         finally:
@@ -453,6 +485,8 @@ def start_receiver(inference_callback=None):
     print("=" * 60)
     print("  SmartVoice MQTT Background Thread (Auto WS/WSS/TCP)")
     print("=" * 60)
+    print(f"🎛️ [DSP] mode={DSP_CONFIG.mode}, {CHANNELS} ช่อง {SAMPLE_RATE} Hz, หน้าต่างละ {SECONDS_PER_WINDOW} วิ "
+          f"({_SAMPLES_PER_WINDOW} ค่าตัวอย่างต่อช่อง)")
     
     # 🌟 1. ตรวจสอบ Transport อัตโนมัติ (ถ้าพอร์ต 1883 หรือ 8883 ให้ใช้ tcp นอกนั้นถือว่าเป็น websockets)
     transport_protocol = "tcp" if BROKER_PORT in [1883, 8883] else "websockets"
@@ -520,4 +554,4 @@ def shutdown_receiver():
     with _device_states_lock:
         macs = list(_device_states.keys())
     for mac in macs:
-        _flush_buffer(mac)
+        _flush_remainder(mac)
