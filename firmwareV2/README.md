@@ -71,6 +71,23 @@
    idf.py monitor
    ```
 
+## Flash และ partition (สำหรับบอร์ดที่เคยแฟลชรุ่นก่อน)
+
+ตั้งแต่ branch `feat/firmware-stereo`: flash size = **4MB** (ตรงกับชิปจริงบน DevKit V1) และ partition table = **Single factory app (large)** (`partitions_singleapp_large.csv`, แอปได้ 1500K จากเดิม 1M) ไม่มี OTA
+
+**ไม่ต้อง erase flash** — แฟลชด้วย `idf.py -p COMx flash` ตามปกติได้เลย เพราะ
+
+- `idf.py flash` เขียน bootloader (0x1000), partition table (0x8000) และแอป (0x10000) ใหม่ทั้งสามส่วนพร้อมกัน
+- NVS อยู่ที่ 0x9000 ขนาด 24K เหมือนเดิม ข้อมูล Wi-Fi ที่ตั้งไว้ (namespace `storage`) จึงยังอยู่ ไม่ต้องตั้งค่า Wi-Fi ใหม่
+
+ครั้งแรกหลังเปลี่ยนให้ใช้ `idf.py flash` ไม่ใช่ `idf.py app-flash` — `app-flash` เขียนแค่แอป บอร์ดจะยังใช้ partition table 1M เดิม (แอปตอนนี้ 1,047,712 byte ยังพอดี 1M แต่ทันทีที่โตเกิน 1,048,576 byte จะแฟลชไม่ลงหรือบูตไม่ขึ้น)
+
+erase เฉพาะเมื่อต้องการล้างทุกอย่าง (Wi-Fi ที่จำไว้ด้วย) หรือบอร์ดบูตวนผิดปกติหลังแฟลช — แล้วต้องตั้ง Wi-Fi ผ่าน SoftAP ใหม่
+
+```bash
+idf.py -p COM3 erase-flash flash monitor
+```
+
 ## Configuration
 
 ### Device Code

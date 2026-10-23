@@ -366,8 +366,8 @@ sequenceDiagram
 |---|---|---|
 | ESP-IDF version (header comment) | `5.5.2` | L3 |
 | `CONFIG_IDF_TARGET` | `"esp32"` | L255 |
-| `CONFIG_ESPTOOLPY_FLASHSIZE` | `"2MB"` | L409 |
-| `CONFIG_PARTITION_TABLE_SINGLE_APP` | `y` (`partitions_singleapp.csv`, ไม่มี OTA) | L423, L429 |
+| `CONFIG_ESPTOOLPY_FLASHSIZE` | `"4MB"` — ตรงกับชิปจริงบนบอร์ด (เดิมตั้ง 2MB ดูหมายเหตุใต้ตาราง) | L403, L409 |
+| `CONFIG_PARTITION_TABLE_SINGLE_APP_LARGE` | `y` (`partitions_singleapp_large.csv`, ไม่มี OTA — ไม่พบ `esp_ota_*` ในโค้ด) | L424, L429 |
 | `CONFIG_COMPILER_OPTIMIZATION_DEBUG` | `y` (-Og) | L437 |
 | `CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ` | `160` | L1076 |
 | `CONFIG_FREERTOS_HZ` | `100` (1 tick = 10 ms) | L1302 |
@@ -385,6 +385,21 @@ sequenceDiagram
 | `CONFIG_LWIP_DHCPS` / `_MAX_STATION_NUM` | `y` / `8` | L1491, L1493 |
 | `CONFIG_HTTPD_MAX_URI_LEN` / `CONFIG_HTTPD_MAX_REQ_HDR_LEN` | `512` / `1024` | L850, L849 |
 | `CONFIG_HTTPD_WS_SUPPORT` | not set | L854 |
+
+**Flash และ partition** (แก้ใน branch `feat/firmware-stereo`, 2026-10-23)
+
+- ขนาด flash จริง: log ของ `idf.py monitor` บนบอร์ด DevKit V1 (MAC `14:08:08:A4:B9:E8`) ขึ้นว่า `spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k)` และ `Detected boya flash chip` คือชิป Boya 4 MB แต่ไฟล์ถูก build เป็น 2 MB ระบบจึงใช้ได้แค่ครึ่งเดียว — แก้ `CONFIG_ESPTOOLPY_FLASHSIZE` เป็น 4MB แล้ว
+- เดิมใช้ `partitions_singleapp.csv` (factory 1 MB) และแอปโตจน build ไม่ผ่าน (0x100450 byte เกิน 1 MB) — หลังลบ TDOA เหลือ 0xffca0 byte ที่ว่าง 864 byte. เปลี่ยนเป็น `partitions_singleapp_large.csv` โดยคง `-Og` (`CONFIG_COMPILER_OPTIMIZATION_DEBUG`) ไว้
+
+| Name | Type | SubType | Offset | Size |
+|---|---|---|---|---|
+| nvs | data | nvs | 0x9000 | 24K (เดิมเท่ากัน) |
+| phy_init | data | phy | 0xF000 | 4K (เดิมเท่ากัน) |
+| factory | app | factory | 0x10000 | **1500K** (เดิม 1M) |
+
+- ขนาดหลัง build (ESP-IDF 5.5.2): แอป 0xFFCA0 = 1,047,712 byte ใน partition 0x177000 = 1,536,000 byte **เหลือ 0x77360 = 488,288 byte (32%)**; bootloader 0x66C0 เหลือ 0x940 (8%)
+- ตำแหน่ง NVS ไม่เปลี่ยน จึงไม่ต้อง erase flash ก่อนแฟลชรุ่นนี้ (SSID/รหัส Wi-Fi ใน NVS ยังอยู่) — ดู `firmwareV2/README.md`
+- flash ตั้งแต่ 0x187000 ถึง 0x400000 (0x279000 ≈ 2.5 MB) ยังไม่ได้ใช้ ถ้าอนาคตต้องการ OTA ต้องทำ `partitions.csv` เอง
 
 ---
 
@@ -544,49 +559,55 @@ MAC ในชื่อ topic เป็นรูปแบบตัวพิมพ
 
 ---
 
-### 3.5 การแบ่ง chunk เสียง การแยก 2 channel และ mixdown
+### 3.5 การแบ่ง chunk เสียงและการส่ง 2 ช่องแยกกัน (ไม่ mixdown)
 
-อ้างอิง: `firmwareV2/main/main.c` → `audio_record_task()` (L609-684)
+อ้างอิง: `firmwareV2/main/main.c` → `audio_record_task()` (L608-678), ค่าคงที่ `AUDIO_CHUNK_SAMPLES` / `AUDIO_CHANNELS` / `AUDIO_PAYLOAD_BYTES` / `MQTT_OUT_BUFFER_SIZE` (L114-122), `.buffer.out_size` ใน `restart_mqtt_client()` (L340-342)
 
-**Buffer** (malloc ครั้งเดียวตอนเริ่ม task, L614-617):
+> เปลี่ยนใน branch `feat/firmware-stereo` (2026-10-23): เลิก mixdown `(L+R)/2` บนบอร์ด ส่งไมค์ทั้ง 2 ตัวแยกช่อง
+> และลบ TDOA กับ topic `voice/angle/{MAC}` ทั้งหมด (ตัดออกจากขอบเขตโครงงาน และไม่มีผู้ subscribe) —
+> หัวข้อ 3.6 จึงเป็นคำอธิบายของโค้ดเดิมก่อน branch นี้
+
+**Buffer** (malloc ครั้งเดียวตอนเริ่ม task, L613-619):
 
 | buffer | ชนิด | ขนาด |
 |---|---|---|
-| `raw_buf` | `int32_t[AUDIO_CHUNK_SAMPLES * 2]` | 2048 × 4 = 8192 byte (stereo interleaved) |
-| `left_buf` | `int16_t[AUDIO_CHUNK_SAMPLES]` | 2048 byte |
-| `right_buf` | `int16_t[AUDIO_CHUNK_SAMPLES]` | 2048 byte |
-| `chunk_buf` | `int16_t[AUDIO_CHUNK_SAMPLES]` | 2048 byte (mono ที่ส่งออก) |
+| `raw_buf` | `int32_t[AUDIO_CHUNK_SAMPLES * AUDIO_CHANNELS]` | 2048 × 4 = 8192 byte (stereo interleaved จากบัส I2S) |
+| `pcm_buf` | `int16_t[AUDIO_CHUNK_SAMPLES * AUDIO_CHANNELS]` | `AUDIO_PAYLOAD_BYTES` = 4096 byte (payload ที่ส่งออก) |
+
+`left_buf` / `right_buf` / `chunk_buf` เดิมถูกลบ — heap ที่ task ใช้ลดจาก 14,336 เหลือ 12,288 byte
 
 **ขั้นตอนในแต่ละรอบ:**
-1. `i2s_read(I2S_PORT, raw_buf, AUDIO_CHUNK_SAMPLES * 2 * sizeof(int32_t) /* 8192 */, &bytes_read, portMAX_DELAY)` (L629) — block จนได้ข้อมูล
-2. ถ้า `ret == ESP_OK && bytes_read > 0 && mqtt_connected` (L631): `num_frames = bytes_read / 8` (ปกติ 1024 frames = 128 ms ที่ 8 kHz)
-3. แยกช่อง: `l = raw_buf[2*i] >> 16`, `r = raw_buf[2*i+1] >> 16` → `left_buf`, `right_buf` (L636-640)
-4. **Mixdown เป็น mono**: `chunk_buf[i] = (int16_t)(((int32_t)l + (int32_t)r) / 2)` (L641) — ค่าเฉลี่ยธรรมดา (integer division)
-5. คำนวณ TDOA และมุมจาก `left_buf`/`right_buf` ก่อนทิ้ง (L645-646) — ดู 3.6
-6. publish เสียง mono (QoS 0) — ถ้า `msg_id == -1` (outbox/network ไม่ทัน) จะ `vTaskDelay(50 ms)` และ chunk นั้นหายไป ไม่ retry (L649-655)
-7. publish มุม (L658-660)
-8. `chunk_seq++`; ทุก 4 chunk สลับ Record LED (~512 ms); ทุก 50 chunk publish `"online"` (L662-672)
-9. `vTaskDelay(1)` (1 tick = 10 ms ตาม `CONFIG_FREERTOS_HZ=100`) (L675)
-10. ถ้าเงื่อนไขข้อ 2 ไม่ผ่าน (เช่น MQTT ยังไม่เชื่อม): ปิด Record LED, `vTaskDelay(50 ms)` — **ข้อมูลเสียงที่อ่านมาถูกทิ้ง** (L677-682)
+1. `i2s_read(I2S_PORT, raw_buf, 8192, &bytes_read, portMAX_DELAY)` (L626) — block จนได้ข้อมูล
+2. ถ้า `ret == ESP_OK && bytes_read > 0 && mqtt_connected` (L628): `num_frames = bytes_read / 8` (ปกติ 1024 frames = 128 ms ที่ 8 kHz)
+3. แปลง 32 → 16 bit โดย**คงลำดับสลับช่องไว้**: `pcm_buf[2i] = raw_buf[2i] >> 16` (L), `pcm_buf[2i+1] = raw_buf[2i+1] >> 16` (R) (L633-636) — ไม่มี mixdown, gain, filter หรือ DC removal. ถ้าทดสอบแล้ว L/R สลับกัน ให้สลับ index ฝั่ง `raw_buf` ตรงนี้ (comment L632)
+4. `chunk_seq++` แล้วถือ `s_mqtt_mutex` เช็ก `mqtt_client != NULL && mqtt_connected` ซ้ำ (L643-644)
+5. publish `pcm_buf` ขนาด `num_frames * 2 * 2` byte (ปกติ 4096) ไป `voice/audio/{MAC}` QoS 0 ไม่ retain (L646-648) — ถ้า `msg_id == -1` จะ `vTaskDelay(50 ms)` หลังปล่อย mutex และ chunk นั้นหาย ไม่ retry (L657-661)
+6. ทุก 50 chunk (~6.4 วินาที) publish `"online"` retain บน `device/status/{MAC}` (L651-653)
+7. ทุก 4 chunk สลับ Record LED (~512 ms) แล้ว `vTaskDelay(1)` (L663-669)
+8. ถ้าเงื่อนไขข้อ 2 ไม่ผ่าน: ปิด Record LED, `vTaskDelay(50 ms)` — **ข้อมูลเสียงที่อ่านมาถูกทิ้ง** (L671-676)
 
-**VAD / energy threshold / trigger**: ไม่พบในโค้ด — firmware stream เสียงต่อเนื่องตลอดเวลาที่ MQTT เชื่อมต่อ (การตัดสินใจทั้งหมดอยู่ฝั่ง server)
+**VAD / energy threshold / trigger**: ไม่มี — firmware stream เสียงต่อเนื่องตลอดเวลาที่ MQTT เชื่อมต่อ (การตัดสินใจทั้งหมดอยู่ฝั่ง server)
 
-**อัตราข้อมูล**: เสียง 8000 samples/s × 2 byte = 16,000 byte/s (≈ 15.6 KiB/s) + topic มุมอีก ~7.8 msg/s
+**อัตราข้อมูล**: 8000 frames/s × 2 ช่อง × 2 byte = **32,000 byte/s** (≈ 31.3 KiB/s, 256 kbit/s) ที่ ~7.8 message/s — เป็น 2 เท่าของแบบ mono เดิม
+
+#### 3.5.1 ขนาด payload กับ buffer ของ MQTT (ตรวจกับ esp-mqtt ใน ESP-IDF 5.5.2)
+
+- **Outbox ไม่เกี่ยว**: `esp_mqtt_client_publish()` (`components/mqtt/esp-mqtt/mqtt_client.c`) เก็บ message ลง outbox เฉพาะ QoS > 0 — QoS 0 ถูกเขียนลง transport ทันทีใน task ที่เรียก (`audio_record`) ถ้ายังไม่เชื่อมต่อจะคืน `-1` และทิ้งข้อมูล. `outbox_limit` ก็ใช้กับ QoS > 0 เท่านั้น จึงไม่ต้องปรับ outbox
+- **Out buffer — ปรับแล้ว**: sdkconfig ไม่ได้ตั้ง `CONFIG_MQTT_BUFFER_SIZE` จึงใช้ default 1024 byte. message ที่ใหญ่กว่า buffer ยังส่งได้ (esp-mqtt `memcpy` ทีละ 1024 byte แล้ว `esp_transport_write` ทีละท่อน) แต่บน WSS แต่ละท่อนกลายเป็น WebSocket frame + TLS record แยกกัน: payload เดิม 2048 byte = 3 ท่อน, payload ใหม่ 4096 byte จะเป็น 5 ท่อนต่อ message (~39 ครั้ง/วินาที). จึงตั้ง `.buffer.out_size = MQTT_OUT_BUFFER_SIZE` = 4096 + 128 = 4224 byte ให้ทั้ง message เขียนได้ในครั้งเดียว (MQTT header จริง ≈ 34 byte: fixed header 1 + remaining length 2 + ความยาว topic 2 + topic `voice/audio/AA:BB:CC:DD:EE:FF` 29). แลกกับ heap เพิ่ม ~3.2 KB ครั้งเดียวตอนสร้าง client; buffer ขาเข้าคง 1024 (firmware ไม่ subscribe). ไม่แตะ LWT หรือค่าอื่นใน config
+- **TLS**: `CONFIG_MBEDTLS_SSL_OUT_CONTENT_LEN=4096` → write 4224 + WS header 8 byte ถูก mbedTLS แบ่งเป็น 2 record เอง ไม่ต้องแก้
+- **Broker**: `mosquitto/config/mosquitto.conf` ไม่ได้ตั้ง `message_size_limit` / `max_packet_size` (ไม่จำกัด) — payload 4096 byte ผ่านได้
+- **TCP (ยังไม่แก้ ต้องดูหน้างาน)**: `CONFIG_LWIP_TCP_SND_BUF_DEFAULT=5760` จำกัด throughput ขาออกราว 5760 / RTT → พอสำหรับ ~33 KB/s เมื่อ RTT ไปถึง broker ต่ำกว่า ~170 ms. ถ้าหน้างานเห็น `msg_id == -1` หรือ `transport_poll_write` บ่อย ให้เพิ่มเป็น 11520 ผ่าน `idf.py menuconfig`
+- **I2S DMA**: 8 × 1024 frames ≈ 1 วินาที — publish block ได้ไม่เกินราวนี้ก่อน DMA ทับข้อมูล (เหมือนเดิม)
 
 ```mermaid
 flowchart TD
     A["i2s_read 8192 bytes, portMAX_DELAY"] --> B{"ret OK และ bytes_read > 0 และ mqtt_connected"}
     B -- "ไม่" --> Z["set_record_led 0 แล้ว delay 50 ms (ทิ้งข้อมูล)"] --> A
-    B -- "ใช่" --> C["แยก L = raw[2i] >> 16, R = raw[2i+1] >> 16"]
-    C --> D["mono = (L + R) / 2"]
-    C --> E["compute_tdoa_seconds(L, R)"]
-    E --> F["tdoa_to_angle_deg"]
-    D --> G["publish voice/audio/MAC, 2048 bytes, QoS 0"]
+    B -- "ใช่" --> C["pcm[2i] = raw[2i] >> 16 (L), pcm[2i+1] = raw[2i+1] >> 16 (R)"]
+    C --> G["publish voice/audio/MAC, 4096 bytes L,R,L,R, QoS 0"]
     G --> H{"msg_id == -1"}
-    H -- "ใช่" --> I["delay 50 ms"] --> J
-    H -- "ไม่" --> J["publish voice/angle/MAC เป็นข้อความ %.1f"]
-    F --> J
-    J --> K["chunk_seq++ ทุก 4 สลับ LED ทุก 50 ส่ง online retain"]
+    H -- "ใช่" --> I["delay 50 ms (chunk หาย)"] --> K
+    H -- "ไม่" --> K["chunk_seq++ ทุก 4 สลับ LED ทุก 50 ส่ง online retain"]
     K --> L["vTaskDelay 1 tick"] --> A
 ```
 
@@ -743,9 +764,20 @@ Callback ที่รันบน default event loop task (stack `CONFIG_ESP_SYS
 | ขั้น | Sample rate | Bit depth | Channels | ขนาด |
 |---|---|---|---|---|
 | บนบัส I2S | 8000 Hz | 32-bit slot | 2 (L/R interleaved) | `i2s_read` ครั้งละ 8192 byte = 1024 frames |
-| หลังแปลง (`left_buf`/`right_buf`) | 8000 Hz | 16-bit (`>> 16`) | 2 แยก buffer | 2048 byte ต่อช่อง |
-| Payload `voice/audio/{MAC}` | 8000 Hz | 16-bit signed PCM little-endian | 1 (mono = (L+R)/2) | 2048 byte ต่อ message (128 ms), ไม่มี header, QoS 0, ไม่ retain |
-| Payload `voice/angle/{MAC}` | — | ข้อความ ASCII `"%.1f"` องศา | — | 1 message ต่อ chunk |
+| หลังแปลง (`pcm_buf`) | 8000 Hz ต่อช่อง | 16-bit (`>> 16`) | 2 interleaved (ลำดับเดิม) | 4096 byte |
+| Payload `voice/audio/{MAC}` | 8000 Hz ต่อช่อง | 16-bit signed PCM little-endian | **2 สลับช่อง `L,R,L,R,...`** (1 frame = 4 byte, L มาก่อน) | 4096 byte ต่อ message = 1024 frames = 128 ms, ไม่มี header, QoS 0, ไม่ retain |
+
+ไม่มี topic `voice/angle/{MAC}` แล้ว (ลบใน `feat/firmware-stereo`)
+
+ผังไบต์ของ 1 message (offset หน่วย byte):
+
+```text
+0      2      4      6      8            4092   4094
+| L[0] | R[0] | L[1] | R[1] | ...        | L[1023] | R[1023] |
+  int16 LE ทุกช่อง  ->  ขนาด = num_frames * 2 ช่อง * 2 byte (ปกติ 4096)
+```
+
+ฝั่งรับแยกช่องได้ด้วย `np.frombuffer(payload, "<i2").reshape(-1, 2)` → คอลัมน์ 0 = L, 1 = R. payload ที่ไม่ลงตัว 4 byte ถือว่าเสีย (ใน firmware `i2s_read` แบบ `portMAX_DELAY` คืนครบ 1024 frames เสมอ)
 
 ---
 
@@ -2656,7 +2688,7 @@ Endpoint ฝั่ง Next.js เอง: `GET /api/auth/session` (`Navbar.tsx:36
    - Production: `npm run build` แล้ว `npm run start`
    - Backend ต้องตั้ง `FRONTEND_URL` ให้ตรงกับ origin ของ frontend เพราะ CORS (`backend/main.go` L26–31) อนุญาต origin นั้นเท่านั้นพร้อม `AllowCredentials: true`
 7. **Flash firmwareV2**
-   - ใช้ ESP-IDF (ไฟล์ `firmwareV2/sdkconfig` L3 ระบุว่าสร้างโดย ESP-IDF **5.5.2**, target `esp32` L255, flash 2MB L409) แก้ `IS_LOCAL_ENV`, `TARGET_*`, `USER`/`PASS` ใน `firmwareV2/main/main.c` ให้ตรงกับ broker/backend ของตัวเอง
+   - ใช้ ESP-IDF (ไฟล์ `firmwareV2/sdkconfig` L3 ระบุว่าสร้างโดย ESP-IDF **5.5.2**, target `esp32` L255, flash 4MB L409, partition `partitions_singleapp_large.csv`) แก้ `IS_LOCAL_ENV`, `TARGET_*`, `USER`/`PASS` ใน `firmwareV2/main/main.c` ให้ตรงกับ broker/backend ของตัวเอง
    - `cd firmwareV2` → `idf.py build` → `idf.py -p COMx flash monitor` (component มีแค่ `main.c` + `wifi.html` ที่ embed ตาม `firmwareV2/main/CMakeLists.txt`; `firmwareV2/main_fixed.c` และ `firmwareV2/old.c` อยู่นอกโฟลเดอร์ component จึง **ไม่ถูก compile**)
    - ตั้ง Wi-Fi: บอร์ดเปิด SoftAP ชื่อ `Smartvoice-XXXXXX` (3 byte ท้ายของ MAC) รหัส `SV_XXXXXX` (3 byte แรกของ MAC) ตาม `app_main()` L789–790 (ข้อสังเกต: 3 byte แรกของ MAC คือส่วน vendor prefix ที่เหมือนกันในบอร์ดรุ่นเดียวกัน รหัส SoftAP จึงเดาได้ง่าย และ SSID/รหัสถูก log ออก serial ที่ L792–793; ชื่อ SSID ไม่ตรงกับ `SmartVoice_AP` ที่ `CLAUDE.md` และ `README.md` L282 ระบุ) พร้อม captive DNS ตอบทุกชื่อเป็น `192.168.4.1` (`captive_dns_task()` L692–728) แล้วตั้งค่าผ่านหน้าเว็บใน `firmwareV2/main/web_server.h` (`/`, `/scanwifi`, `/connect`, `/reconnect`, `/host`, `/admin`, `/api/scan`)
    - เมื่อได้ IP บอร์ดจะ sync เวลา SNTP (`sync_time_via_sntp()` L410), เรียก `GET TARGET_GO_API` (`kwsapi_task()` L204 → `backend/controllers/activate.go` → `CheckinDeviceIP()`) แล้วต่อ MQTT (`restart_mqtt_client()`)
