@@ -288,6 +288,7 @@ def main(argv=None) -> int:
     print_summary(summaries, receiver.DECISION_WINDOWS, receiver.DECISION_THRESHOLD, receiver.WINDOW_HOP_SECONDS)
 
     if args.csv:
+        args.csv.parent.mkdir(parents=True, exist_ok=True)
         with open(args.csv, "w", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
             writer.writerow(["mode", "path", "label", "predicted", "alerts", "max_average", "windows",
@@ -298,6 +299,7 @@ def main(argv=None) -> int:
                                  r.speech_windows, mean(r.dsp_ms), mean(r.infer_ms), mean(r.window_ms)])
         print(f"\nบันทึกผลรายไฟล์ที่ {args.csv}")
     if args.json:
+        args.json.parent.mkdir(parents=True, exist_ok=True)
         args.json.write_text(json.dumps({
             "model_arch": app.MODEL_ARCH, "model_path": app.MODEL_PATH,
             "decision_windows": receiver.DECISION_WINDOWS, "decision_threshold": receiver.DECISION_THRESHOLD,
