@@ -35,6 +35,9 @@ const audioDir = "./audio_recordings"
 // ระยะเวลาขั้นต่ำระหว่างการแจ้งเตือน LINE/Telegram ของอุปกรณ์เดียวกัน (key: alert:notify:{MAC})
 const notifyThrottleTTL = 60 * time.Second
 
+// ขนาดไฟล์เสียงฉุกเฉินสูงสุด: หน้าต่างจาก Python ยาว 2 วิ (8 kHz 16-bit mono ≈ 32 KB) เผื่อไว้มาก ๆ ที่ 2 MB
+const maxEmergencyAudioSize = 2 << 20
+
 // 1. API: ดึงรายชื่อไฟล์เสียง .wav ทั้งหมด (admin เท่านั้น — บังคับที่ routes)
 func ListAudioFiles(c *fiber.Ctx) error {
 	files, err := os.ReadDir(audioDir)
@@ -186,6 +189,20 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	file, err := c.FormFile("audio")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Missing audio file"})
+	}
+
+	// 🟢 ตรวจก่อนบันทึกไฟล์หรือสร้าง detection_logs: ต้องเป็น WAV PCM 16 บิตจริง (ดูจากหัวไฟล์ ไม่ใช่ชื่อ/Content-Type)
+	if file.Size <= 0 || file.Size > maxEmergencyAudioSize {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ไฟล์เสียงต้องมีขนาดไม่เกิน 2 MB"})
+	}
+	src, err := file.Open()
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "อ่านไฟล์เสียงไม่สำเร็จ"})
+	}
+	_, wavErr := utils.ValidatePCM16WAV(src)
+	src.Close()
+	if wavErr != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ไฟล์เสียงต้องเป็น WAV แบบ PCM 16 บิต"})
 	}
 
 	// 🟢 1. รับค่า MAC Address แล้วแปลงเป็น "ตัวพิมพ์ใหญ่" ทั้งหมด เพื่อให้ตรงกับในฐานข้อมูล

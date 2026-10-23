@@ -5,6 +5,7 @@ import (
 	"go_backend/database"
 	"go_backend/middleware"
 	"go_backend/models"
+	"go_backend/utils"
 	"strconv"
 	"strings"
 	"time"
@@ -47,7 +48,25 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "รูปแบบข้อมูลไม่ถูกต้อง"})
 	}
 
-	normalizedBoardID := strings.ToUpper(strings.TrimSpace(input.BoardID))
+	// 🟢 ฟิลด์บังคับเหมือน UpdatePatient
+	input.PatientName = strings.TrimSpace(input.PatientName)
+	input.RoomNumber = strings.TrimSpace(input.RoomNumber)
+	if input.PatientName == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "กรุณากรอกชื่อ-นามสกุล", "field": "patientName"})
+	}
+	if input.RoomNumber == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "กรุณากรอกหมายเลขห้อง/เตียง", "field": "roomNumber"})
+	}
+
+	// board_id ไม่บังคับ แต่ถ้าส่งมาต้องเป็น MAC ที่ถูกรูปแบบ
+	normalizedBoardID := ""
+	if strings.TrimSpace(input.BoardID) != "" {
+		mac, ok := utils.ParseMAC(input.BoardID)
+		if !ok {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": msgInvalidMAC, "field": "boardId"})
+		}
+		normalizedBoardID = mac
+	}
 	deviceName := strings.TrimSpace(input.DeviceName)
 	if deviceName == "" {
 		deviceName = "ไมค์หัวเตียง"

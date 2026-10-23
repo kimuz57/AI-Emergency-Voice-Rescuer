@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go_backend/database"
 	"go_backend/models"
+	"go_backend/utils"
 	"strings"
 	"time"
 
@@ -12,11 +13,14 @@ import (
 )
 
 func CheckinDeviceIP(c *fiber.Ctx) error {
-	mac := c.Query("mac")
-	ip := c.Query("ip")
-	mac = normalizeMAC(mac)
-	if mac == "" || ip == "" {
+	ip := strings.TrimSpace(c.Query("ip"))
+	if strings.TrimSpace(c.Query("mac")) == "" || ip == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ส่งพารามิเตอร์ mac และ ip ไม่ครบ"})
+	}
+	// endpoint นี้ public (firmware ส่ง key ไม่ได้) จึงต้องไม่ให้สร้างอุปกรณ์จาก MAC ที่ผิดรูปแบบ
+	mac, ok := utils.ParseMAC(c.Query("mac"))
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": msgInvalidMAC})
 	}
 
 	var device models.Device
@@ -59,6 +63,9 @@ func CheckinDeviceIP(c *fiber.Ctx) error {
 
 // normalizeMAC ทำให้ MAC อยู่รูปแบบเดียวกันทั้งระบบ (ตัดช่องว่าง + ตัวพิมพ์ใหญ่)
 // ตรงกับที่ CheckinDeviceIP ใช้ตอนสร้าง device และใช้เป็น key ของ cache
+// msgInvalidMAC ข้อความเดียวกันทุก endpoint ที่ตรวจรูปแบบ MAC ด้วย utils.ParseMAC
+const msgInvalidMAC = "รูปแบบ MAC Address ไม่ถูกต้อง (ต้องเป็น AA:BB:CC:DD:EE:FF)"
+
 func normalizeMAC(mac string) string {
 	return strings.ToUpper(strings.TrimSpace(mac))
 }
@@ -69,10 +76,16 @@ func deviceActivationKey(mac string) string {
 }
 
 func CheckDeviceActivation(c *fiber.Ctx) error {
-	mac := normalizeMAC(c.Query("mac"))
-	if mac == "" {
+	if strings.TrimSpace(c.Query("mac")) == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error":     "Missing 'mac' parameter",
+			"is_active": false,
+		})
+	}
+	mac, ok := utils.ParseMAC(c.Query("mac"))
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":     msgInvalidMAC,
 			"is_active": false,
 		})
 	}

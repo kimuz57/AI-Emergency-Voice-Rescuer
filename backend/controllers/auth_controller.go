@@ -294,10 +294,11 @@ func GoogleLogin(c *fiber.Ctx) error {
 // ==========================================
 func Logout(c *fiber.Ctx) error {
 	c.Cookie(&fiber.Cookie{
-		Name:     "token",
-		Value:    "",
-		Path:     "/", // 🌟 [จุดสำคัญที่เติมเข้าไป] ต้องระบุ Path ให้ตรงกับตอนสร้าง
-		MaxAge:   -1,  // 🌟 ใช้ MaxAge -1 ชัวร์กว่า Expires ในการสั่งลบทันที
+		Name:  "token",
+		Value: "",
+		Path:  "/", // 🌟 [จุดสำคัญที่เติมเข้าไป] ต้องระบุ Path ให้ตรงกับตอนสร้าง
+		// 🟢 ลบด้วย Expires ในอดีต: fasthttp เขียน Max-Age เฉพาะค่า > 0 (เดิมตั้ง MaxAge -1 จึงได้ cookie ว่างที่ไม่ถูกลบ)
+		Expires:  time.Unix(0, 0),
 		HTTPOnly: true,
 		SameSite: "Lax", // ใช้ตามของเดิมคุณได้เลย
 		Secure:   true, // ⚠️ โหมด Local ใช้ false (ถ้าเอาขึ้น Server จริงที่มี HTTPS ค่อยเปลี่ยนเป็น true)
