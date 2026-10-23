@@ -1,0 +1,4 @@
+node_modules/
+results/
+# ค่าจริงอยู่ใน .env.test (root .gitignore ignore .env* อยู่แล้ว) — เก็บเฉพาะตัวอย่าง
+!.env.test.example
