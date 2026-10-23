@@ -116,6 +116,34 @@ def test_hpf_state_makes_windows_continuous(rng):
     np.testing.assert_allclose(np.concatenate([first, second]), whole, atol=1e-12)
 
 
+def test_hpf_state_follows_overlapping_windows(rng):
+    """หน้าต่างเลื่อนทีละ 0.5 วิ: HPF ของหน้าต่างถัดไปต้องได้ผลเท่ากับกรองสัญญาณต่อเนื่องทั้งเส้น"""
+    cfg = dsp.DSPConfig(mode="mono", agc_max_gain=1.0, agc_target_dbfs=100.0)  # gain = 1 ดูผล HPF ตรง ๆ
+    processor = dsp.DSPProcessor(cfg)
+    hop = FS // 2
+    x = 0.3 * rng.standard_normal(N + 2 * hop)
+    whole, _ = dsp.highpass(x, processor.sos)
+    state = dsp.DSPState()
+    hpf_out = []
+    original_highpass = dsp.highpass
+
+    def spy(sig, sos, zi=None):
+        y, z = original_highpass(sig, sos, zi)
+        hpf_out.append(y)
+        return y, z
+
+    dsp.highpass = spy
+    try:
+        for k in range(3):
+            window = x[k * hop:k * hop + N]
+            hpf_out.clear()
+            processor.process(window, window, state, advance=hop)
+            filtered = np.concatenate(hpf_out, axis=-1)[0]
+            np.testing.assert_allclose(filtered, whole[k * hop:k * hop + N], atol=1e-10)
+    finally:
+        dsp.highpass = original_highpass
+
+
 def test_agc_limits_gain_to_max(rng):
     cfg = dsp.DSPConfig()
     quiet = 0.001 * sine_plus_noise(rng)

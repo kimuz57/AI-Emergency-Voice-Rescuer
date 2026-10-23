@@ -1,3 +1,4 @@
+import collections
 import io
 import os
 import sys
@@ -7,6 +8,7 @@ import ssl # 🌟 1. เพิ่ม import ssl เข้ามาสำหร�
 import threading # 🌟 เพิ่ม
 import queue
 import re
+from typing import NamedTuple
 from urllib.parse import urlparse
 
 import paho.mqtt.client as mqtt
@@ -121,7 +123,28 @@ OUTPUT_CHANNELS = 1   # ผลจาก dsp.py เป็นช่องเดี
 _FRAME_BYTES = CHANNELS * SAMPLE_WIDTH                       # 1 frame = L + R = 4 byte
 _SAMPLES_PER_WINDOW = SAMPLE_RATE * SECONDS_PER_WINDOW       # ต่อช่อง (16000 ที่ 8 kHz)
 _BYTES_PER_WINDOW = _SAMPLES_PER_WINDOW * _FRAME_BYTES       # 64000 byte
-_MIN_FINAL_WINDOW_BYTES = _BYTES_PER_WINDOW // 4             # ตอนปิด server ประมวลผลเศษที่ยาวอย่างน้อย 0.5 วิ
+
+def _env_number(key: str, default, cast, valid, rule: str):
+    raw = os.getenv(key, "").strip()
+    try:
+        value = cast(raw) if raw else default
+    except ValueError:
+        value = None
+    if value is None or not valid(value):
+        raise ValueError(f"🚨 CRITICAL: {key} must be {rule} (got '{raw}')")
+    return value
+
+# 🌟 หน้าต่าง 2 วิ เลื่อนทีละ WINDOW_HOP_SECONDS (ซ้อนกัน) -> ตัดสินใจถี่ขึ้นโดยหน้าต่างยังยาวเท่าที่โมเดลเทรนมา
+WINDOW_HOP_SECONDS = _env_number("WINDOW_HOP_SECONDS", 0.5, float,
+                                 lambda v: 0 < v <= SECONDS_PER_WINDOW, f"> 0 and <= {SECONDS_PER_WINDOW}")
+_HOP_SAMPLES = max(1, round(WINDOW_HOP_SECONDS * SAMPLE_RATE))  # ต่อช่อง (4000 ที่ 0.5 วิ)
+_HOP_BYTES = _HOP_SAMPLES * _FRAME_BYTES                        # ลงตัวกับ frame เสมอ
+# ส่ง /negative ไม่เกิน 1 ครั้งต่อความยาวหน้าต่าง (เท่าอัตราเดิมก่อนมีหน้าต่างซ้อน)
+_NEGATIVE_EVERY_WINDOWS = max(1, round(_SAMPLES_PER_WINDOW / _HOP_SAMPLES))
+
+# 🌟 แจ้งเหตุเมื่อค่าเฉลี่ย P(ร้องขอความช่วยเหลือ) ของ DECISION_WINDOWS หน้าต่างล่าสุด > DECISION_THRESHOLD
+DECISION_WINDOWS = _env_number("DECISION_WINDOWS", 3, int, lambda v: v >= 1, "an integer >= 1")
+DECISION_THRESHOLD = _env_number("DECISION_THRESHOLD", 0.5, float, lambda v: 0 < v < 1, "between 0 and 1")
 
 # 🌟 DSP (dsp.py): ค่า DSP_* อ่านจาก env — ค่าผิด = ValueError ตอน import เหมือน env ตัวอื่น
 DSP_CONFIG = dsp.DSPConfig.from_env(sample_rate=SAMPLE_RATE)
@@ -293,8 +316,43 @@ def _send_to_go_async(url, wav_bytes, filename, payload):
     except Exception as exc:
         print(f"⚠️ [GO Backend] ยิง API ไม่สำเร็จ: {exc}")
 
-def _log_dsp(device_mac: str, result: "dsp.DSPResult", infer_ms: float | None = None, detected: str | None = None) -> None:
-    """1 บรรทัดต่อหน้าต่าง: ผล VAD/GCC-PHAT และเวลาที่ใช้ของแต่ละขั้น (ms)"""
+class Decision(NamedTuple):
+    alert: bool
+    average: float              # ค่าเฉลี่ย P(ร้องขอความช่วยเหลือ) ของหน้าต่างในประวัติ
+    windows: int                # จำนวนหน้าต่างที่เฉลี่ย (ก่อนล้าง)
+    audio: bytes | None = None  # WAV ของหน้าต่างที่ P สูงสุด (เฉพาะตอน alert)
+
+class DecisionSmoother:
+    """เฉลี่ย P(ร้องขอความช่วยเหลือ) ของ N หน้าต่างล่าสุด แจ้งเหตุเมื่อค่าเฉลี่ย > threshold
+    ต้องครบ N หน้าต่างก่อนจึงตัดสิน และล้างประวัติทันทีหลังแจ้งเหตุ (ไม่ให้ยิงซ้ำทุก hop)"""
+
+    def __init__(self, n: int = DECISION_WINDOWS, threshold: float = DECISION_THRESHOLD):
+        self.n = n
+        self.threshold = threshold
+        self._history = collections.deque(maxlen=n)   # (prob_yes, wav หรือ None)
+
+    def push(self, prob_yes: float, audio: bytes | None = None) -> Decision:
+        self._history.append((prob_yes, audio))
+        count = len(self._history)
+        average = sum(p for p, _ in self._history) / count
+        if count < self.n or average <= self.threshold:
+            return Decision(False, average, count)
+        best_audio = max(self._history, key=lambda item: item[0])[1]
+        self._history.clear()
+        return Decision(True, average, count, best_audio)
+
+def _new_device_state() -> dict:
+    return {
+        "buffer": bytearray(),
+        # สถานะ HPF / ระดับพื้นหลัง VAD / noise covariance ของ MVDR ที่ต้องต่อเนื่องข้ามหน้าต่าง
+        "dsp": dsp.DSPState(),
+        "decision": DecisionSmoother(),
+        "since_negative": _NEGATIVE_EVERY_WINDOWS,   # ส่ง /negative ได้ตั้งแต่หน้าต่างแรก
+    }
+
+def _log_dsp(device_mac: str, result: "dsp.DSPResult", infer_ms: float | None = None,
+             prob_yes: float | None = None, decision: Decision | None = None) -> None:
+    """1 บรรทัดต่อหน้าต่าง: ผล VAD/GCC-PHAT, ความน่าจะเป็น, การตัดสินใจ และเวลาที่ใช้ของแต่ละขั้น (ms)"""
     if not DSP_LOG_TIMING:
         return
     parts = [f"[DSP] {device_mac} mode={DSP_CONFIG.mode}",
@@ -307,57 +365,64 @@ def _log_dsp(device_mac: str, result: "dsp.DSPResult", infer_ms: float | None = 
     if infer_ms is not None:
         timings += f" infer={infer_ms:.2f}"
     parts.append(f"| ms {timings}")
-    if detected is not None:
-        parts.append(f"-> {detected}")
+    if prob_yes is not None:
+        parts.append(f"| p_yes={prob_yes:.3f}")
+    if decision is not None:
+        parts.append(f"avg{decision.windows}/{DECISION_WINDOWS}={decision.average:.3f}"
+                     + (" -> ALERT" if decision.alert else ""))
     print(" ".join(parts))
 
-def _process_and_forward(pcm_bytes: bytes, device_mac: str, dsp_state: "dsp.DSPState") -> None:
-    """หน้าต่างเสียง 2 ช่อง -> dsp.py -> (มีเสียงพูด) โมเดล -> Go"""
+def _process_window(pcm_bytes: bytes, device_mac: str, state: dict) -> None:
+    """หน้าต่างเสียง 2 ช่อง -> dsp.py -> (มีเสียงพูด) โมเดล -> เฉลี่ย N หน้าต่าง -> Go"""
     if _ai_inference_function is None:
         print("❌ [MQTT] Error: AI Inference Function is not set! (app2.py did not send it)")
         return
 
     try:
         left, right = dsp.split_stereo_pcm(pcm_bytes)
-        result = _dsp.process(left, right, dsp_state)
-        if not result.has_speech:
-            # 🔇 VAD: ไม่มีเสียงพูด ไม่ต้องเข้าโมเดลและไม่ส่งไป Go
-            _log_dsp(device_mac, result)
-            return
+        result = _dsp.process(left, right, state["dsp"], advance=_HOP_SAMPLES)
+        state["since_negative"] += 1
 
-        wav_bytes = _build_wav_in_memory(dsp.to_pcm16(result.audio))
-        started = time.perf_counter()
-        ai_result = _ai_inference_function(wav_bytes)
-        infer_ms = (time.perf_counter() - started) * 1000
-        detected = ai_result.get("detected", "error")
-        probability = ai_result.get("probability", 0.0)
-        _log_dsp(device_mac, result, infer_ms, detected)
+        # 🔇 VAD ไม่พบเสียงพูด = ไม่ใช่การร้องขอความช่วยเหลือ: ไม่เข้าโมเดล และนับเป็น 0 ในค่าเฉลี่ย
+        prob_yes, wav_bytes, infer_ms = 0.0, None, None
+        if result.has_speech:
+            wav_bytes = _build_wav_in_memory(dsp.to_pcm16(result.audio))
+            started = time.perf_counter()
+            ai_result = _ai_inference_function(wav_bytes)
+            infer_ms = (time.perf_counter() - started) * 1000
+            prob_yes = ai_result.get("prob_yes")
+            # 🌟 โมเดลประมวลผลไม่สำเร็จ: ห้ามนับเป็นเสียง 'normal' ทิ้งหน้าต่างนี้ไป (ไม่เข้าค่าเฉลี่ย)
+            if prob_yes is None:
+                _log_dsp(device_mac, result, infer_ms)
+                print(f"❌ [AI] Inference failed for {device_mac} (detected={ai_result.get('detected')!r}) -> ทิ้ง window นี้")
+                return
 
-        # 🌟 โมเดลประมวลผลไม่สำเร็จ: ห้ามส่งไปเป็นเสียง 'normal' ทิ้ง window นี้ไป
-        if detected not in ("yes", "no"):
-            print(f"❌ [AI] Inference failed for {device_mac} (detected={detected!r}) -> ทิ้ง window นี้")
-            return
+        decision = state["decision"].push(prob_yes, wav_bytes)
+        _log_dsp(device_mac, result, infer_ms, prob_yes if result.has_speech else None, decision)
 
         go_base_url = f"{GO_SERVER_URL}/api/audio"
-        payload_data = {
-            'device_mac': device_mac,
-            'event_type': 'needs_help' if detected == "yes" else 'normal',
-            'confidence': probability
-        }
-        
         is_local = (app_env == "development")
-        if detected == "yes":
+        if decision.alert:
+            payload_data = {
+                'device_mac': device_mac,
+                'event_type': 'needs_help',
+                'confidence': round(decision.average, 4),   # ค่าเฉลี่ยของ N หน้าต่างที่ทำให้แจ้งเหตุ
+            }
             if is_local:
-                print(f"🚨 [AI] EMERGENCY (prob={probability:.4f}) -> โยนงานยิง API เบื้องหลัง")
-            
+                print(f"🚨 [AI] EMERGENCY (avg of {decision.windows} windows = {decision.average:.4f}) -> โยนงานยิง API เบื้องหลัง")
             threading.Thread(target=_send_to_go_async, args=(
-                f"{go_base_url}/emergency", wav_bytes, "emergency.wav", payload_data
+                f"{go_base_url}/emergency", decision.audio or wav_bytes, "emergency.wav", payload_data
             ), daemon=True).start()
 
-        else:
+        elif wav_bytes is not None and state["since_negative"] >= _NEGATIVE_EVERY_WINDOWS:
+            state["since_negative"] = 0
+            payload_data = {
+                'device_mac': device_mac,
+                'event_type': 'normal',
+                'confidence': round(1.0 - prob_yes, 4),
+            }
             if is_local:
-                print(f"✅ [AI] normal (prob={probability:.4f}) -> โยนงานยิง API เบื้องหลัง")
-                
+                print(f"✅ [AI] normal (p_yes={prob_yes:.4f}) -> โยนงานยิง API เบื้องหลัง")
             threading.Thread(target=_send_to_go_async, args=(
                 f"{go_base_url}/negative", wav_bytes, "negative.wav", payload_data
             ), daemon=True).start()
@@ -365,13 +430,14 @@ def _process_and_forward(pcm_bytes: bytes, device_mac: str, dsp_state: "dsp.DSPS
     except Exception as exc:
         print(f"[ERROR] ✗ Processing or Go Routing failed: {exc}")
 
-def _take_windows(buffer: bytearray, window_bytes: int = _BYTES_PER_WINDOW) -> list:
-    """ตัดหน้าต่างเต็ม (2 วิ = 16000 ค่าตัวอย่างต่อช่อง) ออกจากหัว buffer ส่วนที่เหลือค้างไว้รอ chunk ถัดไป
-    chunk ทุกก้อนยาวลงตัว 4 byte (เช็กใน on_message) ขอบหน้าต่างจึงตรงขอบ frame L,R เสมอ"""
+def _take_windows(buffer: bytearray, window_bytes: int = _BYTES_PER_WINDOW, hop_bytes: int = _HOP_BYTES) -> list:
+    """ตัดหน้าต่าง 2 วิ (16000 ค่าตัวอย่างต่อช่อง) จากหัว buffer แล้วเลื่อนไป hop_bytes (0.5 วิ)
+    ส่วนที่เหลือ (ซึ่งซ้อนกับหน้าต่างถัดไป) ค้างไว้รอ chunk ถัดไป
+    chunk ทุกก้อนและ hop ยาวลงตัว 4 byte ขอบหน้าต่างจึงตรงขอบ frame L,R เสมอ"""
     windows = []
     while len(buffer) >= window_bytes:
         windows.append(bytes(buffer[:window_bytes]))
-        del buffer[:window_bytes]
+        del buffer[:hop_bytes]
     return windows
 
 def _warn_bad_payload(device_mac: str, length: int) -> None:
@@ -383,17 +449,6 @@ def _warn_bad_payload(device_mac: str, length: int) -> None:
               f"(ทิ้งไปแล้ว {entry['dropped']} ก้อนในช่วงนี้; firmware เป็นรุ่น stereo หรือยัง?)")
         entry["last_log"] = now
         entry["dropped"] = 0
-
-def _flush_remainder(device_mac: str) -> None:
-    """ตอนปิด server: ประมวลผลเศษที่ยังไม่ครบหน้าต่าง ถ้ายาวพอ (โมเดล zero-pad ให้)"""
-    with _device_states_lock:
-        state = _device_states.get(device_mac)
-        if not state:
-            return
-        remainder = bytes(state["buffer"])
-        state["buffer"].clear()
-    if len(remainder) >= _MIN_FINAL_WINDOW_BYTES:
-        _process_and_forward(remainder, device_mac, state["dsp"])
 
 def on_connect(client, userdata, flags, rc, properties=None):
     if rc == 0:
@@ -444,16 +499,15 @@ def ai_worker():
         try:
             with _device_states_lock:
                 if device_mac not in _device_states:
-                    # dsp = สถานะ HPF / ระดับพื้นหลัง VAD / noise covariance ของ MVDR ที่ต้องต่อเนื่องข้ามหน้าต่าง
-                    _device_states[device_mac] = {"buffer": bytearray(), "dsp": dsp.DSPState()}
+                    _device_states[device_mac] = _new_device_state()
 
                 state = _device_states[device_mac]
                 state["buffer"] += data
                 windows = _take_windows(state["buffer"])
 
-            # ประมวลผลนอก lock (ai_worker มี thread เดียว สถานะ dsp จึงไม่ถูกแตะพร้อมกัน)
+            # ประมวลผลนอก lock (ai_worker มี thread เดียว สถานะ dsp / decision จึงไม่ถูกแตะพร้อมกัน)
             for window in windows:
-                _process_and_forward(window, device_mac, state["dsp"])
+                _process_window(window, device_mac, state)
         except Exception as exc:
             print(f"[ERROR] ✗ ai_worker failed for {device_mac}: {exc}")
         finally:
@@ -486,7 +540,8 @@ def start_receiver(inference_callback=None):
     print("  SmartVoice MQTT Background Thread (Auto WS/WSS/TCP)")
     print("=" * 60)
     print(f"🎛️ [DSP] mode={DSP_CONFIG.mode}, {CHANNELS} ช่อง {SAMPLE_RATE} Hz, หน้าต่างละ {SECONDS_PER_WINDOW} วิ "
-          f"({_SAMPLES_PER_WINDOW} ค่าตัวอย่างต่อช่อง)")
+          f"({_SAMPLES_PER_WINDOW} ค่าตัวอย่างต่อช่อง) เลื่อนทีละ {_HOP_SAMPLES / SAMPLE_RATE:g} วิ")
+    print(f"🎛️ [Decision] แจ้งเหตุเมื่อค่าเฉลี่ย P(yes) ของ {DECISION_WINDOWS} หน้าต่างล่าสุด > {DECISION_THRESHOLD}")
     
     # 🌟 1. ตรวจสอบ Transport อัตโนมัติ (ถ้าพอร์ต 1883 หรือ 8883 ให้ใช้ tcp นอกนั้นถือว่าเป็น websockets)
     transport_protocol = "tcp" if BROKER_PORT in [1883, 8883] else "websockets"
@@ -539,9 +594,8 @@ def start_receiver(inference_callback=None):
 
 def shutdown_receiver():
     global _mqtt_client
-    print("\n[STOP] Shutting down MQTT Forwarder... Flushing buffers.")
+    print("\n[STOP] Shutting down MQTT Forwarder...")
 
-    # หยุดรับข้อความใหม่ก่อน แล้วค่อย flush ของที่ค้างอยู่
     client = _mqtt_client
     _mqtt_client = None
     if client is not None:
@@ -551,7 +605,8 @@ def shutdown_receiver():
         except Exception as exc:
             print(f"⚠️ [MQTT] Disconnect failed: {exc}")
 
+    # หน้าต่างซ้อนกันทุก hop: เสียงที่ค้างใน buffer ส่วนใหญ่ผ่านโมเดลไปแล้ว ส่วนที่ยังไม่เคยเข้าโมเดลมีไม่เกิน 1 hop
     with _device_states_lock:
-        macs = list(_device_states.keys())
-    for mac in macs:
-        _flush_remainder(mac)
+        pending = sum(len(state["buffer"]) for state in _device_states.values())
+    if pending:
+        print(f"[STOP] ทิ้งเสียงที่ค้างใน buffer {pending / _FRAME_BYTES / SAMPLE_RATE:.2f} วิ (รวมทุกอุปกรณ์)")

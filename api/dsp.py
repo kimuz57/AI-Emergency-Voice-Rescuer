@@ -49,7 +49,7 @@ class DSPConfig:
     vad_threshold_db: float = 6.0       # ต้องดังกว่าระดับพื้นหลังอย่างน้อยเท่านี้
     vad_min_speech_ratio: float = 0.10  # สัดส่วนเฟรมที่มีเสียงพูดขั้นต่ำของหน้าต่าง
     vad_floor_percentile: float = 10.0  # ระดับพื้นหลังของหน้าต่าง = เปอร์เซ็นไทล์นี้ของพลังงานเฟรม
-    vad_floor_rise_db: float = 1.0      # ระดับพื้นหลังที่จำข้ามหน้าต่างขึ้นได้ไม่เกินเท่านี้ต่อหน้าต่าง (ลงได้ทันที)
+    vad_floor_rise_db: float = 1.0      # ระดับพื้นหลังที่จำข้ามหน้าต่างขึ้นได้ไม่เกินเท่านี้ต่อเสียงใหม่ 1 หน้าต่าง (ลงได้ทันที)
 
     # GCC-PHAT
     gcc_max_lag: int = 3                # ไมค์ห่าง 10 ซม. ที่ 8 kHz -> ความหน่วงจริงไม่เกิน 2.33 ค่าตัวอย่าง
@@ -340,7 +340,9 @@ class DSPProcessor:
         self.cfg = cfg
         self.sos = design_hpf(cfg)
 
-    def process(self, left: np.ndarray, right: np.ndarray, state: DSPState) -> DSPResult:
+    def process(self, left: np.ndarray, right: np.ndarray, state: DSPState, advance: int | None = None) -> DSPResult:
+        """advance = จำนวนค่าตัวอย่างที่หน้าต่างถัดไปเลื่อนไป (หน้าต่างซ้อนกัน) None = ไม่ซ้อน (หน้าต่างถัดไปต่อท้ายพอดี)
+        ใช้เก็บ state ของ HPF ณ จุดเริ่มของหน้าต่างถัดไป และปรับอัตราที่ระดับพื้นหลังของ VAD ขึ้นได้ตามเวลาจริง"""
         cfg = self.cfg
         timings: dict[str, float] = {}
         t_all = t = time.perf_counter()
@@ -356,7 +358,15 @@ class DSPProcessor:
         x = left[None, :] if cfg.mode == "mono" else np.stack([left, right])
         x = x.astype(np.float64)
 
-        x, state.hpf_zi = highpass(x, self.sos, state.hpf_zi if self._zi_fits(state, x) else None)
+        step = n if advance is None or not 0 < advance < n else advance
+        zi = state.hpf_zi if self._zi_fits(state, x) else None
+        if step == n:
+            x, state.hpf_zi = highpass(x, self.sos, zi)
+        else:
+            # หน้าต่างซ้อนกัน: state ที่ค่าตัวอย่าง `step` คือ state ตอนเริ่มหน้าต่างถัดไปพอดี
+            head, state.hpf_zi = highpass(x[:, :step], self.sos, zi)
+            tail, _ = highpass(x[:, step:], self.sos, state.hpf_zi)
+            x = np.concatenate([head, tail], axis=1)
         lap("hpf")
 
         power = frame_power(x, cfg)
@@ -367,10 +377,12 @@ class DSPProcessor:
         gain_db = 20 * np.log10(gain)
         remembered = None if state.noise_floor_db is None else state.noise_floor_db + gain_db
         vad = energy_vad(power * gain ** 2, cfg, remembered)
-        # จำระดับพื้นหลังแบบอ้างอิงก่อน AGC: ลงได้ทันที ขึ้นได้ไม่เกิน vad_floor_rise_db ต่อหน้าต่าง
+        # จำระดับพื้นหลังแบบอ้างอิงก่อน AGC: ลงได้ทันที ขึ้นได้ไม่เกิน vad_floor_rise_db ต่อเสียงใหม่ 1 หน้าต่าง
+        # (หน้าต่างซ้อนกันได้เสียงใหม่แค่ step ค่าตัวอย่าง จึงขึ้นได้ตามสัดส่วน)
         window_floor_in = vad.window_floor_db - gain_db
+        rise = cfg.vad_floor_rise_db * step / n
         state.noise_floor_db = (window_floor_in if state.noise_floor_db is None
-                                else min(window_floor_in, state.noise_floor_db + cfg.vad_floor_rise_db))
+                                else min(window_floor_in, state.noise_floor_db + rise))
         lap("vad")
 
         result = DSPResult(None, vad.has_speech, vad.speech_ratio, gain, timings_ms=timings)

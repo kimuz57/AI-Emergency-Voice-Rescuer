@@ -838,7 +838,8 @@ DSP ทั้งหมดในระบบอยู่ใน 3 ที่
 | MVDR Beamforming | **มี** (`DSP_MODE=mvdr`) | `noise_covariance()` / `mvdr()` L294-316, `DSPProcessor._noise_cov()` L406 |
 | Resampling | มี (มีเงื่อนไข) | `preprocess_audio()` `api/app.py` L124-126 — ไม่ทำงานในเส้นทาง MQTT เพราะ WAV เป็น 8 kHz อยู่แล้ว |
 | Peak normalization | มี | `api/app.py` L137-138 |
-| Sliding window / overlap | **ไม่มี** | หน้าต่าง 2 วินาทีต่อกันแบบไม่ซ้อน (`_take_windows()` `mqtt_audio_receiver.py` L368) |
+| Sliding window / overlap | **มี** | หน้าต่าง 2 วิ เลื่อนทีละ 0.5 วิ (`WINDOW_HOP_SECONDS`) — `_take_windows()` `mqtt_audio_receiver.py` L433 |
+| Probability smoothing + threshold | **มี** | เฉลี่ย P(yes) ของ 3 หน้าต่างล่าสุด > 0.5 (`DECISION_WINDOWS`, `DECISION_THRESHOLD`) — `DecisionSmoother` L325 |
 | Mic level / decibel | **ไม่มี** | `decibel_level` ฝั่ง Go ยังเป็น 0.0 และไม่มี `mic_levels` |
 
 ### 4.2 DSP บน ESP32 (`firmwareV2/main/main.c`)
@@ -849,36 +850,43 @@ DSP ทั้งหมดในระบบอยู่ใน 3 ที่
 
 #### 4.3.1 รับ payload และต่อเป็นหน้าต่าง
 
-| ค่าคงที่ | ค่า | บรรทัด |
+| ค่าคงที่ / env | ค่า | บรรทัด |
 |---|---|---|
-| `CHANNELS` | 2 (PCM 16-bit สลับ L,R) | L117 |
-| `_FRAME_BYTES` | 4 (L + R) | L121 |
-| `_SAMPLES_PER_WINDOW` | `SAMPLE_RATE * 2` = 16000 ค่าตัวอย่างต่อช่อง | L122 |
-| `_BYTES_PER_WINDOW` | 64000 byte | L123 |
-| `_MIN_FINAL_WINDOW_BYTES` | 16000 byte (0.5 วิ) — เศษที่ประมวลผลตอนปิด server | L124 |
+| `CHANNELS` | 2 (PCM 16-bit สลับ L,R) | L119 |
+| `_FRAME_BYTES` | 4 (L + R) | L123 |
+| `_SAMPLES_PER_WINDOW` | `SAMPLE_RATE * 2` = 16000 ค่าตัวอย่างต่อช่อง | L124 |
+| `_BYTES_PER_WINDOW` | 64000 byte | L125 |
+| `WINDOW_HOP_SECONDS` (env) → `_HOP_SAMPLES` / `_HOP_BYTES` | 0.5 วิ → 4000 ค่าตัวอย่างต่อช่อง / 16000 byte (ต้อง > 0 และ ≤ 2) | L138-141 |
+| `_NEGATIVE_EVERY_WINDOWS` | 4 — ส่ง `/negative` ไม่เกิน 1 ครั้งต่อ 2 วิ | L143 |
+| `DECISION_WINDOWS` (env) | 3 (≥ 1) | L146 |
+| `DECISION_THRESHOLD` (env) | 0.5 (0 < ค่า < 1) | L147 |
 
-- `on_message()` (L406): หลังผ่าน `is_device_activated()` ถ้า `len(payload) % 4 != 0` จะทิ้งและเตือนผ่าน `_warn_bad_payload()` (L377) ไม่เกิน 1 ครั้งต่อ 30 วินาทีต่ออุปกรณ์ พร้อมจำนวนก้อนที่ทิ้ง. payload ที่ผ่านเข้า `audio_data_queue` (maxsize 20)
-- `ai_worker()` (L440): ต่อ payload ลง `bytearray` ของอุปกรณ์ แล้ว `_take_windows()` (L368) ตัดหน้าต่างละ **64000 byte พอดี** ส่วนเกินค้างไว้ต่อหน้าต่างถัดไป (เดิมเศษถูกรวมไปแล้วโดนตัดทิ้งใน pad/trim). chunk ทุกก้อนลงตัว 4 byte ขอบหน้าต่างจึงตรงขอบ frame เสมอ. firmware ส่ง 4096 byte/ก้อน → หน้าต่างแรกครบที่ก้อนที่ 16 (ค่าเฉลี่ย 15.625 ก้อนต่อหน้าต่าง)
-- สถานะต่ออุปกรณ์ `_device_states[mac] = {"buffer": bytearray, "dsp": dsp.DSPState}` — `DSPState` เก็บ state ของ HPF, ระดับพื้นหลังของ VAD และ noise covariance ของ MVDR ข้ามหน้าต่าง. `ai_worker` มี thread เดียว จึงไม่มีการแตะ `DSPState` พร้อมกัน
-- `shutdown_receiver()` เรียก `_flush_remainder()` (L387): ประมวลผลเศษที่ยาว ≥ 0.5 วิ (โมเดล zero-pad ให้)
+- `on_message()` (L461): หลังผ่าน `is_device_activated()` ถ้า `len(payload) % 4 != 0` จะทิ้งและเตือนผ่าน `_warn_bad_payload()` (L443) ไม่เกิน 1 ครั้งต่อ 30 วินาทีต่ออุปกรณ์ พร้อมจำนวนก้อนที่ทิ้ง. payload ที่ผ่านเข้า `audio_data_queue` (maxsize 20)
+- `ai_worker()` (L495): ต่อ payload ลง `bytearray` ของอุปกรณ์ แล้ว `_take_windows()` (L433) ตัดหน้าต่างละ **64000 byte** จากหัว buffer แล้ว**ลบออกแค่ 1 hop (0.5 วิ)** — หน้าต่างจึงซ้อนกัน 1.5 วิ และได้หน้าต่างใหม่ทุก 0.5 วิ (เริ่มที่ 0, 0.5, 1.0, … วิ). chunk และ hop ลงตัว 4 byte ขอบหน้าต่างจึงตรงขอบ frame เสมอ
+- สถานะต่ออุปกรณ์ (`_new_device_state()` L344): `buffer`, `dsp` (`DSPState`: state ของ HPF, ระดับพื้นหลังของ VAD, noise covariance ของ MVDR), `decision` (`DecisionSmoother`), `since_negative`. `ai_worker` มี thread เดียว จึงไม่มีการแตะสถานะพร้อมกัน
+- `shutdown_receiver()` ไม่ประมวลผลเศษที่ค้าง (เสียงที่ยังไม่เคยเข้าโมเดลมีไม่เกิน 1 hop) แค่ log ความยาวที่ทิ้ง
+- ภาระงานเพิ่มเป็น 4 เท่าของหน้าต่างไม่ซ้อน: DSP + inference ทุก 0.5 วิต่ออุปกรณ์
 - **ข้อจำกัด**: firmware รุ่นเก่า (mono 2048 byte) ก็หาร 4 ลงตัว receiver แยกไม่ออกและจะตีความเป็น stereo — ต้องแฟลชทุกบอร์ดเป็นรุ่น stereo ก่อน deploy receiver ชุดนี้
 
 #### 4.3.2 ประมวลผลหนึ่งหน้าต่าง
 
-`_process_and_forward()` (L314):
+`_process_window()` (L375):
 1. `dsp.split_stereo_pcm()` → `left`, `right` float32 ช่วง [-1, 1)
-2. `_dsp.process(left, right, state)` (ดู 4.4)
-3. ถ้า VAD บอกว่า**ไม่มีเสียงพูด** → log แล้วจบ **ไม่เข้าโมเดลและไม่ส่งไป Go** (เดิมทุกหน้าต่างเข้าโมเดลและส่ง `/api/audio/negative`)
-4. มีเสียงพูด → `dsp.to_pcm16()` → `_build_wav_in_memory()` (L271) เป็น **WAV ช่องเดียว** (`OUTPUT_CHANNELS = 1`) 16-bit 8 kHz → `run_kws_inference()` ของ `app.py` (จับเวลา) → ส่ง WAV ก้อนเดียวกันไป `/api/audio/emergency` หรือ `/negative` ตามเดิม ไฟล์ที่เก็บจึงเป็นเสียง**หลัง** DSP
-5. `amplify_audio()` / `VOLUME_GAIN = 3.0` เดิมถูกลบ — AGC ใน `dsp.py` ทำหน้าที่แทน
+2. `_dsp.process(left, right, state["dsp"], advance=_HOP_SAMPLES)` (ดู 4.4) — `advance` ทำให้ HPF ต่อเนื่องแม้หน้าต่างซ้อนกัน
+3. VAD **ไม่พบเสียงพูด** → ไม่เข้าโมเดล และนับ P(ร้องขอความช่วยเหลือ) = 0 ในค่าเฉลี่ย
+4. มีเสียงพูด → `dsp.to_pcm16()` → `_build_wav_in_memory()` (L294) เป็น **WAV ช่องเดียว** 16-bit 8 kHz → `run_kws_inference()` ของ `app.py` (จับเวลา) → ใช้ `prob_yes` (ถ้า inference error → `prob_yes` เป็น `None` → log แล้วทิ้งหน้าต่างนี้ ไม่นับในค่าเฉลี่ย)
+5. `DecisionSmoother.push(prob_yes, wav)` (4.3.4)
+6. แจ้งเหตุ → `POST /api/audio/emergency` ด้วย `event_type=needs_help`, `confidence` = ค่าเฉลี่ยของ N หน้าต่าง และ WAV ของหน้าต่างที่ `prob_yes` สูงสุดในชุดนั้น
+7. ไม่แจ้งเหตุ แต่มีเสียงพูด และผ่านมา ≥ 4 หน้าต่างจากครั้งก่อน → `POST /api/audio/negative` ด้วย `confidence = 1 - prob_yes` (คงอัตราเดิมราว 1 ครั้งต่อ 2 วิ)
+8. `amplify_audio()` / `VOLUME_GAIN = 3.0` เดิมถูกลบ — AGC ใน `dsp.py` ทำหน้าที่แทน
 
 #### 4.3.3 Log เวลา (สำหรับทดสอบ AR-04)
 
-`_log_dsp()` (L296) พิมพ์ 1 บรรทัดต่อหน้าต่าง (ปิดได้ด้วย `DSP_LOG_TIMING=false`) ตัวอย่างรูปแบบ (ตัวเลขประกอบเท่านั้น)
+`_log_dsp()` (L353) พิมพ์ 1 บรรทัดต่อหน้าต่าง (ปิดได้ด้วย `DSP_LOG_TIMING=false`) ตัวอย่างรูปแบบ (ตัวเลขประกอบเท่านั้น)
 
 ```text
-[DSP] AA:BB:CC:DD:EE:FF mode=das_pf speech=yes ratio=0.52 gain=1.84 delay=+2.00 gcc_peak=0.61 | ms hpf=0.41 agc=0.52 vad=0.14 gcc_phat=0.86 beamform=4.51 dsp_total=6.60 infer=18.30 -> no
-[DSP] AA:BB:CC:DD:EE:FF mode=mvdr speech=no ratio=0.03 gain=4.00 | ms hpf=0.31 agc=0.34 vad=0.09 dsp_total=0.80
+[DSP] AA:BB:CC:DD:EE:FF mode=das_pf speech=yes ratio=0.52 gain=1.84 delay=+2.00 gcc_peak=0.61 | ms hpf=0.41 agc=0.52 vad=0.14 gcc_phat=0.86 beamform=4.51 dsp_total=6.60 infer=18.30 | p_yes=0.912 avg3/3=0.744 -> ALERT
+[DSP] AA:BB:CC:DD:EE:FF mode=mvdr speech=no ratio=0.03 gain=4.00 | ms hpf=0.31 agc=0.34 vad=0.09 dsp_total=0.80 avg2/3=0.120
 ```
 
 | ฟิลด์ | ความหมาย |
@@ -890,8 +898,46 @@ DSP ทั้งหมดในระบบอยู่ใน 3 ที่
 | `hpf` … `beamform` | เวลาของแต่ละขั้น (ms) |
 | `dsp_total` | เวลา DSP รวมของหน้าต่าง (ms) |
 | `infer` | เวลา `run_kws_inference()` (ms) รวมเวลารอ `_inference_lock` ใน `app.py` |
+| `p_yes` | P(ร้องขอความช่วยเหลือ) ของหน้าต่างนี้ (ไม่มี = ไม่มีเสียงพูด นับเป็น 0) |
+| `avgK/N` | ค่าเฉลี่ยของ K หน้าต่างล่าสุด (ตัดสินเมื่อ K = N), `-> ALERT` = แจ้งเหตุ |
 
 เวลาที่วัดบนเครื่องพัฒนา (Python 3.12, numpy 2.5, scipy 1.18, ค่ามัธยฐาน 45 รอบ หน้าต่าง 2 วิ): `mono` 0.5 ms, `das_pf` 6.6 ms, `mvdr` 2.6 ms (ไม่รวม inference) — ต้องวัดซ้ำบนเครื่อง server จริง
+
+#### 4.3.4 การตัดสินใจแจ้งเหตุ (`DecisionSmoother` L325)
+
+แทนเงื่อนไขเดิม `prob_yes > prob_no` ของหน้าต่างเดียว:
+- เก็บ `prob_yes` ของ `DECISION_WINDOWS` (N) หน้าต่างล่าสุดใน `deque(maxlen=N)` ต่ออุปกรณ์
+- แจ้งเหตุเมื่อ**ครบ N หน้าต่าง**และค่าเฉลี่ย **>** `DECISION_THRESHOLD` (เท่ากับไม่นับ)
+- แจ้งแล้ว**ล้างประวัติ**ทันที → ถ้ายังร้องต่อ ต้องสะสมใหม่อีก N หน้าต่าง (N × 0.5 = 1.5 วิ) จึงแจ้งซ้ำได้ ไม่ยิงทุก 0.5 วิ. แต่ละครั้งที่แจ้งยังสร้างแถว `detection_logs` ใหม่ (Go จำกัดแค่การ push LINE/Telegram ที่ 60 วิ)
+- หน้าต่างแรกที่แจ้งเหตุได้เร็วที่สุดคือหน้าต่างที่ N นับจากเริ่ม stream หรือหลัง alert ครั้งก่อน
+- `/need-help` ยังตอบผลของหน้าต่างเดียว (`detected = prob_yes > prob_no`) เหมือนเดิม
+
+`run_kws_inference()` (`app.py` L31) คืน `prob_yes` เพิ่ม (ค่าดิบ ไม่ปัด) นอกเหนือจาก `detected` / `probability`
+
+#### 4.3.5 เลือกโมเดลจาก env (`app.py` L105-113)
+
+| env | default | ค่าที่รับ |
+|---|---|---|
+| `MODEL_ARCH` | `BCResNet_M` | `BCResNet_M` / `BCResNet1` / `BCResNet_Tiny` (ค่าอื่น → `ValueError` ตอน import) |
+| `MODEL_PATH` | `models/best_m.pth` | path สัมพัทธ์นับจากโฟลเดอร์ `api/` หรือ path เต็ม |
+
+weight กับ `MODEL_ARCH` ไม่ตรงกัน → `load_state_dict` ล้ม → `RuntimeError` server ไม่ start (ไม่รันต่อด้วย weight สุ่ม). env ทั้งสองอ่านได้จาก `api/.env` เพราะ `load_dotenv()` ถูกเรียกตอน `import mqtt_audio_receiver` ซึ่งอยู่ก่อนโหลดโมเดล
+
+#### 4.3.6 ทดลองแบบ offline (`api/eval_offline.py`)
+
+ใช้กับการทดลองเปรียบเทียบในรายงานหัวข้อ 3.7.3: ป้อนไฟล์ WAV ที่มี label ผ่าน pipeline เดียวกับ receiver (ใช้ `_take_windows()`, `DecisionSmoother`, `_build_wav_in_memory()` ของ receiver, `dsp.py` และ `run_kws_inference()` ของ `app.py` ตัวจริง)
+
+```bash
+cd api
+uv run python eval_offline.py data/ --modes mono,das_pf,mvdr --csv results.csv --json summary.json
+```
+
+- label จากชื่อโฟลเดอร์ชั้นแรก (`help` / `yes` / `emergency` / `positive` / `1` = ร้องขอความช่วยเหลือ, `normal` / `no` / `negative` / `noise` / `other` / `0` = อื่น ๆ) หรือ `--labels labels.csv` (คอลัมน์ `path,label`)
+- WAV PCM 16-bit 1 หรือ 2 ช่อง (ช่อง 0 = ไมค์ซ้าย) sample rate อื่น resample เป็น 8 kHz; ไฟล์ช่องเดียวใช้ได้เฉพาะ `mono` (โหมดอื่นข้ามและรายงานจำนวน)
+- 1 ไฟล์ = 1 เหตุการณ์: ทายว่าเป็นการร้องขอความช่วยเหลือถ้ามีการแจ้งเหตุอย่างน้อย 1 ครั้งในไฟล์. ไฟล์ที่สั้นกว่า 2 + (N-1) × 0.5 วิ ถูกเติมท้ายด้วย noise ±1 LSB (~-90 dBFS) ให้ได้ครบ N หน้าต่าง
+- ผล: Accuracy, Precision, Recall, F1, TP/TN/FP/FN ต่อโหมด และเวลาต่อหน้าต่าง (DSP, inference, รวม — mean / median / p95). `--csv` ผลรายไฟล์, `--json` สรุป
+- เลือกโมเดล/เกณฑ์ได้ด้วย `--model-path`, `--model-arch`, `--windows`, `--threshold`, `--hop`
+- ไม่ต่อ broker หรือ Go (ตั้งค่า env ที่ receiver บังคับเป็นค่าหลอกให้เอง)
 
 ### 4.4 `api/dsp.py`
 
@@ -953,7 +999,7 @@ flowchart LR
 - พลังงานเฟรม (dBFS) หลัง AGC เฉลี่ยทั้งสองช่อง (โหมด `mono` ใช้ไมค์ซ้าย)
 - ระดับพื้นหลังของหน้าต่าง = เปอร์เซ็นไทล์ 10 ของพลังงานเฟรม; ระดับที่ใช้ตัดสิน = ค่าที่ต่ำกว่าระหว่างของหน้าต่างนี้กับค่าที่จำจากหน้าต่างก่อน
 - เฟรมที่ ≥ พื้นหลัง + 6 dB = มีเสียงพูด; หน้าต่างมีเสียงพูดเมื่อสัดส่วนเฟรมแบบนั้น ≥ 10%
-- ค่าที่จำ (`DSPState.noise_floor_db`) เก็บแบบอ้างอิงก่อน AGC (หัก gain ออก) ลดลงได้ทันที แต่เพิ่มได้ไม่เกิน 1 dB ต่อหน้าต่าง — ทำให้หน้าต่างที่พูดเกือบเต็ม 2 วินาทียังถูกจับได้ (ถ้าใช้แค่เปอร์เซ็นไทล์ของหน้าต่างเอง พื้นหลังจะกลายเป็นระดับเสียงพูด)
+- ค่าที่จำ (`DSPState.noise_floor_db`) เก็บแบบอ้างอิงก่อน AGC (หัก gain ออก) ลดลงได้ทันที แต่เพิ่มได้ไม่เกิน 1 dB ต่อเสียงใหม่ 2 วิ (หน้าต่างเลื่อน 0.5 วิ → ไม่เกิน 0.25 dB ต่อหน้าต่าง ผ่าน `advance`) — ทำให้หน้าต่างที่พูดเกือบเต็ม 2 วินาทียังถูกจับได้ (ถ้าใช้แค่เปอร์เซ็นไทล์ของหน้าต่างเอง พื้นหลังจะกลายเป็นระดับเสียงพูด)
 
 #### 4.4.6 GCC-PHAT
 
@@ -987,7 +1033,9 @@ flowchart LR
 รันด้วย `cd api && uv run --group dev pytest` (pytest อยู่ใน `[dependency-groups] dev` ของ `pyproject.toml`; `scipy` เพิ่มใน dependencies)
 
 - `test_dsp.py` — สัญญาณสังเคราะห์ทั้งหมด: ค่าตั้ง/env, แยก L/R และปฏิเสธ payload ไม่ลงตัว, STFT→iSTFT คืนสัญญาณเดิม, HPF (30 Hz ลด > 20 dB, 1 kHz ผ่าน, ต่อเนื่องข้ามหน้าต่าง), AGC (ไม่เกิน 4 เท่า, ไม่ clip), VAD (noise ล้วน / burst 30% / burst 5% / จำพื้นหลัง), **GCC-PHAT กับไซน์ + noise ที่หน่วง 2, -2, 0, 1, 3 ค่าตัวอย่าง** (คลาดไม่เกิน 1/8) และกรณีมีเสียงแค่กลางหน้าต่าง, DAS+PF ดีกว่าไมค์เดียว > 3 dB, MVDR ลด interferer จากอีกทิศ > 6 dB และดีกว่า DAS > 3 dB โดยไม่ทำให้เสียงเป้าหมายเพี้ยน, pipeline ครบทั้ง 3 โหมด
-- `test_receiver.py` — หน้าต่าง 16000 ค่าตัวอย่างต่อช่อง, ตัดหน้าต่างแล้วเศษยังตรงขอบ frame, payload 4094 byte ถูกทิ้งพร้อมคำเตือน, หน้าต่างผ่าน DSP แล้วเข้า inference เป็น WAV ช่องเดียว 8 kHz 16000 ค่าตัวอย่าง
+- `test_dsp.py` ยังตรวจว่า HPF ของหน้าต่างที่เลื่อนทีละ 0.5 วิ (`advance`) ได้ผลเท่ากับกรองสัญญาณต่อเนื่องทั้งเส้น
+- `test_receiver.py` — หน้าต่าง 2 วิเลื่อนทีละ 0.5 วิ (เริ่ม 0, 0.5, 1.0, … วิ), ตรวจ `WINDOW_HOP_SECONDS`, payload 4094 byte ถูกทิ้งพร้อมคำเตือน, การตัดสินใจ (ต้องครบ N, ต้องเกินเกณฑ์, ล้างหลังแจ้งเหตุ, หน้าต่างเงียบนับเป็น 0, ใช้เสียงของหน้าต่างที่ P สูงสุด), จำกัด `/negative`, หน้าต่างผ่าน DSP แล้วเข้า inference เป็น WAV ช่องเดียว 8 kHz 16000 ค่าตัวอย่าง
+- `test_eval_offline.py` — สูตร Accuracy/Precision/Recall/F1, label จากชื่อโฟลเดอร์, resample, และรัน `eval_offline.py` ครบ 3 โหมดกับโมเดล `best_m.pth` จริง (ข้ามถ้าไม่มี torch; ใน test อ่าน WAV เองแทน `torchaudio.load` เพราะ torchcodec ต้องใช้ FFmpeg แบบ shared library)
 
 ### 4.5 Preprocessing ก่อนเข้าโมเดล (`api/app.py`) — ไม่ได้แก้
 
