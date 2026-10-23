@@ -3,6 +3,7 @@ package controllers
 import (
 	"go_backend/database"
 	"go_backend/models"
+	"go_backend/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -29,11 +30,14 @@ func RegisterDevice(c *fiber.Ctx) error {
 	}
 
 	// 2. Validate ป้องกันการส่งค่าว่าง + ทำ MAC ให้อยู่รูปแบบเดียวกับทั้งระบบ (ตัดช่องว่าง + ตัวพิมพ์ใหญ่)
-	mac := normalizeMAC(input.MacAddress)
-	if mac == "" {
+	if normalizeMAC(input.MacAddress) == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "กรุณาระบุ MAC Address",
 		})
+	}
+	mac, ok := utils.ParseMAC(input.MacAddress)
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": msgInvalidMAC})
 	}
 
 	// 3. เช็คว่าบอร์ดนี้ (MAC Address) เคยลงทะเบียนในระบบไปแล้วหรือยัง (ไม่สนตัวพิมพ์เล็ก/ใหญ่)

@@ -8,6 +8,8 @@ import (
 	"go_backend/database"
 	"go_backend/middleware"
 	"go_backend/models"
+	"go_backend/utils"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -91,7 +93,13 @@ func UpdateDevices(c *fiber.Ctx) error {
 	} else if payload.MacAddress != nil {
 		mac = *payload.MacAddress
 	}
-	mac = normalizeMAC(mac)
+	if strings.TrimSpace(mac) != "" {
+		parsed, ok := utils.ParseMAC(mac)
+		if !ok {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": msgInvalidMAC})
+		}
+		mac = parsed
+	}
 
 	// 🟢 ห้ามเรียก First() โดยไม่มีเงื่อนไข (เดิมจะได้อุปกรณ์ id ต่ำสุดแทนเครื่องจริง)
 	var device models.Device
