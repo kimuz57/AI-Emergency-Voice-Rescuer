@@ -826,182 +826,214 @@ Callback ที่รันบน default event loop task (stack `CONFIG_ESP_SYS
 
 ## 4. การประมวลผลสัญญาณ (DSP)
 
-หัวข้อนี้รวบรวมทุกขั้นตอนที่แปลงสัญญาณเสียง ตั้งแต่ตัวอย่างดิบจาก I2S บน ESP32 จนได้ tensor ที่ป้อนเข้าโมเดล วิธีค้นคือ grep ทั้ง `api/`, `firmwareV2/`, `backend/` และ `a.py` ด้วยคำว่า `beamform`, `mvdr`, `coherence`, `delay`, `steering`, `covariance`, `stft`, `fft`, `tdoa`, `corr`, `noise`, `vad`, `rms`, `resampl`, `normaliz`, `filter`, `gain`, `mix` แล้วอ่านโค้ดที่ grep เจอ
+> ปรับใน branch `feat/firmware-stereo` + `feat/dsp-2mic` (2026-10-23): firmware ส่งไมค์ 2 ตัวแยกช่อง
+> และ DSP ทั้งหมดย้ายมาอยู่ที่ `api/dsp.py` ซึ่ง `api/mqtt_audio_receiver.py` เรียกก่อนส่งเข้าโมเดล
 
 DSP ทั้งหมดในระบบอยู่ใน 3 ที่
 
 | ที่ | ไฟล์ | สิ่งที่ทำ |
 |---|---|---|
-| ESP32 (on-device) | `firmwareV2/main/main.c` | แปลง 32-bit เป็น 16-bit, แยกช่อง L/R, หา TDOA ด้วย cross-correlation, มิกซ์ลงเป็น mono |
-| MQTT receiver (Python) | `api/mqtt_audio_receiver.py` | ต่อ chunk ให้ครบหนึ่ง window, ขยายเสียงด้วย `amplify_audio()`, ใส่ WAV header |
-| AI preprocessing (Python) | `api/app.py` | resample, ทำ mono, pad/trim, peak normalization, log-Mel spectrogram |
+| ESP32 (on-device) | `firmwareV2/main/main.c` | แปลง 32-bit เป็น 16-bit แล้วส่ง L,R สลับช่องตามเดิม — **ไม่มี DSP อื่น** (ไม่ mixdown, ไม่มี TDOA แล้ว) |
+| MQTT receiver + DSP (Python) | `api/mqtt_audio_receiver.py`, `api/dsp.py` | ต่อ chunk เป็นหน้าต่าง 2 วินาทีต่อช่อง → HPF → AGC → VAD → GCC-PHAT → beamformer (`DSP_MODE`) → WAV ช่องเดียว 8 kHz |
+| AI preprocessing (Python) | `api/app.py` | resample, ทำ mono, pad/trim, peak normalization, log-Mel spectrogram (**ไม่ได้แก้**) |
 
-ใน `backend/` (Go) ไม่มี DSP ฝั่งเสียงเลย คำที่ grep เจอใน `backend/controllers/patient_controller.go` เป็นแค่ชื่อตัวแปร `normalizedBoardID` (L61) ไม่เกี่ยวกับเสียง ฝั่ง Go มีแค่ `createWAVHeader()` ใน `backend/services/mqtt_service.go` (L30) ซึ่งเป็นการเขียน header ไม่ใช่ DSP และเป็นโค้ดที่ไม่ถูกเรียกใช้ (ดู 4.4)
+ใน `backend/` (Go) ไม่มี DSP ฝั่งเสียง (`backend/services/mqtt_service.go` ที่เคยมี `createWAVHeader()` ถูกลบไปแล้ว)
 
-### 4.1 ตารางสรุปเทคนิค DSP ที่ขอให้ตรวจ
+### 4.1 ตารางสรุปเทคนิค DSP
 
-| เทคนิค | มีในโค้ดไหม | ตำแหน่ง / หมายเหตุ |
+| เทคนิค | มีในโค้ดไหม | ตำแหน่ง |
 |---|---|---|
-| Delay-and-Sum Beamforming | **ไม่พบในโค้ด** | ไม่มีการเลื่อนสัญญาณตาม delay ก่อนรวมช่อง มีแค่ค่าเฉลี่ย `(l + r) / 2` แบบไม่มี delay ใน `audio_record_task()` (`firmwareV2/main/main.c` L641) ค่า TDOA ที่หาได้ไม่ได้ใช้จัดแนวสัญญาณก่อนรวม |
-| Coherence-based Post-filter | **ไม่พบในโค้ด** | grep `coheren` ไม่เจอใน api/firmwareV2/backend |
-| MVDR Beamforming | **ไม่พบในโค้ด** | grep `mvdr`, `covariance`, `steering` ไม่เจอ |
-| TDOA (Time Difference of Arrival) | **มี** | `compute_tdoa_seconds()` L563 และ `tdoa_to_angle_deg()` L602 ใน `firmwareV2/main/main.c` (ดู 4.2.3) |
-| STFT / FFT แบบเขียนเอง | **ไม่พบในโค้ด** | ใช้ STFT ภายในของ `nnAudio.features.mel.MelSpectrogram` เท่านั้น (`api/app.py` L90) |
-| Noise reduction / Noise suppression | **ไม่พบในโค้ด** | |
-| Filter (high-pass, low-pass, DC-offset removal, pre-emphasis) | **ไม่พบในโค้ด** | firmware แค่ shift บิต ไม่มีการกรอง |
-| AGC / Gain | **มี (gain คงที่ที่จำกัดด้วย peak)** | `amplify_audio()` `api/mqtt_audio_receiver.py` L147, `VOLUME_GAIN = 3.0` (L37) |
-| Resampling | **มี (มีเงื่อนไข)** | `preprocess_audio()` `api/app.py` L118-120 ด้วย `torchaudio.transforms.Resample` |
-| Normalization | **มี** | peak normalization `api/app.py` L131-132 |
-| VAD / RMS / energy gating | **ไม่พบในโค้ด** | ไม่มีการตัด window เงียบทิ้ง ทุก window ถูกส่งเข้าโมเดล และ firmware ก็ publish มุมทุก chunk แม้ในช่วงเงียบ |
-| Sliding window / overlap | **ไม่พบในโค้ด** | window ต่อกันแบบไม่ซ้อนทับ (`_flush_buffer()` ล้าง buffer ทั้งหมดทุกรอบ L244) |
-| Decibel / mic level | **ไม่พบในโค้ด** (ฝั่ง Python) | Go รอรับฟิลด์ `decibel_level` (`backend/controllers/audio_controller.go` `SaveEmergencyAudio()` L124) แต่ Python ไม่ได้ส่งมา ค่าจึงเป็น 0.0 เสมอ ส่วน `mic_levels` ไม่พบในโค้ดของ `api/` และ `backend/` |
+| High-pass filter | **มี** | Butterworth อันดับ 2, 100 Hz — `design_hpf()` / `highpass()` `api/dsp.py` L179-189 |
+| AGC | **มี** | gain เดียวทั้งหน้าต่าง ขยายไม่เกิน 4 เท่า — `agc_gain()` L194-205 |
+| VAD (energy) | **มี** | ดังกว่าพื้นหลัง ≥ 6 dB นาน ≥ 10% ของหน้าต่าง — `energy_vad()` L219-230 |
+| GCC-PHAT (TDOA) | **มี (ฝั่ง server)** | ค้น ±3 ค่าตัวอย่าง ละเอียด 1/16 — `gcc_phat()` L235-255 (TDOA บน ESP32 ถูกลบแล้ว) |
+| STFT / iSTFT | **มี** | 256/128 Hann — `stft()` / `istft()` L149-166 |
+| Delay-and-Sum Beamforming | **มี** (`DSP_MODE=das_pf`) | `das_postfilter()` L269-291 |
+| Coherence-based Post-filter | **มี** (`DSP_MODE=das_pf`) | Zelinski, Gmin 0.1, λ 0.95 — `das_postfilter()` |
+| MVDR Beamforming | **มี** (`DSP_MODE=mvdr`) | `noise_covariance()` / `mvdr()` L294-316, `DSPProcessor._noise_cov()` L406 |
+| Resampling | มี (มีเงื่อนไข) | `preprocess_audio()` `api/app.py` L124-126 — ไม่ทำงานในเส้นทาง MQTT เพราะ WAV เป็น 8 kHz อยู่แล้ว |
+| Peak normalization | มี | `api/app.py` L137-138 |
+| Sliding window / overlap | **ไม่มี** | หน้าต่าง 2 วินาทีต่อกันแบบไม่ซ้อน (`_take_windows()` `mqtt_audio_receiver.py` L368) |
+| Mic level / decibel | **ไม่มี** | `decibel_level` ฝั่ง Go ยังเป็น 0.0 และไม่มี `mic_levels` |
 
 ### 4.2 DSP บน ESP32 (`firmwareV2/main/main.c`)
 
-#### 4.2.1 การอ่าน I2S และแปลงบิต
+เหลือแค่อ่าน I2S 32-bit แล้ว `>> 16` เป็น int16 โดยคงลำดับ L,R สลับช่อง (ไม่มี gain, filter, DC removal) รายละเอียด buffer, payload 4096 byte และ MQTT อยู่ใน 3.5 และ 3.12. ไม่มี mixdown `(L+R)/2` และไม่มี TDOA / `voice/angle/{MAC}` แล้ว
 
-อ้างอิง: `init_i2s_audio()` (L541-556), `audio_record_task()` (L609-684)
+### 4.3 MQTT receiver (`api/mqtt_audio_receiver.py`)
 
-- ตั้ง I2S ไว้ที่ `I2S_SAMPLE_RATE = 8000` (L34), `I2S_BITS_PER_SAMPLE_32BIT` (L36), `.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT` (stereo), `I2S_COMM_FORMAT_STAND_I2S`, `.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1`, `.dma_buf_count = 8`, `.dma_buf_len = I2S_DMA_BUF_LEN` (1024, L64), `.use_apll = true`, `.fixed_mclk = 0` (L547-552) ขา: `I2S_SCK_PIN` 26, `I2S_WS_PIN` 25, `I2S_DIN_PIN` 22, `I2S_DOUT_PIN` -1 (L38-41, L553)
-- ไมค์ 2 ตัวใช้ data line `I2S_DIN_PIN` (GPIO 22) เส้นเดียวกัน ไมค์ซ้ายต่อขา L/R ลง GND ไมค์ขวาต่อขา L/R เข้า 3.3V (comment L542-546) ข้อมูลจึงมาแบบ interleave L,R,L,R
-- แต่ละรอบอ่าน `AUDIO_CHUNK_SAMPLES * 2 * sizeof(int32_t)` = 1024 × 2 × 4 = **8192 bytes** (L629) เท่ากับ 1024 frame ต่อช่อง หรือ 128 ms ที่ 8 kHz
-- แปลงเป็น 16 บิตด้วยการ shift ขวา 16 บิต `(int16_t)(raw_buf[2*i] >> 16)` สำหรับ L และ `raw_buf[2*i+1] >> 16` สำหรับ R (L637-638) คือเก็บเฉพาะ 16 บิตบนของ slot 32 บิต ไม่มี dither และไม่มีการลบ DC comment L635 เตือนว่าถ้า L/R สลับกับของจริงให้สลับ index `[2*i]` กับ `[2*i+1]`
-- `num_frames = bytes_read / (2 * sizeof(int32_t))` (L632) ปกติได้ 1024 เพราะ `i2s_read()` รอด้วย `portMAX_DELAY` จนอ่านครบ
-- ประมวลผลและ publish **เฉพาะเมื่อ** `ret == ESP_OK && bytes_read > 0 && mqtt_connected` (L631) ถ้า MQTT ยังไม่เชื่อมต่อ ข้อมูลรอบนั้นถูกทิ้ง ไฟ record ดับ และหน่วง 50 ms (L677-682)
-- ค่าคงที่ `I2S_CHANNELS 1` (L35) ถูกประกาศไว้แต่ไม่มีที่ใดใช้ (grep เจอแค่บรรทัดที่ประกาศ)
-
-#### 4.2.2 การมิกซ์ 2 ช่องลงเป็น mono
-
-อ้างอิง: `audio_record_task()` L641
-
-```c
-chunk_buf[i] = (int16_t)(((int32_t)l + (int32_t)r) / 2);
-```
-
-- เป็นค่าเฉลี่ยตรง ๆ ของ L/R ใน sample เดียวกัน **ไม่มีการชดเชย delay** ถ้าเทียบกับ beamforming ก็คือ delay-and-sum ที่หันลำไว้ตรงหน้า (0°) ตายตัว และไม่ได้ใช้มุมที่หามาได้
-- ขนาด payload ที่ publish คือ `num_frames * sizeof(int16_t)` = 1024 × 2 = **2048 bytes** ต่อข้อความ (เมื่ออ่านได้ครบ 1024 frame) ส่งด้วย `esp_mqtt_client_publish(..., 0, 0)` คือ QoS 0, retain 0 (L649) เป็น PCM 16-bit little-endian, mono, 8 kHz **ไม่มี WAV header**
-- ถ้า publish คืน `msg_id == -1` จะ `vTaskDelay(50 ms)` (L651-655) ระหว่างนั้นไม่ได้อ่าน I2S จึงอาจเสีย sample ส่วนหนึ่ง (ขึ้นกับ DMA buffer 8 × 1024)
-
-#### 4.2.3 TDOA และการคำนวณมุม
-
-อ้างอิง: `compute_tdoa_seconds()` (L563-598), `tdoa_to_angle_deg()` (L602-607), ค่าคงที่ L69-71
+#### 4.3.1 รับ payload และต่อเป็นหน้าต่าง
 
 | ค่าคงที่ | ค่า | บรรทัด |
 |---|---|---|
-| `MIC_DISTANCE_M` | `0.10f` เมตร (comment ให้แก้เป็นระยะที่ติดตั้งจริง) | L69 |
-| `SPEED_OF_SOUND_MPS` | `343.0f` m/s | L70 |
-| `TDOA_MAX_LAG_SAMPLES` | `4` sample (comment L72-73: คิดจาก `ceil(MIC_DISTANCE_M / SPEED_OF_SOUND_MPS * I2S_SAMPLE_RATE)` + เผื่อ 1) | L71 |
-| `I2S_SAMPLE_RATE` | `8000` Hz | L34 |
+| `CHANNELS` | 2 (PCM 16-bit สลับ L,R) | L117 |
+| `_FRAME_BYTES` | 4 (L + R) | L121 |
+| `_SAMPLES_PER_WINDOW` | `SAMPLE_RATE * 2` = 16000 ค่าตัวอย่างต่อช่อง | L122 |
+| `_BYTES_PER_WINDOW` | 64000 byte | L123 |
+| `_MIN_FINAL_WINDOW_BYTES` | 16000 byte (0.5 วิ) — เศษที่ประมวลผลตอนปิด server | L124 |
 
-ขั้นตอน
-1. **Cross-correlation ในช่วงแคบ:** วน `lag` ตั้งแต่ -4 ถึง +4 แล้วคำนวณ `sum += left[i] * right[i - lag]` ด้วย `int64_t` บนช่วงที่สองช่องซ้อนกัน (`start = lag>=0 ? lag : 0`, `end = lag>=0 ? n : n+lag`) เก็บผลไว้ใน `corr_at[9]` และเลือก `best_lag` ที่ให้ค่าสูงสุด (L568-581) ค่า correlation **ไม่ได้ normalize** (ไม่หารด้วยพลังงานหรือจำนวน sample ที่ซ้อนกัน `n - |lag|`) และไม่มี weighting แบบ GCC-PHAT ผลรวม `int64_t` ถูกแปลงเป็น `float` ก่อนเก็บใน `corr_at` (L575-576)
-2. **Parabolic interpolation:** ถ้า `best_lag` ไม่อยู่ที่ขอบ ±4 จะคำนวณ `frac = 0.5 * (c_minus - c_plus) / (c_minus - 2*c_0 + c_plus)` เมื่อ `|denom| > 1e-6` (L585-594) เพื่อให้ได้ความละเอียดต่ำกว่า 1 sample
-3. **แปลงเป็นวินาที:** `tau = (best_lag + frac) / I2S_SAMPLE_RATE` (L596-597)
-4. **แปลงเป็นมุม:** `ratio = SPEED_OF_SOUND_MPS * tau / MIC_DISTANCE_M` clamp ไว้ที่ [-1, 1] แล้ว `angle = asinf(ratio) * 180 / M_PI` (L602-607) โดย 0° = ตรงหน้า (broadside) ค่าบวก = ขวา ค่าลบ = ซ้าย และ comment L601 บอกว่าเครื่องหมายขึ้นกับการต่อสายจริง
-5. **Publish:** `snprintf("%.1f", angle_deg)` แล้วส่งไป `voice/angle/{mac}` ด้วย QoS 0, retain 0 ทุก chunk (L658-660) หรือประมาณ 7.8 ครั้งต่อวินาที (8000/1024) **ไม่มี smoothing และไม่มีการเช็กพลังงานก่อนส่ง** (ใน loop เดียวกันยังส่ง `"online"` ไป `device/status/{mac}` ทุก 50 chunk ด้วย QoS 0, retain 1 ที่ L670-672 ซึ่งไม่ใช่ DSP)
+- `on_message()` (L406): หลังผ่าน `is_device_activated()` ถ้า `len(payload) % 4 != 0` จะทิ้งและเตือนผ่าน `_warn_bad_payload()` (L377) ไม่เกิน 1 ครั้งต่อ 30 วินาทีต่ออุปกรณ์ พร้อมจำนวนก้อนที่ทิ้ง. payload ที่ผ่านเข้า `audio_data_queue` (maxsize 20)
+- `ai_worker()` (L440): ต่อ payload ลง `bytearray` ของอุปกรณ์ แล้ว `_take_windows()` (L368) ตัดหน้าต่างละ **64000 byte พอดี** ส่วนเกินค้างไว้ต่อหน้าต่างถัดไป (เดิมเศษถูกรวมไปแล้วโดนตัดทิ้งใน pad/trim). chunk ทุกก้อนลงตัว 4 byte ขอบหน้าต่างจึงตรงขอบ frame เสมอ. firmware ส่ง 4096 byte/ก้อน → หน้าต่างแรกครบที่ก้อนที่ 16 (ค่าเฉลี่ย 15.625 ก้อนต่อหน้าต่าง)
+- สถานะต่ออุปกรณ์ `_device_states[mac] = {"buffer": bytearray, "dsp": dsp.DSPState}` — `DSPState` เก็บ state ของ HPF, ระดับพื้นหลังของ VAD และ noise covariance ของ MVDR ข้ามหน้าต่าง. `ai_worker` มี thread เดียว จึงไม่มีการแตะ `DSPState` พร้อมกัน
+- `shutdown_receiver()` เรียก `_flush_remainder()` (L387): ประมวลผลเศษที่ยาว ≥ 0.5 วิ (โมเดล zero-pad ให้)
+- **ข้อจำกัด**: firmware รุ่นเก่า (mono 2048 byte) ก็หาร 4 ลงตัว receiver แยกไม่ออกและจะตีความเป็น stereo — ต้องแฟลชทุกบอร์ดเป็นรุ่น stereo ก่อน deploy receiver ชุดนี้
 
-ความละเอียดเชิงมุม (คำนวณจากค่าคงที่ ไม่ได้รันจริง): lag 1 sample = 1/8000 s ให้ `ratio` = 343 × 0.000125 / 0.10 ≈ 0.429 หรือประมาณ 25.4° ก่อนทำ parabolic interpolation
+#### 4.3.2 ประมวลผลหนึ่งหน้าต่าง
 
-ข้อสังเกตเชิงตัวเลข (คำนวณจากค่าคงที่ข้างบน): ผลต่างเวลาสูงสุดทางกายภาพคือ 0.10 / 343 × 8000 ≈ 2.33 sample จึงอยู่ในช่วง `TDOA_MAX_LAG_SAMPLES = 4` ถ้าย้ายไมค์ให้ห่างเกิน 0.10 × 4 / 2.33 ≈ 0.17 m ต้องเพิ่มค่านี้ (ตรงกับคำเตือนใน `CLAUDE.md`)
+`_process_and_forward()` (L314):
+1. `dsp.split_stereo_pcm()` → `left`, `right` float32 ช่วง [-1, 1)
+2. `_dsp.process(left, right, state)` (ดู 4.4)
+3. ถ้า VAD บอกว่า**ไม่มีเสียงพูด** → log แล้วจบ **ไม่เข้าโมเดลและไม่ส่งไป Go** (เดิมทุกหน้าต่างเข้าโมเดลและส่ง `/api/audio/negative`)
+4. มีเสียงพูด → `dsp.to_pcm16()` → `_build_wav_in_memory()` (L271) เป็น **WAV ช่องเดียว** (`OUTPUT_CHANNELS = 1`) 16-bit 8 kHz → `run_kws_inference()` ของ `app.py` (จับเวลา) → ส่ง WAV ก้อนเดียวกันไป `/api/audio/emergency` หรือ `/negative` ตามเดิม ไฟล์ที่เก็บจึงเป็นเสียง**หลัง** DSP
+5. `amplify_audio()` / `VOLUME_GAIN = 3.0` เดิมถูกลบ — AGC ใน `dsp.py` ทำหน้าที่แทน
 
-ปลายทางของมุม: ใน `api/` subscribe แค่ `voice/audio/#` กับ `device/status/#` (`api/mqtt_audio_receiver.py` L33-34) ส่วนใน `backend/` grep `angle` ไม่เจอ จึง **ไม่พบในโค้ดว่ามี service ใด subscribe `voice/angle/{mac}`** ค่า `angle_degrees` ใน `frontend/app/dashboard/page.tsx` (L44, L58) เป็น mock data
+#### 4.3.3 Log เวลา (สำหรับทดสอบ AR-04)
 
-#### 4.2.4 ไฟล์ firmware ที่ไม่ได้ compile
+`_log_dsp()` (L296) พิมพ์ 1 บรรทัดต่อหน้าต่าง (ปิดได้ด้วย `DSP_LOG_TIMING=false`) ตัวอย่างรูปแบบ (ตัวเลขประกอบเท่านั้น)
 
-`firmwareV2/main/CMakeLists.txt` ระบุ `SRCS "main.c"` เท่านั้น ส่วน `firmwareV2/main_fixed.c` และ `firmwareV2/old.c` อยู่นอกโฟลเดอร์ component `main/` จึง **ไม่ถูก compile** (`firmwareV2/CMakeLists.txt` และ `firmwareV2/Makefile` ก็ไม่ได้อ้างถึงสองไฟล์นี้) ทั้งสองไฟล์เป็นเวอร์ชันไมค์เดียว (`I2S_CHANNEL_FMT_ONLY_LEFT`, `I2S_SAMPLE_RATE 16000`, `AUDIO_CHUNK_SAMPLES 2048`, ไม่มี TDOA) ดู `main_fixed.c` L32, L57, L468 และ `old.c` L29, L54, L425
+```text
+[DSP] AA:BB:CC:DD:EE:FF mode=das_pf speech=yes ratio=0.52 gain=1.84 delay=+2.00 gcc_peak=0.61 | ms hpf=0.41 agc=0.52 vad=0.14 gcc_phat=0.86 beamform=4.51 dsp_total=6.60 infer=18.30 -> no
+[DSP] AA:BB:CC:DD:EE:FF mode=mvdr speech=no ratio=0.03 gain=4.00 | ms hpf=0.31 agc=0.34 vad=0.09 dsp_total=0.80
+```
 
-### 4.3 DSP ใน MQTT receiver (`api/mqtt_audio_receiver.py`)
+| ฟิลด์ | ความหมาย |
+|---|---|
+| `ratio` | สัดส่วนเฟรมที่ VAD ว่ามีเสียงพูด |
+| `gain` | gain ของ AGC |
+| `delay`, `gcc_peak` | ผล GCC-PHAT (ค่าตัวอย่าง, ความสูงพีค 0..1) |
+| `rn` | (mvdr) ที่มาของ noise covariance: `window` / `memory` / `all_frames` |
+| `hpf` … `beamform` | เวลาของแต่ละขั้น (ms) |
+| `dsp_total` | เวลา DSP รวมของหน้าต่าง (ms) |
+| `infer` | เวลา `run_kws_inference()` (ms) รวมเวลารอ `_inference_lock` ใน `app.py` |
 
-#### 4.3.1 การรวม chunk เป็น window
+เวลาที่วัดบนเครื่องพัฒนา (Python 3.12, numpy 2.5, scipy 1.18, ค่ามัธยฐาน 45 รอบ หน้าต่าง 2 วิ): `mono` 0.5 ms, `das_pf` 6.6 ms, `mvdr` 2.6 ms (ไม่รวม inference) — ต้องวัดซ้ำบนเครื่อง server จริง
 
-อ้างอิง: `on_message()` (L256-278), `ai_worker()` (L280-298), `_flush_buffer()` (L230-246), ค่าคงที่ L31-39
+### 4.4 `api/dsp.py`
 
-- `on_message()` นำ payload ของ `voice/audio/{mac}` ใส่ `audio_data_queue` (`queue.Queue(maxsize=20)`, L47) หลังผ่าน `is_device_activated()` (L89-145) ถ้าคิวเต็มจะทิ้งข้อมูลพร้อมพิมพ์ log (L275-278) ข้อความใน `device/status/#` ถูก `return` ทิ้งทันที (L258-259)
-- `is_device_activated()` ทำงานบน network thread ของ paho (ใน `on_message()`) และเรียก `GET {GO_SERVER_URL}/api/device/check-activation?mac=...` แบบ blocking (`timeout=5`) ถ้าผลเป็น active จะ cache ไว้ตลอดอายุโปรเซส (L96-97) ถ้าไม่ active หรือเรียกไม่สำเร็จ จะบล็อกเสียงของ MAC นั้นไว้ 10 วินาทีก่อนถามใหม่ (L98-99, L103-106) chunk ที่มาระหว่างนั้นถูกทิ้ง ไม่เข้า DSP
-- `ai_worker()` (thread เดียว เริ่มตอน import โมดูล L301) ต่อ chunk ลง `_device_states[mac]["buffer"]` แยกตาม MAC เมื่อจำนวน byte สะสมถึง `_BYTES_PER_WINDOW` จะเรียก `_flush_buffer()`
-- `_BYTES_PER_WINDOW = SAMPLE_RATE * CHANNELS * SAMPLE_WIDTH * SECONDS_PER_WINDOW` (L39) โดย `CHANNELS = 1`, `SAMPLE_WIDTH = 2`, `SECONDS_PER_WINDOW = 2` และ `SAMPLE_RATE = int(os.getenv("SAMPLE_RATE", 16000))` (L31)
+ไม่อ่าน env ตอน import และไม่ขึ้นกับ MQTT. receiver สร้าง `DSPConfig.from_env(sample_rate=SAMPLE_RATE)` และ `DSPProcessor` ครั้งเดียวตอน import (ค่าผิด → `ValueError` ทำให้ server ไม่ start เหมือน env ตัวอื่น)
 
-| `SAMPLE_RATE` env | `_BYTES_PER_WINDOW` | จำนวน chunk 2048 B ที่ทำให้ flush | byte จริงต่อ window | เสียงจริงที่ 8 kHz |
-|---|---|---|---|---|
-| ตั้งเป็น `8000` | 32000 | 16 | 32768 (16384 samples) | 2.048 s |
-| ไม่ตั้ง (default `16000`) | 64000 | 32 | 65536 (32768 samples) | 4.096 s |
+#### 4.4.1 ค่าตั้ง (`DSPConfig` L36, env `DSP_<ชื่อฟิลด์ตัวใหญ่>`, ค่าว่าง = default)
 
-(ตัวเลขคำนวณจาก payload 2048 bytes ใน 4.2.2 และเงื่อนไข `>=` ใน L295)
+| env | default | ความหมาย |
+|---|---|---|
+| `DSP_MODE` | `das_pf` | `mono` / `das_pf` / `mvdr` |
+| `DSP_HPF_CUTOFF_HZ`, `DSP_HPF_ORDER` | 100, 2 | HPF Butterworth |
+| `DSP_AGC_MAX_GAIN`, `DSP_AGC_TARGET_DBFS` | 4.0, -20 | ขยายสูงสุด, RMS เป้าหมายของเฟรมดัง |
+| `DSP_VAD_THRESHOLD_DB`, `DSP_VAD_MIN_SPEECH_RATIO` | 6, 0.10 | เกณฑ์ VAD |
+| `DSP_VAD_FLOOR_PERCENTILE`, `DSP_VAD_FLOOR_RISE_DB` | 10, 1.0 | การประมาณระดับพื้นหลัง |
+| `DSP_GCC_MAX_LAG`, `DSP_GCC_INTERP` | 3, 16 | ช่วงค้นหา (ค่าตัวอย่าง), ตัวคูณความละเอียด |
+| `DSP_STFT_NFFT`, `DSP_STFT_HOP` | 256, 128 | STFT |
+| `DSP_PF_GMIN`, `DSP_PF_LAMBDA` | 0.1, 0.95 | post-filter |
+| `DSP_MVDR_DIAG_LOAD`, `DSP_MVDR_MIN_NOISE_FRAMES`, `DSP_MVDR_NOISE_MEMORY` | 0.01, 8, 0.9 | MVDR |
+| `DSP_LOG_TIMING` (อ่านใน receiver) | true | log เวลาแต่ละขั้น |
 
-- byte ที่เกินจาก `_BYTES_PER_WINDOW` ไม่ได้ถูกยกไป window ถัดไป แต่ถูกรวมไปใน WAV ก้อนเดียวกัน แล้วไปถูกตัดทิ้งใน `preprocess_audio()` ขั้น Pad/Trim (4.5) กรณี `SAMPLE_RATE=8000` WAV มี 16384 sample แต่โมเดลใช้แค่ 16000 sample แรก จึงทิ้ง 384 sample (48 ms) ท้ายทุก window (คำนวณจากโค้ด)
-- `shutdown_receiver()` (L369-372) เรียก `_flush_buffer()` กับทุก MAC ตอนปิด server ทำให้ส่ง buffer ที่ยังไม่ครบ window เข้าโมเดลด้วย (จะถูก zero-pad ใน 4.5)
-- `_device_states` ถูกแก้จาก thread `ai_worker` และจาก `shutdown_receiver()` โดยไม่มี lock
+`sample_rate` มาจาก `SAMPLE_RATE` ของ receiver (default 8000) ทุกค่ามีใน `api/.env.example`
 
-#### 4.3.2 `amplify_audio()` — gain คงที่ที่จำกัดด้วย peak
+#### 4.4.2 ลำดับใน `DSPProcessor.process()` (L343)
 
-อ้างอิง: `amplify_audio(pcm_data, volume_gain)` L147-167 เรียกจาก `_flush_buffer()` L236 ด้วย `VOLUME_GAIN = 3.0` (L37)
+```mermaid
+flowchart LR
+    A["left, right<br/>16000 ค่าตัวอย่างต่อช่อง"] --> B["HPF<br/>Butterworth 2, 100 Hz"]
+    B --> C["AGC<br/>gain เดียว ≤ 4x"]
+    C --> D{"VAD<br/>≥ 6 dB, ≥ 10%"}
+    D -- "ไม่มีเสียงพูด" --> X["ไม่เข้าโมเดล"]
+    D -- "มีเสียงพูด" --> M{"DSP_MODE"}
+    M -- "mono" --> O["ไมค์ซ้าย"]
+    M -- "das_pf / mvdr" --> G["STFT 256/128 Hann<br/>GCC-PHAT ±3"]
+    G --> P["DAS + Coherence post-filter"]
+    G --> Q["MVDR, d = [1, 1] หลังจัดเวลา"]
+    P --> I["iSTFT"]
+    Q --> I
+    I --> Y["ช่องเดียว 8 kHz → WAV → app.py"]
+    O --> Y
+```
 
-0. ถ้า `volume_gain == 1.0` หรือไม่มี sample คืนค่าเดิมทันที (L148-153)
-1. แปลง bytes เป็น `array.array('h')` (int16, byte order ตามเครื่องที่รัน)
-2. หา `peak = max(|sample|)` ถ้า peak = 0 คืนค่าเดิม
-3. `effective_gain = min(volume_gain, 32767 / peak)` เพื่อให้ไม่ clip
-4. คูณทุก sample แล้ว clamp ไว้ที่ [-32768, 32767]
+- โหมด `mono` ตัดไมค์ขวาทิ้งตั้งแต่ต้น แล้วผ่าน HPF / AGC / VAD แบบเดียวกัน ต่างกันแค่ไม่มี GCC-PHAT และ beamforming — ใช้เป็นฐานเปรียบเทียบ 1 ไมค์ vs 2 ไมค์
+- เฟรมของ VAD กับ STFT เป็นชุดเดียวกัน: ยาว 256 hop 128 ศูนย์กลางที่ `t * hop` เติมขอบแบบ reflect (`frame_signal()` L140) → 2 วิได้ 126 เฟรม และ mask ของ VAD ใช้กับเฟรม STFT ได้ตรง ๆ
+- STFT ใช้ Hann แบบ periodic, iSTFT เป็น weighted overlap-add หารด้วย Σw² (`istft()` L154) — STFT แล้ว iSTFT กลับได้สัญญาณเดิม (มี test)
 
-ข้อสังเกต: เมื่อเข้า `preprocess_audio()` สัญญาณจะถูก peak-normalize อีกรอบ (4.5) gain ที่คูณแบบ linear จึง**ไม่มีผลกับ input ของโมเดล** นอกจากผลของการปัดเศษ int16 ผลจริงมีแค่กับไฟล์ WAV ที่ส่งไปเก็บที่ Go (ดังขึ้นตอนฟัง)
+#### 4.4.3 HPF
 
-#### 4.3.3 การสร้าง WAV ในหน่วยความจำ
+`scipy.signal.butter(order, cutoff, "highpass", fs, output="sos")` + `sosfilt` ตามแกนเวลาทั้ง 2 ช่อง. state (`zi`) เก็บใน `DSPState.hpf_zi` ทำให้กรองต่อเนื่องข้ามหน้าต่าง ไม่มี transient ทุก 2 วินาที (ถ้ามี chunk หาย state ยังใช้ได้ แค่ไม่ต่อเนื่องจริง)
 
-อ้างอิง: `_build_wav_in_memory()` L169-176 (เรียกจาก `_process_and_forward()` L192)
+#### 4.4.4 AGC
 
-- ใช้โมดูล `wave` โดยกำหนด `setnchannels(CHANNELS=1)`, `setsampwidth(SAMPLE_WIDTH=2)` (16-bit), `setframerate(SAMPLE_RATE)`
-- อัตราใน header มาจาก env `SAMPLE_RATE` (default **16000**) **ไม่ได้มาจาก firmware** ถ้าไม่ตั้ง env เป็น 8000 header จะบอก 16 kHz ทั้งที่ข้อมูลจริงเป็น 8 kHz (ผลกระทบดู 4.5 และหัวข้อ 12)
-- ใน repo ไม่มีไฟล์ที่ตั้ง `SAMPLE_RATE` ให้ receiver: ไม่มี `api/.env` (ไฟล์ `.env*` ถูก ignore ที่ root `.gitignore` L7), `docker-compose.yml` มีแค่ service `mosquitto` และ `start_guardian.bat` ไม่ได้ `set` env ใด ๆ ค่าที่ใช้จริงจึงเป็น default 16000 เว้นแต่ผู้รันตั้ง env เอง
-- WAV ก้อนเดียวกันนี้คือไฟล์ที่ส่งต่อไป Go (`/api/audio/emergency` หรือ `/api/audio/negative`) ไฟล์เสียงที่เก็บจึงมี header ตาม env เดียวกัน
+- ระดับของหน้าต่าง = RMS ของเฟรมดัง (เปอร์เซ็นไทล์ 90 ของพลังงานเฟรม เฉลี่ยทั้ง 2 ช่อง)
+- `gain = min(10^(target/20) / ระดับ, agc_max_gain, 0.99 / peak)` — ขยายไม่เกิน 4 เท่า ไม่ clip (ลดได้ถ้าดังเกินเป้า). เงียบสนิท (digital silence) → gain 1
+- **gain เดียวทั้งหน้าต่างและใช้กับทั้งสองช่อง** เพื่อ (1) ไม่ทำลายความต่างระหว่างไมค์ที่ GCC-PHAT / beamformer ใช้ และ (2) ไม่บีบ dynamic range ซึ่ง VAD ต้องใช้แยกเสียงพูดจากพื้นหลัง (AGC แบบรายเฟรมจะขยายช่วงเงียบ 4 เท่าแต่ไม่ขยายเสียงพูด ทำให้ส่วนต่าง 6 dB หายไป)
+- ข้อสังเกต: `preprocess_audio()` ใน `app.py` peak-normalize อีกรอบ (4.5) gain คงที่จึง**ไม่เปลี่ยน input ของโมเดล** นอกจากความละเอียด int16 ตอนสร้าง WAV — ผลจริงอยู่ที่ระดับเสียงของไฟล์ที่เก็บใน Go
 
-### 4.4 Go backend: `createWAVHeader()` ที่ไม่ถูกใช้
+#### 4.4.5 VAD แบบพลังงาน
 
-อ้างอิง: `backend/services/mqtt_service.go` → `createWAVHeader()` (L30-53), `messagePubHandler` (L58-90), `InitMQTT()` (L95-119)
+- พลังงานเฟรม (dBFS) หลัง AGC เฉลี่ยทั้งสองช่อง (โหมด `mono` ใช้ไมค์ซ้าย)
+- ระดับพื้นหลังของหน้าต่าง = เปอร์เซ็นไทล์ 10 ของพลังงานเฟรม; ระดับที่ใช้ตัดสิน = ค่าที่ต่ำกว่าระหว่างของหน้าต่างนี้กับค่าที่จำจากหน้าต่างก่อน
+- เฟรมที่ ≥ พื้นหลัง + 6 dB = มีเสียงพูด; หน้าต่างมีเสียงพูดเมื่อสัดส่วนเฟรมแบบนั้น ≥ 10%
+- ค่าที่จำ (`DSPState.noise_floor_db`) เก็บแบบอ้างอิงก่อน AGC (หัก gain ออก) ลดลงได้ทันที แต่เพิ่มได้ไม่เกิน 1 dB ต่อหน้าต่าง — ทำให้หน้าต่างที่พูดเกือบเต็ม 2 วินาทียังถูกจับได้ (ถ้าใช้แค่เปอร์เซ็นไทล์ของหน้าต่างเอง พื้นหลังจะกลายเป็นระดับเสียงพูด)
 
-- hardcode `sampleRate := uint32(16000)` (L32) โดย comment บอกว่า "ตรงกับ I2S_SAMPLE_RATE ใน ESP32" ซึ่งไม่จริงสำหรับ firmwareV2 (8000), mono, 16-bit, ตัดไฟล์ทุก `maxBufferSize = 160000` bytes
-- grep `InitMQTT` เจอแค่ตอนประกาศ ไม่มีที่ใดเรียก (รวมถึง `backend/main.go`) โค้ดชุดนี้จึง**ไม่ถูกใช้งาน**
+#### 4.4.6 GCC-PHAT
 
-### 4.5 Preprocessing ก่อนเข้าโมเดล (`api/app.py`)
+- cross-spectrum ของแต่ละเฟรม `G = X_R · conj(X_L)` หารด้วย `|G|` (PHAT) แล้วเฉลี่ย**เฉพาะเฟรมที่ VAD ว่ามีเสียงพูด** (ไม่มีเลย → ทุกเฟรม)
+- ตัด bin ที่ต่ำกว่าความถี่ตัดของ HPF ออก (bin 0-3 ที่ 256/8 kHz) เพราะไม่มีสัญญาณแต่ PHAT จะให้น้ำหนักเท่ากับ bin อื่น
+- `irfft` ยาว `nfft × 16` (zero-padding ในโดเมนความถี่ = interpolate) → ความละเอียด 1/16 ค่าตัวอย่าง ค้นพีคเฉพาะช่วง ±3 ค่าตัวอย่าง (ไมค์ห่าง 10 ซม. ที่ 8 kHz → ความหน่วงจริงไม่เกิน 0.10/343×8000 ≈ 2.33)
+- คืน `(delay, peak)`: delay บวก = เสียงถึงไมค์ซ้ายก่อน (`right[n] ≈ left[n - delay]`), peak ≈ 1 เมื่อสองช่องสัมพันธ์กันเต็มที่
+- ข้อจำกัด: สัญญาณแถบแคบมาก (เช่นไซน์ล้วน) PHAT ถ่วงทุก bin เท่ากัน bin ที่มีแต่ noise จึงกลบพีค — เสียงพูดจริงเป็นย่านกว้างจึงไม่มีปัญหานี้ แต่ควรดู `gcc_peak` ใน log ตอนทดสอบหน้างาน
 
-อ้างอิง: ค่าคงที่ L85-93, `preprocess_audio(audio_bytes)` L112-141 เรียกจาก `run_kws_inference()` L29
+#### 4.4.7 วิธีที่ 1: Delay-and-Sum + Coherence-based Post-filter (`das_postfilter()` L269)
+
+1. จัดเวลาไมค์ขวา: `X_R' = X_R · e^{+j2πk·delay/N}` (fractional delay ในโดเมนความถี่)
+2. DAS: `Y = (X_L + X_R') / 2`
+3. PSD ปรับเรียบแบบ recursive ทีละเฟรม `Φ ← λΦ + (1-λ)·(ค่าเฟรมนี้)` สำหรับ Φ11, Φ22, Φ12 (λ = 0.95, เริ่มจากค่าของเฟรมแรก)
+4. post-filter แบบ Zelinski: `H = Re{Φ12} / ((Φ11 + Φ22)/2)` ตัดไว้ใน [Gmin = 0.1, 1] — เสียงที่ coherent ระหว่างไมค์ (เสียงพูดจากทิศที่หันไป) ได้ H ใกล้ 1, noise ที่ไม่สัมพันธ์กันได้ H ต่ำ
+5. `Z = H · Y` → iSTFT
+
+#### 4.4.8 วิธีที่ 2: MVDR (`mvdr()` L300, `DSPProcessor._noise_cov()` L406)
+
+1. **Noise covariance** `Rn(f) = mean_t x xᴴ` จากเฟรมที่ VAD ว่า**ไม่มีเสียงพูด** ในพิกัดไมค์เดิม (ยังไม่จัดเวลา)
+   - ≥ 8 เฟรม: ใช้ของหน้าต่างนี้ และรวมกับค่าเดิม `Rn ← 0.9·Rn_เดิม + 0.1·Rn_ใหม่` (`rn=window`)
+   - ไม่พอแต่มีค่าเดิม: ใช้ค่าเดิม (`rn=memory`)
+   - ไม่เคยมีเลย: ใช้ทุกเฟรม (เท่ากับ MPDR ชั่วคราว) (`rn=all_frames`)
+2. จัดเวลาด้วย `v = [1, e^{+jωτ}]`: `x' = v ⊙ x`, `Rn' = V Rn Vᴴ`
+3. Diagonal loading: `Rn' + δ · trace(Rn')/2 · I` โดย δ = 0.01
+4. Steering `d = [1, 1]` (หลังจัดเวลา): `w = Rn'⁻¹ d / (dᴴ Rn'⁻¹ d)` แก้ด้วย `np.linalg.solve` ทุก bin พร้อมกัน
+5. `Y = wᴴ x'` → iSTFT — เสียงจากทิศที่จัดเวลาไว้ผ่านโดยไม่ผิดเพี้ยน (distortionless)
+
+#### 4.4.9 Unit test (`api/tests/`)
+
+รันด้วย `cd api && uv run --group dev pytest` (pytest อยู่ใน `[dependency-groups] dev` ของ `pyproject.toml`; `scipy` เพิ่มใน dependencies)
+
+- `test_dsp.py` — สัญญาณสังเคราะห์ทั้งหมด: ค่าตั้ง/env, แยก L/R และปฏิเสธ payload ไม่ลงตัว, STFT→iSTFT คืนสัญญาณเดิม, HPF (30 Hz ลด > 20 dB, 1 kHz ผ่าน, ต่อเนื่องข้ามหน้าต่าง), AGC (ไม่เกิน 4 เท่า, ไม่ clip), VAD (noise ล้วน / burst 30% / burst 5% / จำพื้นหลัง), **GCC-PHAT กับไซน์ + noise ที่หน่วง 2, -2, 0, 1, 3 ค่าตัวอย่าง** (คลาดไม่เกิน 1/8) และกรณีมีเสียงแค่กลางหน้าต่าง, DAS+PF ดีกว่าไมค์เดียว > 3 dB, MVDR ลด interferer จากอีกทิศ > 6 dB และดีกว่า DAS > 3 dB โดยไม่ทำให้เสียงเป้าหมายเพี้ยน, pipeline ครบทั้ง 3 โหมด
+- `test_receiver.py` — หน้าต่าง 16000 ค่าตัวอย่างต่อช่อง, ตัดหน้าต่างแล้วเศษยังตรงขอบ frame, payload 4094 byte ถูกทิ้งพร้อมคำเตือน, หน้าต่างผ่าน DSP แล้วเข้า inference เป็น WAV ช่องเดียว 8 kHz 16000 ค่าตัวอย่าง
+
+### 4.5 Preprocessing ก่อนเข้าโมเดล (`api/app.py`) — ไม่ได้แก้
+
+อ้างอิง: ค่าคงที่ L90-98, `preprocess_audio(audio_bytes)` L118-147 เรียกจาก `run_kws_inference()` L31
 
 | ขั้น | โค้ด | รายละเอียด |
 |---|---|---|
-| 1. โหลด | `torchaudio.load(io.BytesIO(audio_bytes))` L115 | รับ bytes ของไฟล์ WAV ทั้งก้อน ได้ `waveform` เป็น float tensor รูป `[channels, samples]` และ `sr` จาก header |
-| 2. Resample | L118-120 | ถ้า `sr != SAMPLE_RATE` (8000) จะสร้าง `T.Resample(orig_freq=sr, new_freq=8000)` ใหม่ทุกครั้งที่เรียก |
-| 3. Mono | L122-123 | ถ้ามีมากกว่า 1 ช่อง ใช้ `torch.mean(dim=0, keepdim=True)` |
-| 4. Pad/Trim | L125-129 | `TARGET_SAMPLES = SAMPLE_RATE * DURATION_SEC = 8000 × 2 = 16000` ถ้าสั้นกว่าจะ zero-pad ทางขวา (`F.pad(waveform, (0, pad_len))`) ถ้ายาวกว่าจะตัดเหลือ 16000 sample แรก |
-| 5. Peak normalization | L131-132 | `waveform / waveform.abs().max()` ถ้า max > 0 ให้อยู่ในช่วง [-1, 1] |
-| 6. Mel spectrogram | L90-93, L135 | `nnAudio.features.mel.MelSpectrogram(sr=8000, n_fft=256, win_length=200, hop_length=80, n_mels=128)` บน CPU |
-| 7. Log | L136 | `torch.log(mel_spec + 1e-6)` (natural log ไม่ใช่ dB) |
-| 8. เพิ่มมิติ | L138 | `log_mel.unsqueeze(0)` |
+| 1. โหลด | `torchaudio.load(io.BytesIO(audio_bytes))` L121 | WAV ทั้งก้อน → `waveform` `[channels, samples]` และ `sr` จาก header |
+| 2. Resample | L124-126 | ถ้า `sr != 8000` — เส้นทาง MQTT ส่ง 8 kHz มาแล้วจึงไม่ทำงาน |
+| 3. Mono | L128-129 | ถ้ามีหลายช่องใช้ค่าเฉลี่ย — เส้นทาง MQTT เป็นช่องเดียวจาก `dsp.py` แล้ว |
+| 4. Pad/Trim | L131-135 | `TARGET_SAMPLES = 16000` — หน้าต่างจาก receiver ยาว 16000 พอดี |
+| 5. Peak normalization | L137-138 | `waveform / waveform.abs().max()` |
+| 6. Mel spectrogram | L95-98, L141 | `nnAudio.features.mel.MelSpectrogram(sr=8000, n_fft=256, win_length=200, hop_length=80, n_mels=128)` |
+| 7. Log | L142 | `torch.log(mel_spec + 1e-6)` |
+| 8. เพิ่มมิติ | L144 | `log_mel.unsqueeze(0)` |
 
-พารามิเตอร์ Mel ที่โค้ดกำหนดเอง: `sr=8000`, `n_fft=256` (32 ms), `win_length=200` (25 ms), `hop_length=80` (10 ms), `n_mels=128` ส่วน `fmin`, `fmax`, ชนิด window, `center`, `power`, `htk` **ไม่ได้ระบุในโค้ด** จึงใช้ค่า default ของ nnAudio บรรทัด L91 มีค่าชุดเก่าที่ comment ทิ้งไว้ (`n_fft=512, win_length=400, hop_length=160` สำหรับ 16 kHz)
+พารามิเตอร์ที่ไม่ได้ระบุ (`fmin`, `fmax`, ชนิด window, `center`, `power`, `htk`) ใช้ค่า default ของ nnAudio. input ของโมเดลคือ **`[1, 1, 128, T]`** โดย T = 1 + 16000/80 = **201 เฟรม** ถ้า nnAudio ใช้ `center=True` ตาม default (คำนวณจากพารามิเตอร์ ไม่ได้รันจริง)
 
-**ไลบรารี:** Mel ใช้ **nnAudio** (`from nnAudio.features.mel import MelSpectrogram`, L11) ส่วน resample ใช้ **torchaudio** (`from torchaudio import transforms as T`, L10) ไม่พบการใช้ librosa (แม้ comment ใน `api/config.py` L34 จะเอ่ยถึง)
+**การจัดการ error:** `preprocess_audio()` โยน `HTTPException(400)` (L146-147) แต่ `run_kws_inference()` ครอบด้วย `except Exception` (L49-51) แล้วคืน `{"detected": "error", "probability": 0.0}` — receiver log แล้วทิ้งหน้าต่างนั้น
 
-**รูปร่าง tensor:**
-- หลังขั้น 4: `[1, 16000]`
-- หลัง `MelSpectrogram`: `[1, 128, T]` (nnAudio คืน `[batch, n_mels, time]`)
-- input ของโมเดล: **`[1, 1, 128, T]`** = `[N, C, F(mel), T(frames)]`
-- ค่า `T` ไม่ได้ระบุในโค้ด ถ้า nnAudio ใช้ `center=True` ตาม default ได้ T = 1 + 16000/80 = **201 เฟรม** (คำนวณจากพารามิเตอร์ ไม่ได้รันจริง)
-
-**ค่าในไฟล์ config ที่ไม่ถูกใช้:** `api/config.py` มี `MEL_SPECTROGRAM_CONFIG = {"sr": SAMPLE_RATE, "n_fft": 512, "win_length": 400, "hop_length": 160, "n_mels": 128}` (L35-41) และ `SAMPLE_RATE` default 16000 (L17) แต่ grep `import config` / `from config` ไม่เจอในไฟล์ใดเลย `config.py` จึงไม่มีผลกับ pipeline จริง
-
-**ผลของ sample rate ใน header ไม่ตรงกัน (เส้นทาง MQTT):** ถ้า `SAMPLE_RATE` ของ receiver เป็น default 16000 จะได้ WAV ที่มีข้อมูล 8 kHz จริง 32768 sample แต่ header บอก 16 kHz ทำให้ `preprocess_audio()` resample จาก 16000 เป็น 8000 จนเหลือ 16384 sample แล้วตัดเหลือ 16000 ผลคือโมเดลได้เสียงยาวประมาณ 4 วินาทีที่ถูกบีบเหลือ 2 วินาที (เร็วขึ้นและเสียงสูงขึ้น 2 เท่า) ส่วนการเรียกผ่าน `POST /need-help` โดยตรงด้วยไฟล์ WAV ที่ header ถูกต้องไม่มีปัญหานี้ (คำนวณจากโค้ดใน 4.3.1 และ 4.5)
-
-**การจัดการ error:** `preprocess_audio()` โยน `HTTPException(400)` (L140-141) แต่ `run_kws_inference()` ครอบด้วย `except Exception` (L44-46) แล้วคืน `{"detected": "error", "probability": 0.0}` ทำให้ endpoint ตอบ HTTP 200 พร้อม `detected="error"` แทนที่จะเป็น 400
-
-### 4.6 สรุป format เสียงในแต่ละช่วงของ DSP
+### 4.6 สรุป format เสียงในแต่ละช่วง
 
 | ช่วง | Sample rate | Bit depth | Channel | ขนาด | อ้างอิง |
 |---|---|---|---|---|---|
-| I2S DMA read | 8000 Hz | 32-bit slot | 2 (interleave L/R) | 8192 B ต่อรอบ (1024 frame) | `main.c` L34, L36, L629 |
-| L/R หลัง shift | 8000 Hz | 16-bit | 2 buffer แยก | 1024 sample ต่อช่อง | `main.c` L636-642 |
-| MQTT `voice/audio/{mac}` | 8000 Hz | 16-bit PCM LE, ไม่มี header | 1 (mono mix) | 2048 B (128 ms) | `main.c` L649 |
-| MQTT `voice/angle/{mac}` | — | ข้อความ ASCII `"%.1f"` (เช่น `-25.4`) | — | ไม่กี่ byte (buffer 16 B, ค่าในช่วง -90.0 ถึง 90.0) | `main.c` L658-660, L602-607 |
-| Window ใน receiver | ข้อมูลจริง 8000 Hz, header ตาม env (default 16000) | 16-bit | 1 | 32768 B หรือ 65536 B | `mqtt_audio_receiver.py` L31-39, L169-176 |
-| Input ของ `preprocess_audio()` | resample ให้เป็น 8000 Hz | float32 [-1, 1] | 1 | 16000 sample (2 s) | `app.py` L85-87, L112-132 |
-| Input ของโมเดล | — | float32 log-mel | 1 | `[1, 1, 128, T≈201]` | `app.py` L90-93, L135-138 |
+| I2S DMA read | 8000 Hz | 32-bit slot | 2 (interleave L/R) | 8192 B ต่อรอบ (1024 frame) | `main.c` `audio_record_task()` |
+| MQTT `voice/audio/{mac}` | 8000 Hz ต่อช่อง | 16-bit PCM LE, ไม่มี header | 2 สลับ `L,R` | 4096 B (128 ms) | 3.12 |
+| หน้าต่างใน receiver | 8000 Hz ต่อช่อง | 16-bit | 2 สลับ | 64000 B = 16000 frame (2 วิ) | `mqtt_audio_receiver.py` L117-124 |
+| ใน `dsp.py` | 8000 Hz | float64 (คำนวณ) | 2 → 1 | 16000 ค่าตัวอย่าง | `DSPProcessor.process()` |
+| WAV ที่เข้าโมเดลและส่งไป Go | 8000 Hz | 16-bit PCM | **1** | 32044 B (16000 ค่าตัวอย่าง + header 44) | `_build_wav_in_memory()` L271 |
+| Input ของ `preprocess_audio()` | 8000 Hz | float32 [-1, 1] | 1 | 16000 ค่าตัวอย่าง | `app.py` L118-138 |
+| Input ของโมเดล | — | float32 log-mel | 1 | `[1, 1, 128, T≈201]` | `app.py` L141-144 |
 
 
 ---
