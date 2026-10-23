@@ -145,6 +145,8 @@ _NEGATIVE_EVERY_WINDOWS = max(1, round(_SAMPLES_PER_WINDOW / _HOP_SAMPLES))
 # 🌟 แจ้งเหตุเมื่อค่าเฉลี่ย P(ร้องขอความช่วยเหลือ) ของ DECISION_WINDOWS หน้าต่างล่าสุด > DECISION_THRESHOLD
 DECISION_WINDOWS = _env_number("DECISION_WINDOWS", 3, int, lambda v: v >= 1, "an integer >= 1")
 DECISION_THRESHOLD = _env_number("DECISION_THRESHOLD", 0.5, float, lambda v: 0 < v < 1, "between 0 and 1")
+# 🌟 หลังแจ้งเหตุแล้ว อุปกรณ์เดิมจะไม่ส่งเหตุฉุกเฉินไป Go ซ้ำจนพ้นช่วงพักนี้ (ยัง log ว่าตรวจพบ) 0 = ปิด
+ALERT_COOLDOWN_SECONDS = _env_number("ALERT_COOLDOWN_SECONDS", 30.0, float, lambda v: v >= 0, ">= 0")
 
 # 🌟 DSP (dsp.py): ค่า DSP_* อ่านจาก env — ค่าผิด = ValueError ตอน import เหมือน env ตัวอื่น
 DSP_CONFIG = dsp.DSPConfig.from_env(sample_rate=SAMPLE_RATE)
@@ -348,6 +350,7 @@ def _new_device_state() -> dict:
         "dsp": dsp.DSPState(),
         "decision": DecisionSmoother(),
         "since_negative": _NEGATIVE_EVERY_WINDOWS,   # ส่ง /negative ได้ตั้งแต่หน้าต่างแรก
+        "cooldown_until": 0.0,                       # time.monotonic() ที่พ้นช่วงพักหลังแจ้งเหตุ
     }
 
 def _log_dsp(device_mac: str, result: "dsp.DSPResult", infer_ms: float | None = None,
@@ -402,7 +405,14 @@ def _process_window(pcm_bytes: bytes, device_mac: str, state: dict) -> None:
 
         go_base_url = f"{GO_SERVER_URL}/api/audio"
         is_local = (app_env == "development")
-        if decision.alert:
+        if decision.alert and time.monotonic() < state["cooldown_until"]:
+            # ⏳ ยังอยู่ในช่วงพัก: ไม่ส่งเหตุซ้ำ (Go จะสร้าง detection_logs ใหม่ทุกครั้งที่ส่ง) แต่บันทึกไว้ว่าตรวจพบ
+            remaining = state["cooldown_until"] - time.monotonic()
+            print(f"⏳ [AI] {device_mac} ตรวจพบการร้องขอความช่วยเหลือระหว่างพัก "
+                  f"(avg={decision.average:.4f}, เหลือ {remaining:.1f} วิ) -> ไม่ส่งเหตุฉุกเฉินซ้ำ")
+
+        elif decision.alert:
+            state["cooldown_until"] = time.monotonic() + ALERT_COOLDOWN_SECONDS
             payload_data = {
                 'device_mac': device_mac,
                 'event_type': 'needs_help',
@@ -541,7 +551,8 @@ def start_receiver(inference_callback=None):
     print("=" * 60)
     print(f"🎛️ [DSP] mode={DSP_CONFIG.mode}, {CHANNELS} ช่อง {SAMPLE_RATE} Hz, หน้าต่างละ {SECONDS_PER_WINDOW} วิ "
           f"({_SAMPLES_PER_WINDOW} ค่าตัวอย่างต่อช่อง) เลื่อนทีละ {_HOP_SAMPLES / SAMPLE_RATE:g} วิ")
-    print(f"🎛️ [Decision] แจ้งเหตุเมื่อค่าเฉลี่ย P(yes) ของ {DECISION_WINDOWS} หน้าต่างล่าสุด > {DECISION_THRESHOLD}")
+    print(f"🎛️ [Decision] แจ้งเหตุเมื่อค่าเฉลี่ย P(yes) ของ {DECISION_WINDOWS} หน้าต่างล่าสุด > {DECISION_THRESHOLD}, "
+          f"พักหลังแจ้งเหตุ {ALERT_COOLDOWN_SECONDS:g} วิ")
     
     # 🌟 1. ตรวจสอบ Transport อัตโนมัติ (ถ้าพอร์ต 1883 หรือ 8883 ให้ใช้ tcp นอกนั้นถือว่าเป็น websockets)
     transport_protocol = "tcp" if BROKER_PORT in [1883, 8883] else "websockets"

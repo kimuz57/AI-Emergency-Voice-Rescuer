@@ -16,7 +16,7 @@ def receiver(monkeypatch):
     monkeypatch.setenv("INTERNAL_API_KEY", "test-key")
     monkeypatch.setenv("SAMPLE_RATE", "8000")
     monkeypatch.setenv("DSP_MODE", "das_pf")
-    for key in ("WINDOW_HOP_SECONDS", "DECISION_WINDOWS", "DECISION_THRESHOLD"):
+    for key in ("WINDOW_HOP_SECONDS", "DECISION_WINDOWS", "DECISION_THRESHOLD", "ALERT_COOLDOWN_SECONDS"):
         monkeypatch.delenv(key, raising=False)
     import mqtt_audio_receiver
     return importlib.reload(mqtt_audio_receiver)
@@ -42,6 +42,7 @@ def test_defaults(receiver):
     assert receiver._HOP_SAMPLES == 4000          # 0.5 วิ
     assert (receiver.DECISION_WINDOWS, receiver.DECISION_THRESHOLD) == (3, 0.5)
     assert receiver._NEGATIVE_EVERY_WINDOWS == 4
+    assert receiver.ALERT_COOLDOWN_SECONDS == 30
 
 
 def test_windows_slide_by_half_a_second(receiver):
@@ -165,6 +166,7 @@ def test_window_goes_through_dsp_to_inference_as_mono_wav(receiver, monkeypatch,
 
 
 def test_alert_after_three_windows_then_reset(receiver, monkeypatch, sent):
+    monkeypatch.setattr(receiver, "ALERT_COOLDOWN_SECONDS", 0)   # ดูแค่การล้างค่าเฉลี่ย ไม่มีช่วงพัก
     _fake_model(receiver, monkeypatch, [0.8])
     state = receiver._new_device_state()
     for _ in range(6):
@@ -195,3 +197,63 @@ def test_silent_window_skips_model_and_counts_as_zero(receiver, monkeypatch, sen
     emergencies = [a for a in sent if a[0].endswith("/emergency")]
     assert len(emergencies) == 1 and emergencies[0][1] is not None
     assert emergencies[0][3]["confidence"] == pytest.approx(0.6)
+
+
+# ---------------------------------------------------------------------------
+# ช่วงพักหลังแจ้งเหตุ (ALERT_COOLDOWN_SECONDS)
+# ---------------------------------------------------------------------------
+
+class FakeClock:
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+
+def test_cooldown_blocks_repeat_alert_but_logs_it(receiver, monkeypatch, sent, capsys):
+    clock = FakeClock()
+    monkeypatch.setattr(receiver.time, "monotonic", clock)
+    _fake_model(receiver, monkeypatch, [0.9])
+    state = receiver._new_device_state()
+    for _ in range(9):                      # ร้องต่อเนื่อง 4.5 วิ: ค่าเฉลี่ยเกินเกณฑ์ที่หน้าต่าง 3, 6, 9
+        receiver._process_window(_speech_window(), "AA:BB:CC:DD:EE:FF", state)
+        clock.now += 0.5
+    emergencies = [a for a in sent if a[0].endswith("/emergency")]
+    assert len(emergencies) == 1             # ส่งครั้งแรกครั้งเดียว
+    out = capsys.readouterr().out
+    assert out.count("ระหว่างพัก") == 2      # อีก 2 ครั้งถูก log แต่ไม่ส่ง
+
+
+def test_alert_is_sent_again_after_cooldown(receiver, monkeypatch, sent):
+    clock = FakeClock()
+    monkeypatch.setattr(receiver.time, "monotonic", clock)
+    _fake_model(receiver, monkeypatch, [0.9])
+    state = receiver._new_device_state()
+    for _ in range(3):
+        receiver._process_window(_speech_window(), "AA:BB:CC:DD:EE:FF", state)
+    clock.now += receiver.ALERT_COOLDOWN_SECONDS + 0.1
+    for _ in range(3):
+        receiver._process_window(_speech_window(), "AA:BB:CC:DD:EE:FF", state)
+    assert len([a for a in sent if a[0].endswith("/emergency")]) == 2
+
+
+def test_cooldown_is_per_device(receiver, monkeypatch, sent):
+    monkeypatch.setattr(receiver.time, "monotonic", FakeClock())
+    _fake_model(receiver, monkeypatch, [0.9])
+    for mac in ("AA:BB:CC:DD:EE:01", "AA:BB:CC:DD:EE:02"):
+        state = receiver._new_device_state()
+        for _ in range(3):
+            receiver._process_window(_speech_window(), mac, state)
+    macs = [a[3]["device_mac"] for a in sent if a[0].endswith("/emergency")]
+    assert macs == ["AA:BB:CC:DD:EE:01", "AA:BB:CC:DD:EE:02"]
+
+
+@pytest.mark.parametrize("raw, ok", [("0", True), ("12.5", True), ("-1", False), ("soon", False)])
+def test_cooldown_env_is_validated(monkeypatch, receiver, raw, ok):
+    monkeypatch.setenv("ALERT_COOLDOWN_SECONDS", raw)
+    if ok:
+        assert importlib.reload(receiver).ALERT_COOLDOWN_SECONDS == float(raw)
+    else:
+        with pytest.raises(ValueError):
+            importlib.reload(receiver)
