@@ -1,0 +1,20 @@
+{
+  "name": "evr-api-tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Black-box API tests (Jest + Supertest) for the Go Fiber backend of Emergency Voice Rescuer",
+  "scripts": {
+    "test": "jest --runInBand",
+    "test:report": "node scripts/test-report.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "dotenv": "18.0.9",
+    "jest": "30.5.2",
+    "pg": "8.23.1",
+    "redis": "6.3.0",
+    "supertest": "7.3.1"
+  }
+}
