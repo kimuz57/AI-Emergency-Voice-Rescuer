@@ -28,7 +28,7 @@ untracked leftovers (build output, `.env`) — do not edit those, they are dead.
 | `frontend/` | Next.js 16 app (App Router) | — |
 | `backend/` | Go + Fiber API | `go_backend/` |
 | `api/` | Python FastAPI process: MQTT receiver + BCResNet inference | `backend_ai/` |
-| `firmwareV2/` | ESP32 firmware, dual mic + TDOA (the only firmware) | — |
+| `firmwareV2/` | ESP32 firmware, dual mic, streams both channels (the only firmware) | — |
 | `mosquitto/` | MQTT broker config for Docker | — |
 | `docs/` | `ARCHITECTURE.md` — code-verified architecture reference | — |
 
@@ -42,21 +42,25 @@ every variable it reads — copy it to `.env` / `.env.local`.
 
 ```
 ESP32 (firmwareV2) + 2x INMP441 on one I2S bus (stereo L/R, 8 kHz)
-    TDOA on-device, (L+R)/2 mixdown, publishes every 1024 frames (~128 ms)
+    no DSP on the board (no mixdown, no TDOA); publishes every 1024 frames (~128 ms)
     ↓ MQTT over WSS (TARGET_MQTT_URI by DEPLOY_ENV, user/pass from main/secrets.h)
-      voice/audio/{MAC}    raw PCM int16 LE mono, 2048 bytes, no header, QoS 0
-      voice/angle/{MAC}    ASCII "%.1f" degrees (-90..90), QoS 0 — NO subscriber
+      voice/audio/{MAC}    raw PCM int16 LE, 2 channels interleaved L,R,
+                           4096 bytes (1024 frames), no header, QoS 0
       device/status/{MAC}  "online" (retain) / LWT "offline"
     ↓ HTTPS GET /api/device/checkin?mac=&ip=   (once per IP acquired)
 Mosquitto MQTT Broker (1883 TCP, 8083 WS+TLS, 9001 WS; password_file, no anonymous)
     ↓
 `uvicorn app:app` (api/, port 8000) — ONE process containing:
     ├─ mqtt_audio_receiver.py  subscribes voice/audio/# + device/status/#,
-    │    buffers >= SAMPLE_RATE*4 bytes per device, builds a WAV in memory
+    │    2 s windows (16000 samples/channel) sliding by 0.5 s per device
+    ├─ dsp.py  HPF → AGC → VAD → GCC-PHAT → DSP_MODE mono | das_pf | mvdr
+    │    → mono 8 kHz; windows without speech skip the model
     └─ app.py run_kws_inference()  called IN-PROCESS (not over HTTP)
-         BCResNet_M(2) loaded from models/best_m.pth, index 0 = yes, argmax
-    ↓ HTTP POST multipart (audio, device_mac, event_type, confidence)
-      "yes" → /api/audio/emergency    otherwise → /api/audio/negative
+         MODEL_ARCH/MODEL_PATH (default BCResNet_M, models/best_m.pth) → prob_yes
+    receiver averages prob_yes of the last 3 windows; alert when > 0.5,
+    then a 30 s per-device cooldown (ALERT_COOLDOWN_SECONDS)
+    ↓ HTTP POST multipart (audio, device_mac, event_type, confidence) + X-Internal-Key
+      alert → /api/audio/emergency    speech, no alert (≤ 1 per 2 s) → /api/audio/negative
 Go Backend (Fiber, port 8080)
     ├─ PostgreSQL via GORM (AutoMigrate)      ├─ Redis (required, go-redis)
     ├─ REST API + SSE (DB polling per client) └─ LINE push / Telegram sendMessage
@@ -110,7 +114,10 @@ cd api
 # template: api/.env.example). Required: MQTT_BROKER_HOST,
 # GO_SERVER_URL (use https://), INTERNAL_API_KEY — import fails with ValueError
 # otherwise. Optional: MQTT_BROKER_PORT, MQTT_USER, MQTT_PASSWORD, MQTT_USE_TLS,
-# SAMPLE_RATE (default 8000), TLS_INSECURE_SKIP_VERIFY (default false).
+# SAMPLE_RATE (default 8000), TLS_INSECURE_SKIP_VERIFY (default false),
+# WINDOW_HOP_SECONDS (0.5), DECISION_WINDOWS (3), DECISION_THRESHOLD (0.5),
+# ALERT_COOLDOWN_SECONDS (30), MODEL_PATH / MODEL_ARCH, DSP_MODE and the
+# other DSP_* values (all listed in api/.env.example).
 uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
@@ -359,14 +366,18 @@ key built by `deviceActivationKey()` with a normalised MAC),
 **Key Components:**
 - `app.py` — FastAPI app; `lifespan()` starts the MQTT receiver with
   `run_kws_inference` as an in-process callback; `POST /need-help` for testing
-- `bcresnet.py` — `BCResNet_M` (used), `BCResNet1`, `BCResNet_Tiny` (imported, unused)
-- `mqtt_audio_receiver.py` — MQTT subscriber, per-device buffering, WAV
-  building, device-activation check, forwarding to Go. Reads required env vars
+- `bcresnet.py` — `BCResNet_M` (default), `BCResNet1`, `BCResNet_Tiny`; pick one with
+  `MODEL_ARCH` and the weights with `MODEL_PATH` (relative to `api/`). A wrong
+  name or mismatched weights stops the server at import.
+- `mqtt_audio_receiver.py` — MQTT subscriber, per-device sliding windows,
+  DSP call, decision smoothing, cooldown, WAV building, device-activation
+  check, forwarding to Go. Payloads that are not a multiple of 4 bytes (one
+  L,R frame) are dropped with a warning. Reads required env vars
   **at import time**; worker threads start only in `start_receiver()`.
   The activation check runs in a background thread (never on the paho network
   thread) and caches "active" for 60 s, "inactive" for 10 s. A device's first
-  chunks are dropped until Go answers. Inference results other than `yes`/`no`
-  are logged and dropped, not forwarded. Every call to Go sends
+  chunks are dropped until Go answers. A failed inference (`prob_yes` is
+  `None`) is logged and the window dropped. Every call to Go sends
   `X-Internal-Key` with `allow_redirects=False`; TLS certificates are verified
   unless `TLS_INSECURE_SKIP_VERIFY=true`.
 - `models/best_m.pth` — trained `BCResNet_M` weights, tracked in git
@@ -375,19 +386,32 @@ key built by `deviceActivationKey()` with a normalised MAC),
 - Inference is serialised by `_inference_lock`; `/need-help` runs it in a
   threadpool.
 - The old unused `config.py`, `model.py`, `models.py`, `main.py` were removed.
+- `dsp.py` — 2-mic DSP, no MQTT/env at import (see Audio Processing).
+- `eval_offline.py` — labelled WAV folder → same windows/DSP/model/decision
+  as the receiver; Accuracy/Precision/Recall/F1/FP/FN and time per window for
+  each `DSP_MODE` (report section 3.7.3).
+- Tests: `cd api && uv run --group dev pytest` (`tests/`, synthetic signals).
 - Dependencies live in `pyproject.toml` (there is no `requirements.txt`);
-  `pandas` and `numpy` are listed but not imported
+  `scipy` is used by `dsp.py`, `pandas` is listed but not imported
 
 **Audio Processing:**
-- Resample to 8 kHz → peak-normalise → pad/trim to 2 s (16000 samples)
-  → MelSpectrogram via nnAudio (`n_fft=256, win=200, hop=80, n_mels=128`)
-  → input tensor `[1, 1, 128, ~201]`
-- Binary classification: softmax output index 0 = `yes` (emergency),
-  index 1 = `no`; `detected = "yes"` if `prob_yes > prob_no`. There is no
-  tunable threshold in the live path. `probability` is the winning class's
-  probability, not P(emergency).
-- There is **no** Whisper / keyword fallback and **no** beamforming
-  (Delay-and-Sum, coherence post-filter, MVDR) anywhere in the code
+- Receiver: split L/R → `dsp.py` per window: Butterworth HPF (order 2, 100 Hz,
+  state kept across windows) → AGC (one gain per window for both mics, ≤ 4x)
+  → energy VAD (≥ 6 dB over the noise floor for ≥ 10 % of the window; no speech
+  = model not called, counts as P = 0) → GCC-PHAT delay (±3 samples, 1/16
+  resolution) → `DSP_MODE`: `mono` (left mic only, baseline), `das_pf`
+  (Delay-and-Sum + Zelinski coherence post-filter, STFT 256/128 Hann,
+  Gmin 0.1, λ 0.95; default) or `mvdr` (steering [1,1] after alignment, noise
+  covariance from non-speech frames, diagonal loading). Output is mono 8 kHz.
+  Each window logs per-stage timings in ms (`[DSP] …`, for AR-04).
+- `app.py` (unchanged log-Mel): resample to 8 kHz if needed → peak-normalise →
+  pad/trim to 2 s (16000 samples) → MelSpectrogram via nnAudio
+  (`n_fft=256, win=200, hop=80, n_mels=128`) → input tensor `[1, 1, 128, ~201]`
+- Softmax index 0 = `yes` (emergency). `run_kws_inference()` returns
+  `prob_yes`; the live path alerts when the mean `prob_yes` of the last
+  `DECISION_WINDOWS` windows is above `DECISION_THRESHOLD`. `/need-help` still
+  answers per file with `detected = prob_yes > prob_no`.
+- There is **no** Whisper / keyword fallback.
 
 ### 4. ESP32 Firmware (`firmwareV2/`)
 
@@ -400,9 +424,9 @@ Never put credentials back into `main.c`.
 | | `firmwareV2/` |
 |---|---|
 | Mics | 2 (stereo L/R on one I2S bus, `I2S_CHANNEL_FMT_RIGHT_LEFT`, sample-synced) |
-| Direction finding | TDOA via cross-correlation + parabolic interpolation |
-| Extra MQTT topic | `voice/angle/{MAC}` (nothing subscribes to it) |
-| Payload | mixed down to mono `(L+R)/2`, 1024 samples = 2048 bytes |
+| Payload | both channels, int16 LE interleaved `L,R`, 1024 frames = 4096 bytes (`AUDIO_PAYLOAD_BYTES`) |
+| On-board DSP | none — no mixdown, no TDOA, no `voice/angle` topic (all removed); the server does the DSP |
+| MQTT out buffer | `.buffer.out_size = MQTT_OUT_BUFFER_SIZE` (4096 + 128) so a message is one transport write |
 
 **Hardware:** ESP32 DevKit V1 + 2x INMP441 MEMS microphones (I2S)
 
@@ -416,12 +440,11 @@ Never put credentials back into `main.c`.
 - 16-bit PCM (reads 32-bit I2S, right-shifts to 16-bit)
 - Continuous streaming, no VAD or clip boundaries
 
-**TDOA tuning:**
-- `MIC_DISTANCE_M` defaults to `0.10f` — **set this to the real installed spacing**
-- `TDOA_MAX_LAG_SAMPLES` is derived at compile time from `MIC_DISTANCE_M`,
-  `SPEED_OF_SOUND_MPS` and `I2S_SAMPLE_RATE` (ceil + 1)
-- `TDOA_MIN_ENERGY` gates the angle publish: quiet chunks still send audio but
-  no `voice/angle` message. Tune it on site.
+**L/R order:** `pcm[2i]` is assumed to be the mic with L/R tied to GND. Check
+it on the real board (see `api/README.md`, "วิธีทดสอบกับบอร์ดจริง"); if it is
+swapped, swap the `raw_buf` indices in `audio_record_task()`.
+Mic spacing for the server-side GCC-PHAT search is `DSP_GCC_MAX_LAG`
+(default 3 samples ≈ 10 cm at 8 kHz).
 
 **Network:**
 - Soft-AP SSID `Smartvoice-XXXXXX` (last 3 MAC bytes), password derived from
@@ -444,13 +467,16 @@ Never put credentials back into `main.c`.
 ## Phase 3 Status
 
 **Hardware / AI (อัง):**
-- ✅ Dual-mic TDOA direction finding in `firmwareV2`
-- ⬜ Consume `voice/angle/{MAC}` anywhere downstream (published, never read)
+- ✅ Firmware streams both mics (no mixdown); TDOA and `voice/angle` removed
+- ✅ Server-side 2-mic DSP (`api/dsp.py`): HPF, AGC, VAD, GCC-PHAT, DAS+PF, MVDR
+- ✅ Sliding windows + averaged decision + cooldown; `api/eval_offline.py`
+- ⬜ Check L/R order and run the 1–5 m experiment on the real board
 
 **Backend (กิต):**
 - ✅ `PUT /api/patients/:id` with ownership check
 - ⬜ `mic_levels` — **not implemented anywhere in `backend/`**, and nothing
-  computes per-mic levels (firmware only publishes the mono mix). The frontend
+  computes per-mic levels (both channels now reach `api/`, so they could be
+  computed there). The frontend
   diagnostics page is built and waiting for it. Needs a
   `MicLevels []float64 \`json:"mic_levels"\`` on `models.DetectionLog`, populated
   upstream and surfaced on `GET /api/alerts/history`.
@@ -508,14 +534,15 @@ flows. (Redis is already required as a cache; the queue part does not exist.)
   (it is a soft-delete join model)
 
 ### Audio Handling
-- The pipeline runs at **8kHz**, mono, 16-bit PCM
+- The pipeline runs at **8kHz**, 16-bit PCM: **2 channels** from the board to
+  `api/`, **mono** after `dsp.py` (what the model hears and what Go stores)
   (firmware `I2S_SAMPLE_RATE = 8000`, `api/app.py` `SAMPLE_RATE = 8000`)
-- `api/mqtt_audio_receiver.py` `SAMPLE_RATE` (env, default **8000**) is the
-  value that matters: it sets the window size (`SAMPLE_RATE*4` bytes ≈ 2 s) and
-  the WAV header rate. It must equal the firmware's `I2S_SAMPLE_RATE`; setting
-  it to 16000 makes windows ~4 s long and labelled 16 kHz, so the model hears
-  audio at 2x speed. Confirm with อัง which rate the shipped model was trained at before changing
-  the model side.
+- `api/mqtt_audio_receiver.py` `SAMPLE_RATE` (env, default **8000**) must equal
+  the firmware's `I2S_SAMPLE_RATE`: it sets the window (16000 frames × 4 bytes
+  = 64000 bytes ≈ 2 s) and the WAV header rate. Confirm with อัง which rate the
+  shipped model was trained at before changing the model side.
+- Old mono firmware (2048-byte payloads) also divides by 4, so the receiver
+  cannot tell it apart: reflash every board before deploying this receiver.
 - WAV format is preferred for frontend playback
 - Python AI expects `multipart/form-data` with field name `sound`
 - Python → Go uses field name `audio` plus `device_mac`, `event_type`, `confidence`
@@ -523,8 +550,8 @@ flows. (Redis is already required as a cache; the queue part does not exist.)
 ### ESP32 Development
 - Build system: ESP-IDF **5.5.2** (`sdkconfig`), legacy `driver/i2s.h` API
   (NOT Arduino framework)
-- MQTT topics: `voice/audio/{MAC}`, `voice/angle/{MAC}`, `device/status/{MAC}`
-  (MAC as `AA:BB:CC:DD:EE:FF`, uppercase)
+- MQTT topics: `voice/audio/{MAC}`, `device/status/{MAC}`
+  (MAC as `AA:BB:CC:DD:EE:FF`, uppercase); `voice/angle/{MAC}` no longer exists
 - LED patterns: Red (WiFi connected), Green (recording), SoftAP LED on GPIO 16
 
 ---
