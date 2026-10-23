@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 #include <string.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -107,34 +106,20 @@ static int s_retry_num = 0;
 
 char mqtt_topic_dynamic[128] = "voice/audio/";
 char status_topic_dynamic[128] = "device/status/";
-char angle_topic_dynamic[128] = "voice/angle/";
 char device_mac_str[18] = {0};
 char mqtt_broker_uri_dynamic[128] = "wss://mqtt.wattanapong.com:443/mqtt";
 char ap_ssid_dynamic[32] = {0};
 char ap_password_dynamic[64] = {0};
 
-#define AUDIO_CHUNK_SAMPLES 1024    
-#define I2S_DMA_BUF_LEN     1024   
+#define AUDIO_CHUNK_SAMPLES 1024    // samples ต่อช่องต่อ 1 message (128 ms ที่ 8 kHz)
+#define I2S_DMA_BUF_LEN     1024
 
-// ==========================================
-// 🎯 TDOA (Time Difference of Arrival) config
-// ==========================================
-#define MIC_DISTANCE_M       0.10f   // ระยะห่างไมค์ซ้าย-ขวา (เมตร) แก้เป็นระยะจริงที่ติดตั้ง
-#define SPEED_OF_SOUND_MPS   343.0f  // ความเร็วเสียงในอากาศ (m/s)
-// ผลต่างเวลาสูงสุดที่เป็นไปได้ (sample) = ceil(MIC_DISTANCE_M / SPEED_OF_SOUND_MPS * I2S_SAMPLE_RATE) + เผื่อ 1
-// คำนวณตอน compile จากค่าด้านบน แก้ MIC_DISTANCE_M แล้วค่านี้ตามเอง (0.10 m @ 8kHz -> ceil(2.33)+1 = 4)
-#define TDOA_MAX_DELAY_SAMPLES_F  (MIC_DISTANCE_M * (float)I2S_SAMPLE_RATE / SPEED_OF_SOUND_MPS)
-#define TDOA_MAX_LAG_SAMPLES      ((int)TDOA_MAX_DELAY_SAMPLES_F + \
-                                   (((float)(int)TDOA_MAX_DELAY_SAMPLES_F < TDOA_MAX_DELAY_SAMPLES_F) ? 1 : 0) + 1)
-_Static_assert(TDOA_MAX_LAG_SAMPLES >= 1 && 2 * TDOA_MAX_LAG_SAMPLES < AUDIO_CHUNK_SAMPLES,
-               "TDOA_MAX_LAG_SAMPLES out of range: check MIC_DISTANCE_M / I2S_SAMPLE_RATE");
-// 🔇 Energy gate: ถ้าพลังงานเสียง (variance ต่อ sample, หน่วย LSB^2 ของ sample 16-bit) ของช่อง L หรือ R
-// ต่ำกว่าค่านี้ จะไม่คำนวณ/ไม่ส่งมุม (ช่วงเงียบ correlation ไม่มีความหมาย และเคยส่ง -90.0 ทุก chunk)
-// 100 ≈ RMS 10 LSB ≈ -70 dBFS (เหนือ noise floor ของ INMP441 แต่ต่ำกว่าเสียงพูดปกติ) ปรับตามหน้างานจริงได้
-#define TDOA_MIN_ENERGY      100.0f
-#ifndef M_PI
-#define M_PI 3.14159265358979323846f
-#endif
+// 🎤🎤 payload ของ voice/audio/{MAC}: PCM 16-bit LE สลับช่อง L,R,L,R,... (2 ช่อง ไม่ mixdown)
+#define AUDIO_CHANNELS       2
+#define AUDIO_PAYLOAD_BYTES  (AUDIO_CHUNK_SAMPLES * AUDIO_CHANNELS * sizeof(int16_t))   // 4096 byte
+// 📦 out buffer ของ esp-mqtt: ค่า default (1024) เล็กกว่า payload ทำให้ 1 message ถูกเขียนลง transport 5 ท่อน
+// (= 5 WebSocket frame / TLS record) ตั้งให้พอทั้ง message ในครั้งเดียว + เผื่อ fixed header และชื่อ topic
+#define MQTT_OUT_BUFFER_SIZE (AUDIO_PAYLOAD_BYTES + 128)
 
 static esp_mqtt_client_handle_t mqtt_client = NULL;
 // 🔒 ป้องกัน audio_record_task() publish ด้วย handle ที่ restart_mqtt_client() กำลัง destroy
@@ -349,8 +334,11 @@ void restart_mqtt_client(void) {
                 .topic = status_topic_dynamic, 
                 .msg = "offline", 
                 .qos = 1, 
-                .retain = 1 
-            } 
+                .retain = 1
+            }
+        },
+        .buffer = {
+            .out_size = MQTT_OUT_BUFFER_SIZE,   // ขาออกเท่านั้น ขาเข้าใช้ default (ไม่มี subscribe)
         },
     };
 
@@ -617,69 +605,16 @@ void init_i2s_audio() {
     ESP_ERROR_CHECK(i2s_set_pin(I2S_PORT, &pin_config));
 }
 
-// ==========================================
-// 🎯 TDOA: หาผลต่างเวลา (τ) ระหว่างไมค์ซ้าย-ขวา ด้วย cross-correlation ช่วงแคบ
-// (แคบเพราะระยะไมค์ใกล้กัน ผลต่างเวลาสูงสุดมีแค่ไม่กี่ sample เท่านั้น เลยเบาเครื่องมาก
-//  ประมาณ (2*TDOA_MAX_LAG_SAMPLES+1) * n การคูณ-บวก ต่อ 1 ก้อนเสียง)
-// ==========================================
-static float compute_tdoa_seconds(const int16_t *left, const int16_t *right, int n) {
-    int best_lag = 0;
-    float best_score = -1e18f;
-    float corr_at[2 * TDOA_MAX_LAG_SAMPLES + 1];
-
-    for (int lag = -TDOA_MAX_LAG_SAMPLES; lag <= TDOA_MAX_LAG_SAMPLES; lag++) {
-        int64_t sum = 0;
-        int start = (lag >= 0) ? lag : 0;
-        int end   = (lag >= 0) ? n : n + lag;
-        for (int i = start; i < end; i++) {
-            sum += (int32_t)left[i] * (int32_t)right[i - lag];
-        }
-        float score = (float)sum;
-        corr_at[lag + TDOA_MAX_LAG_SAMPLES] = score;
-        if (score > best_score) {
-            best_score = score;
-            best_lag = lag;
-        }
-    }
-
-    // 🌟 Parabolic interpolation รอบจุดพีค เพื่อความละเอียดระดับ sub-sample
-    // (ไม่งั้นมุมจะกระโดดเป็นขั้นๆ หยาบมาก เพราะมี lag ให้เลือกแค่ไม่กี่ค่า)
-    float frac = 0.0f;
-    if (best_lag > -TDOA_MAX_LAG_SAMPLES && best_lag < TDOA_MAX_LAG_SAMPLES) {
-        float c_minus = corr_at[best_lag - 1 + TDOA_MAX_LAG_SAMPLES];
-        float c_0     = corr_at[best_lag     + TDOA_MAX_LAG_SAMPLES];
-        float c_plus  = corr_at[best_lag + 1 + TDOA_MAX_LAG_SAMPLES];
-        float denom = (c_minus - 2.0f * c_0 + c_plus);
-        if (fabsf(denom) > 1e-6f) {
-            frac = 0.5f * (c_minus - c_plus) / denom;
-        }
-    }
-
-    float lag_samples = (float)best_lag + frac;
-    return lag_samples / (float)I2S_SAMPLE_RATE;  // τ หน่วยวินาที
-}
-
-// แปลง τ (วินาที) เป็นมุมทิศทาง (องศา) : 0 = ตรงหน้า (broadside), ค่าบวก = เอียงไปทางขวา, ค่าลบ = เอียงไปทางซ้าย
-// ⚠️ เครื่องหมาย (+/-) ขึ้นกับลำดับช่อง L/R จริงตอนต่อสาย ทดสอบแล้วถ้ากลับด้าน ใส่ - นำหน้า asinf() ได้เลย
-static float tdoa_to_angle_deg(float tau_seconds) {
-    float ratio = (SPEED_OF_SOUND_MPS * tau_seconds) / MIC_DISTANCE_M;
-    if (ratio > 1.0f)  ratio = 1.0f;
-    if (ratio < -1.0f) ratio = -1.0f;
-    return asinf(ratio) * 180.0f / (float)M_PI;
-}
-
 void audio_record_task(void *pvParameters) {
     size_t bytes_read = 0;
 
-    // 🎤🎤 raw_buf ตอนนี้เก็บข้อมูล stereo แบบ interleave (L,R,L,R,...)
-    // เลยต้องอ่านทีละ 2 เท่าของจำนวน sample ต่อช่องที่ต้องการ
-    int16_t *chunk_buf  = (int16_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int16_t));   // มิกซ์แล้วเหลือช่องเดียว (mono) ขนาดเท่าเดิม ไม่เพิ่ม bandwidth
-    int16_t *left_buf   = (int16_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int16_t));
-    int16_t *right_buf  = (int16_t *)malloc(AUDIO_CHUNK_SAMPLES * sizeof(int16_t));
-    int32_t *raw_buf    = (int32_t *)malloc(AUDIO_CHUNK_SAMPLES * 2 * sizeof(int32_t));
+    // 🎤🎤 raw_buf เก็บข้อมูล stereo แบบ interleave (L,R,L,R,...) 32-bit ตามบัส I2S
+    // pcm_buf คือ payload ที่ส่งออก: ลำดับช่องเหมือนเดิม แต่ลดเหลือ 16-bit
+    int16_t *pcm_buf = (int16_t *)malloc(AUDIO_PAYLOAD_BYTES);
+    int32_t *raw_buf = (int32_t *)malloc(AUDIO_CHUNK_SAMPLES * AUDIO_CHANNELS * sizeof(int32_t));
 
-    if (!chunk_buf || !left_buf || !right_buf || !raw_buf) {
-        free(chunk_buf); free(left_buf); free(right_buf); free(raw_buf);
+    if (!pcm_buf || !raw_buf) {
+        free(pcm_buf); free(raw_buf);
         vTaskDelete(NULL); return;
     }
 
@@ -688,44 +623,16 @@ void audio_record_task(void *pvParameters) {
 
     while (1) {
         // 1. ดึงเสียงจากไมค์ 2 ตัว (ถ้าไมค์ไม่มีข้อมูล CPU จะหยุดรอตรงนี้ ไม่กินโหลด)
-        esp_err_t ret = i2s_read(I2S_PORT, raw_buf, AUDIO_CHUNK_SAMPLES * 2 * sizeof(int32_t), &bytes_read, portMAX_DELAY);
+        esp_err_t ret = i2s_read(I2S_PORT, raw_buf, AUDIO_CHUNK_SAMPLES * AUDIO_CHANNELS * sizeof(int32_t), &bytes_read, portMAX_DELAY);
 
         if (ret == ESP_OK && bytes_read > 0 && mqtt_connected) {
-            int num_frames = (int)(bytes_read / (2 * sizeof(int32_t)));   // จำนวน sample ต่อช่อง (L หรือ R)
+            int num_frames = (int)(bytes_read / (AUDIO_CHANNELS * sizeof(int32_t)));   // จำนวน sample ต่อช่อง (L หรือ R)
 
-            // 2. แยกช่อง L/R ออกจากกัน แล้วมิกซ์รวมเป็น mono ไปในตัวเลย
-            // ⚠️ ถ้าเทียบกับของจริงแล้ว L/R สลับกัน ให้สลับ index [2*i] กับ [2*i+1] ตรงนี้
-            int64_t sum_l = 0, sum_r = 0, sq_l = 0, sq_r = 0;   // สำหรับ energy gate
+            // 2. แปลง 32-bit -> 16-bit ทีละช่อง คงลำดับสลับช่อง L,R ไว้ (ไม่ mixdown — server แยกช่องเอง)
+            // ⚠️ ถ้าเทียบกับของจริงแล้ว L/R สลับกัน ให้สลับ raw_buf[2 * i] กับ raw_buf[2 * i + 1] ตรงนี้
             for (int i = 0; i < num_frames; i++) {
-                int16_t l = (int16_t)(raw_buf[2 * i]     >> 16);
-                int16_t r = (int16_t)(raw_buf[2 * i + 1] >> 16);
-                left_buf[i]  = l;
-                right_buf[i] = r;
-                chunk_buf[i] = (int16_t)(((int32_t)l + (int32_t)r) / 2);   // มิกซ์ดาวน์เป็นเสียงเดียว
-                sum_l += l; sq_l += (int32_t)l * l;
-                sum_r += r; sq_r += (int32_t)r * r;
-            }
-
-            // 3. คำนวณทิศทางเสียงจากผลต่างเวลา (TDOA) — คำนวณจาก L/R ก่อนที่จะถูกมิกซ์ทิ้ง
-            // 🔇 ข้ามถ้าช่องใดช่องหนึ่งเงียบเกินไป (variance < TDOA_MIN_ENERGY) หรือ chunk สั้นกว่าช่วง lag
-            bool angle_valid = false;
-            float angle_deg = 0.0f;
-            if (num_frames > 2 * TDOA_MAX_LAG_SAMPLES) {
-                float n = (float)num_frames;
-                float mean_l = (float)sum_l / n, mean_r = (float)sum_r / n;
-                float energy_l = (float)sq_l / n - mean_l * mean_l;
-                float energy_r = (float)sq_r / n - mean_r * mean_r;
-                if (energy_l >= TDOA_MIN_ENERGY && energy_r >= TDOA_MIN_ENERGY) {
-                    float tau = compute_tdoa_seconds(left_buf, right_buf, num_frames);
-                    angle_deg = tdoa_to_angle_deg(tau);
-                    angle_valid = true;
-                }
-            }
-
-            char angle_payload[16];
-            int angle_len = 0;
-            if (angle_valid) {
-                angle_len = snprintf(angle_payload, sizeof(angle_payload), "%.1f", angle_deg);
+                pcm_buf[2 * i]     = (int16_t)(raw_buf[2 * i]     >> 16);   // L
+                pcm_buf[2 * i + 1] = (int16_t)(raw_buf[2 * i + 1] >> 16);   // R
             }
 
             chunk_seq++;
@@ -735,16 +642,12 @@ void audio_record_task(void *pvParameters) {
             // 🔒 publish ภายใต้ mutex เดียวกับ restart_mqtt_client() และเช็ก handle/สถานะซ้ำหลังได้ lock
             xSemaphoreTake(s_mqtt_mutex, portMAX_DELAY);
             if (mqtt_client != NULL && mqtt_connected) {
-                // 🌟 4. ส่งเสียง (mono เท่านั้น ขนาดเท่าเดิมกับตอนไมค์เดียว) และเช็กว่า "ท่อตัน" หรือไม่?
-                int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic_dynamic, (const char *)chunk_buf, num_frames * sizeof(int16_t), 0, 0);
+                // 🌟 3. ส่งเสียง 2 ช่อง (num_frames * 2 ช่อง * 2 byte = 4096 byte ปกติ) และเช็กว่า "ท่อตัน" หรือไม่?
+                int msg_id = esp_mqtt_client_publish(mqtt_client, mqtt_topic_dynamic, (const char *)pcm_buf,
+                                                     num_frames * AUDIO_CHANNELS * sizeof(int16_t), 0, 0);
                 network_busy = (msg_id == -1);
 
-                // 🌟 5. ส่งมุมทิศทางแยก topic ต่างหาก (payload เล็กมาก ไม่กระทบ bandwidth) เฉพาะ chunk ที่มีเสียงพอ
-                if (angle_valid && angle_len > 0 && angle_len < (int)sizeof(angle_payload)) {
-                    esp_mqtt_client_publish(mqtt_client, angle_topic_dynamic, angle_payload, angle_len, 0, 0);
-                }
-
-                // 🌟 6. เปลี่ยน QoS จาก 1 เป็น 0 เพื่อไม่ให้มันบล็อกการสตรีมเสียง!
+                // 🌟 4. เปลี่ยน QoS จาก 1 เป็น 0 เพื่อไม่ให้มันบล็อกการสตรีมเสียง!
                 if (send_status) {
                     esp_mqtt_client_publish(mqtt_client, status_topic_dynamic, "online", 6, 0, 1);
                 }
@@ -762,12 +665,12 @@ void audio_record_task(void *pvParameters) {
                 set_record_led(led_state ? 1 : 0);
             }
             
-            // 🌟 7. ให้ CPU ถอนหายใจ 1 Tick เผื่อให้ Task อื่นได้แทรกมาทำงาน (รวมถึง MQTT)
+            // 🌟 5. ให้ CPU ถอนหายใจ 1 Tick เผื่อให้ Task อื่นได้แทรกมาทำงาน (รวมถึง MQTT)
             vTaskDelay(1);
             
         } else {
             set_record_led(0);
-            // 🌟 8. กันเหนียว: ถ้าไม่ได้ต่อเน็ต หรือ i2s พัง ต้องหน่วงเวลาไว้ด้วย
+            // 🌟 6. กันเหนียว: ถ้าไม่ได้ต่อเน็ต หรือ i2s พัง ต้องหน่วงเวลาไว้ด้วย
             // ไม่งั้นมันจะวิ่ง while(1) แบบ 100% CPU จนบอร์ดค้าง
             vTaskDelay(pdMS_TO_TICKS(50));
         }
@@ -915,11 +818,9 @@ void app_main(void) {
 
     snprintf(mqtt_topic_dynamic, sizeof(mqtt_topic_dynamic), "voice/audio/%s", mac_str);
     snprintf(status_topic_dynamic, sizeof(status_topic_dynamic), "device/status/%s", mac_str);
-    snprintf(angle_topic_dynamic, sizeof(angle_topic_dynamic), "voice/angle/%s", mac_str);
-    
+
     ESP_LOGI(TAG, "🎯 อุปกรณ์นี้มี MAC: %s", mac_str);
-    ESP_LOGI(TAG, "🎯 พ่นเสียงไปที่ Topic: %s", mqtt_topic_dynamic);
-    ESP_LOGI(TAG, "🎯 พ่นมุมทิศทางไปที่ Topic: %s", angle_topic_dynamic);
+    ESP_LOGI(TAG, "🎯 พ่นเสียง 2 ช่อง (L,R สลับกัน) ไปที่ Topic: %s", mqtt_topic_dynamic);
     
     load_mqtt_uri_from_nvs();
 
