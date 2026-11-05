@@ -3,7 +3,18 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import AuthSplitCard, { AUTH_SUBMIT_CLASS } from "@/components/AuthSplitCard";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+
+// ข้อความของการ์ด — ใช้ทั้งตอนโหลดหน้า (Suspense fallback) และตอนตรวจลิงก์เสร็จ
+const VERIFY_CARD = {
+  title: "ยืนยันอีเมล",
+  subtitle: "ตรวจสอบลิงก์ยืนยันที่ส่งไปทางอีเมล เพื่อเปิดใช้งานบัญชีของคุณ",
+  panelTitle: "ยินดีต้อนรับ",
+  panelText: "ยืนยันอีเมลแล้วเข้าสู่ระบบ เพื่อเริ่มเฝ้าระวังคนที่คุณรักได้เลย",
+};
+const VERIFY_STEPS = ["สมัครสมาชิก", "เปิดลิงก์ยืนยันในอีเมล", "เข้าสู่ระบบ"];
+
 function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
@@ -54,70 +65,73 @@ function VerifyEmailContent() {
   }, [token]);
 
   return (
-    <div className="text-center">
-      {/* ไอคอนแสดงสถานะ */}
-      <div className="mb-6 flex justify-center">
-        {status === "loading" && (
-          <div className="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-        )}
+    <AuthSplitCard
+      {...VERIFY_CARD}
+      steps={VERIFY_STEPS}
+      activeStep={status === "success" ? 3 : 2}
+    >
+      <div className="text-center" role="status" aria-live="polite">
+        {/* ไอคอนแสดงสถานะ */}
+        <div className="mb-5 flex justify-center">
+          {status === "loading" && (
+            <div className="w-12 h-12 rounded-full border-4 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin" />
+          )}
+          {status === "success" && (
+            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[var(--tb-success-tint)] text-[var(--tb-success-text)]">
+              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 6 9 17l-5-5" />
+              </svg>
+            </div>
+          )}
+          {status === "error" && (
+            <div className="w-16 h-16 rounded-full flex items-center justify-center bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)]">
+              <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </div>
+          )}
+        </div>
+
+        <h3
+          className={`text-lg font-bold mb-1 ${
+            status === "success"
+              ? "text-[var(--tb-success-text)]"
+              : status === "error"
+                ? "text-[var(--tb-danger-text)]"
+                : "text-[var(--tb-text)]"
+          }`}
+        >
+          {status === "loading"
+            ? "กำลังตรวจสอบ..."
+            : status === "success"
+              ? "สำเร็จ!"
+              : "เกิดข้อผิดพลาด"}
+        </h3>
+        <p className="text-sm text-[var(--tb-muted)] mb-6 leading-relaxed">{message}</p>
+
+        {/* ปุ่มหลักเฉพาะตอนยืนยันสำเร็จ — ตอนผิดพลาดใช้ลิงก์กลับท้ายการ์ดของ AuthSplitCard อยู่แล้ว */}
         {status === "success" && (
-          <div className="w-20 h-20 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center text-4xl shadow-sm">
-            <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M20 6 9 17l-5-5" />
-            </svg>
-          </div>
-        )}
-        {status === "error" && (
-          <div className="w-20 h-20 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center text-4xl shadow-sm">
-            <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M18 6 6 18" />
-              <path d="m6 6 12 12" />
-            </svg>
-          </div>
+          <Link href="/login" className={`${AUTH_SUBMIT_CLASS} focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]`}>
+            เข้าสู่ระบบ
+          </Link>
         )}
       </div>
-
-      <h2 className="text-2xl font-bold neu-text mb-2">
-        {status === "loading"
-          ? "กำลังตรวจสอบ..."
-          : status === "success"
-            ? "สำเร็จ!"
-            : "เกิดข้อผิดพลาด"}
-      </h2>
-      <p className="neu-text-muted mb-8">{message}</p>
-
-      {/* ปุ่มกลับไปหน้าล็อกอิน */}
-      {status !== "loading" && (
-        <Link
-          href="/login"
-          className="inline-flex justify-center w-full px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl transition-colors shadow-sm"
-        >
-          กลับไปหน้าเข้าสู่ระบบ
-        </Link>
-      )}
-    </div>
+    </AuthSplitCard>
   );
 }
 
 export default function VerifyPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
-      <div className="neu-card max-w-md w-full p-8">
-        <div className="text-center mb-8">
-          <h1 className="text-xl font-black text-indigo-600 uppercase tracking-wider">
-            Emergency Voice Rescuer
-          </h1>
-        </div>
-
-        {/* 🟢 Next.js App Router บังคับให้ใช้ Suspense ครอบเวลาดึงค่าจาก URL */}
-        <Suspense
-          fallback={
-            <div className="text-center neu-text-muted">กำลังโหลด...</div>
-          }
-        >
-          <VerifyEmailContent />
-        </Suspense>
-      </div>
-    </div>
+    // Next.js App Router บังคับให้ใช้ Suspense ครอบเวลาดึงค่าจาก URL
+    <Suspense
+      fallback={
+        <AuthSplitCard {...VERIFY_CARD} steps={VERIFY_STEPS} activeStep={2}>
+          <div className="text-center text-sm text-[var(--tb-muted)]">กำลังโหลด...</div>
+        </AuthSplitCard>
+      }
+    >
+      <VerifyEmailContent />
+    </Suspense>
   );
 }

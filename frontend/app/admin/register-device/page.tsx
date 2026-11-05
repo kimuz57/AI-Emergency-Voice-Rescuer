@@ -12,7 +12,7 @@ const getAppUrl = () =>
   process.env.NEXT_PUBLIC_FRONTEND_URL ||
   (typeof window !== "undefined" ? window.location.origin : "https://kws.wattanapong.com");
 // ============================================================
-// 🔲 TAB 1: QR Code Generator Component
+// TAB 1: QR Code Generator Component
 // ============================================================
 function QRGeneratorTab() {
   const [macInput, setMacInput] = useState("");
@@ -72,14 +72,18 @@ function QRGeneratorTab() {
 
   const handlePrint = () => {
     if (!qrDataUrl) return;
-    const label = deviceLabel || macInput;
+    // ชื่อที่แอดมินพิมพ์ถูกเขียนลง HTML ของหน้าต่างพิมพ์ — escape ก่อน
+    const esc = (v: string) =>
+      v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const label = esc(deviceLabel || macInput);
+    const mac = esc(macInput);
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
       <head>
-        <title>QR Code - ${macInput}</title>
+        <title>QR Code - ${mac}</title>
         <style>
           body { font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background: white; }
           .card { text-align: center; padding: 24px; border: 2px solid #e2e8f0; border-radius: 16px; display: inline-block; }
@@ -92,8 +96,8 @@ function QRGeneratorTab() {
       <body>
         <div class="card">
           <img src="${qrDataUrl}" alt="QR Code" />
-          <div class="mac">${macInput}</div>
-          ${label !== macInput ? `<div class="label">${label}</div>` : ""}
+          <div class="mac">${mac}</div>
+          ${label !== mac ? `<div class="label">${label}</div>` : ""}
         </div>
         <script>window.onload = () => { window.print(); window.close(); }<\/script>
       </body>
@@ -105,181 +109,118 @@ function QRGeneratorTab() {
   return (
     <div className="flex flex-col gap-6">
       {/* Input Section */}
-      <div className="neu-card p-6 md:p-8 relative overflow-hidden">
-        <h2 className="text-xl font-bold neu-text flex items-center gap-2 mb-6">
-          <span className="text-emerald-500">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5V16M4.5 4.5h3v3h-3v-3zm9 0h3v3h-3v-3zm-9 9h3v3h-3v-3z"
-              />
-            </svg>
+      <section aria-labelledby="qr-input-title" className={cardClass}>
+        <div className={cardHeaderClass}>
+          <span aria-hidden="true" className={`${headerIconClass} bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]`}>
+            <QrIcon className="w-5 h-5" />
           </span>
-          ข้อมูลอุปกรณ์
-        </h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* MAC Address Input */}
-          <div>
-            <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-              MAC Address <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={macInput}
-              onChange={handleMacChange}
-              placeholder="เช่น AA:BB:CC:DD:EE:FF"
-              maxLength={17}
-              className={`neu-input w-full px-4 py-3 outline-none transition-all text-sm font-mono uppercase tracking-widest ${
-                error
-                  ? "border-red-400 focus:ring-2 focus:ring-red-200"
-                  : isValidMAC(macInput)
-                    ? "border-emerald-400 focus:ring-2 focus:ring-emerald-200"
-                    : "border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200"
-              }`}
-            />
-            {error && (
-              <p className="text-red-500 text-xs font-semibold mt-1.5 ml-1 flex items-center gap-1">
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
-                </svg>
-                {error}
-              </p>
-            )}
-            {isValidMAC(macInput) && !error && (
-              <p className="text-emerald-600 text-xs font-semibold mt-1.5 ml-1 flex items-center gap-1">
-                <svg
-                  className="w-3.5 h-3.5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-                รูปแบบถูกต้อง
-              </p>
-            )}
-          </div>
-
-          {/* Device Label */}
-          <div>
-            <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-              ชื่อ / Label อุปกรณ์ (ไม่บังคับ)
-            </label>
-            <input
-              type="text"
-              value={deviceLabel}
-              onChange={(e) => setDeviceLabel(e.target.value)}
-              placeholder="เช่น ห้อง 101A, ไมค์หัวเตียง"
-              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm"
-            />
-          </div>
+          <h2 id="qr-input-title" className="text-base font-semibold text-[var(--tb-text)]">
+            ข้อมูลอุปกรณ์
+          </h2>
         </div>
 
-        <div className="flex justify-end mt-5">
-          <button
-            onClick={generateQR}
-            disabled={isGenerating || !macInput}
-            className="flex items-center gap-2 px-8 py-3.5 neu-btn-accent rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-emerald-500/30 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
-          >
-            {isGenerating ? (
-              <>
-                <svg
-                  className="animate-spin w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                  />
-                </svg>
-                กำลังสร้าง...
-              </>
-            ) : (
-              <>
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5V16M4.5 4.5h3v3h-3v-3zm9 0h3v3h-3v-3zm-9 9h3v3h-3v-3z"
-                  />
-                </svg>
-                สร้าง QR Code
-              </>
-            )}
-          </button>
+        <div className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+            {/* MAC Address Input */}
+            <div className="min-w-0">
+              <label htmlFor="qr-mac" className={labelClass}>
+                MAC Address{" "}
+                <span className="text-[var(--tb-danger-text)]" aria-hidden="true">*</span>
+              </label>
+              <input
+                id="qr-mac"
+                type="text"
+                value={macInput}
+                onChange={handleMacChange}
+                placeholder="เช่น AA:BB:CC:DD:EE:FF"
+                maxLength={17}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? "qr-mac-error" : isValidMAC(macInput) ? "qr-mac-ok" : undefined}
+                className={`${inputBaseClass} font-mono uppercase tracking-wider ${
+                  error
+                    ? "border-[var(--tb-danger)] focus:border-[var(--tb-danger)] focus:ring-[var(--tb-danger)]/25"
+                    : isValidMAC(macInput)
+                      ? "border-[var(--tb-success)] focus:border-[var(--tb-success)] focus:ring-[var(--tb-success)]/25"
+                      : "border-[var(--tb-border)] focus:border-[var(--tb-primary)] focus:ring-[var(--tb-primary-ring)]"
+                }`}
+              />
+              {error && (
+                <p id="qr-mac-error" className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--tb-danger-text)]">
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
+                    <path d="M12 9v4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                  {error}
+                </p>
+              )}
+              {isValidMAC(macInput) && !error && (
+                <p id="qr-mac-ok" className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-[var(--tb-success-text)]">
+                  <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                  รูปแบบถูกต้อง
+                </p>
+              )}
+            </div>
+
+            {/* Device Label */}
+            <div className="min-w-0">
+              <label htmlFor="qr-label" className={labelClass}>
+                ชื่อ / Label อุปกรณ์ (ไม่บังคับ)
+              </label>
+              <input
+                id="qr-label"
+                type="text"
+                value={deviceLabel}
+                onChange={(e) => setDeviceLabel(e.target.value)}
+                placeholder="เช่น ห้อง 101A, ไมค์หัวเตียง"
+                className={`${inputBaseClass} border-[var(--tb-border)] focus:border-[var(--tb-primary)] focus:ring-[var(--tb-primary-ring)]`}
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-5">
+            <button
+              type="button"
+              onClick={generateQR}
+              disabled={isGenerating || !macInput}
+              className={`${btnPrimary} w-full sm:w-auto`}
+            >
+              {isGenerating ? (
+                <>
+                  <span aria-hidden="true" className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  กำลังสร้าง...
+                </>
+              ) : (
+                <>
+                  <QrIcon className="w-4 h-4" />
+                  สร้าง QR Code
+                </>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* QR Code Preview */}
       {qrDataUrl && (
-        <div className="neu-card p-6 md:p-8 flex flex-col items-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <h2 className="w-full text-xl font-bold neu-text flex items-center gap-2">
-            <span className="text-purple-500">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                />
+        <section aria-labelledby="qr-preview-title" className={`${cardClass} animate-in fade-in slide-in-from-bottom-4 duration-500`}>
+          <div className={cardHeaderClass}>
+            <span aria-hidden="true" className={`${headerIconClass} bg-[var(--tb-success-tint)] text-[var(--tb-success-text)]`}>
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             </span>
-            ตัวอย่าง QR Code
-          </h2>
+            <h2 id="qr-preview-title" className="text-base font-semibold text-[var(--tb-text)]">
+              ตัวอย่าง QR Code
+            </h2>
+          </div>
 
-          <div className="relative group">
-            <div className="neu-card relative p-5">
+          <div className="flex flex-col items-center gap-5 p-5 sm:p-6">
+            {/* พื้นขาวเสมอ (แม้โหมดมืด) — รูป QR วาดสีเข้มบนพื้นขาว สแกนได้ทุกธีม */}
+            <div className="rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-white p-4 shadow-[var(--tb-shadow-xs)]">
               <img
                 src={qrDataUrl}
                 alt="QR Code"
@@ -287,70 +228,48 @@ function QRGeneratorTab() {
               />
               <canvas ref={canvasRef} className="hidden" />
             </div>
-          </div>
 
-          <div className="text-center">
-            <p className="font-mono text-xl font-bold neu-text tracking-widest">
-              {macInput}
-            </p>
-            {deviceLabel && (
-              <p className="text-sm neu-text-muted mt-1">
-                {deviceLabel}
+            <div className="text-center min-w-0 w-full">
+              <p className="font-mono text-lg sm:text-xl font-bold text-[var(--tb-text)] tracking-widest break-all">
+                {macInput}
               </p>
-            )}
-            <p className="text-xs neu-text-muted mt-2 break-all max-w-xs">
-              {getAppUrl()}/register-patient?mac={macInput}
-            </p>
-          </div>
+              {deviceLabel && (
+                <p className="mt-1 text-sm text-[var(--tb-muted)] break-words">
+                  {deviceLabel}
+                </p>
+              )}
+              <p className="mt-2 mx-auto max-w-xs text-xs text-[var(--tb-muted)] break-all">
+                {getAppUrl()}/register-patient?mac={macInput}
+              </p>
+            </div>
 
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <button
-              onClick={handleDownload}
-              className="flex items-center justify-center gap-2 px-6 py-3 neu-btn-accent rounded-xl font-bold text-sm hover:shadow-lg hover:shadow-purple-500/30 transition-all hover:-translate-y-0.5"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              ดาวน์โหลด PNG
-            </button>
-            <button
-              onClick={handlePrint}
-              className="neu-card-sm flex items-center justify-center gap-2 px-6 py-3 neu-text font-bold text-sm hover:text-emerald-600 transition-all hover:-translate-y-0.5"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"
-                />
-              </svg>
-              พิมพ์ QR Code
-            </button>
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <button type="button" onClick={handleDownload} className={`${btnPrimary} w-full sm:w-auto`}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <path d="m7 10 5 5 5-5" />
+                  <path d="M12 15V3" />
+                </svg>
+                ดาวน์โหลด PNG
+              </button>
+              <button type="button" onClick={handlePrint} className={`${btnSecondary} w-full sm:w-auto`}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                  <path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6" />
+                  <rect x="6" y="14" width="12" height="8" rx="1" />
+                </svg>
+                พิมพ์ QR Code
+              </button>
+            </div>
           </div>
-        </div>
+        </section>
       )}
     </div>
   );
 }
 
 // ============================================================
-// 🛠️ TAB 2: Register Device Form Component (REPLACED)
+// TAB 2: Register Device Form Component (REPLACED)
 // ============================================================
 function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
   const [formData, setFormData] = useState({
@@ -388,7 +307,7 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
     setIsSubmitting(true);
 
     try {
-      // 🟢 ดึง Token ด้วยวิธีเดียวกับหน้าอื่นๆ
+      // ดึง Token ด้วยวิธีเดียวกับหน้าอื่นๆ
       const getAuthToken = () => {
         if (typeof window === "undefined") return "";
         const fromStorage = localStorage.getItem("token");
@@ -399,7 +318,7 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
 
       const token = getAuthToken();
 
-      // 🛑 ยิงไปที่ API สำหรับบันทึกบอร์ดใหม่
+      // ยิงไปที่ API สำหรับบันทึกบอร์ดใหม่
       // หมายเหตุ: ต้องแน่ใจว่าฝั่ง Go มี Route รับข้อมูลนี้ (เช่น POST /api/devices)
       const res = await fetch(`${API_BASE_URL}/api/devices`, {
         method: "POST",
@@ -442,158 +361,106 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
       onSubmit={handleSubmit}
       className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500"
     >
-      <div className="neu-card p-6 md:p-8 flex flex-col gap-5 relative overflow-hidden">
-        <h2 className="text-xl font-bold neu-text flex items-center gap-2 mb-2">
-          <span className="text-purple-500">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-5 h-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-              />
-            </svg>
+      <section aria-labelledby="board-form-title" className={cardClass}>
+        <div className={cardHeaderClass}>
+          <span aria-hidden="true" className={`${headerIconClass} bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]`}>
+            <ChipIcon className="w-5 h-5" />
           </span>
-          ข้อมูลลงทะเบียนบอร์ด (ESP32)
-        </h2>
+          <h2 id="board-form-title" className="text-base font-semibold text-[var(--tb-text)]">
+            ข้อมูลลงทะเบียนบอร์ด (ESP32)
+          </h2>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* MAC Address */}
-          <div>
-            <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-              รหัสบอร์ด (MAC Address) <span className="text-red-500">*</span>
-            </label>
-            {scannedMAC ? (
-              <div className="relative">
-                <div className="dark:bg-purple-900/30 w-full px-4 py-3 rounded-xl bg-purple-50 border-2 border-purple-400 flex items-center justify-between">
-                  <span className="font-mono text-sm font-bold text-purple-700 dark:text-purple-400 tracking-widest uppercase">
+        <div className="p-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
+            {/* MAC Address */}
+            <div className="min-w-0">
+              <label
+                htmlFor={scannedMAC ? undefined : "board-mac"}
+                className={labelClass}
+              >
+                รหัสบอร์ด (MAC Address){" "}
+                <span className="text-[var(--tb-danger-text)]" aria-hidden="true">*</span>
+              </label>
+              {scannedMAC ? (
+                <div className="flex min-h-10 w-full flex-wrap items-center justify-between gap-2 rounded-[var(--tb-radius)] border border-[var(--tb-primary)]/40 bg-[var(--tb-primary-tint)] px-3 py-2">
+                  <span className="font-mono text-sm font-bold tracking-wider uppercase text-[var(--tb-primary-text)] break-all">
                     {scannedMAC}
                   </span>
-                  <span className="flex items-center gap-1 text-xs font-bold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/50 px-2 py-1 rounded-lg">
-                    <svg
-                      className="w-3 h-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2.5}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                      />
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--tb-surface)] px-2 py-0.5 text-xs font-semibold text-[var(--tb-primary-text)]">
+                    <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <rect x="3" y="11" width="18" height="11" rx="2" />
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
                     สแกนแล้ว
                   </span>
                 </div>
-              </div>
-            ) : (
+              ) : (
+                <input
+                  id="board-mac"
+                  type="text"
+                  name="macAddress"
+                  value={formData.macAddress}
+                  onChange={handleChange}
+                  required
+                  maxLength={17}
+                  placeholder="เช่น AA:BB:CC:DD:EE:FF"
+                  className={`${inputBaseClass} border-[var(--tb-border)] focus:border-[var(--tb-primary)] focus:ring-[var(--tb-primary-ring)] uppercase font-mono tracking-wider`}
+                />
+              )}
+            </div>
+
+            {/* IP Address */}
+            <div className="min-w-0">
+              <label htmlFor="board-ip" className={labelClass}>
+                IP Address (ถ้ามี)
+              </label>
               <input
+                id="board-ip"
                 type="text"
-                name="macAddress"
-                value={formData.macAddress}
+                name="ipAddress"
+                value={formData.ipAddress}
                 onChange={handleChange}
-                required
-                maxLength={17}
-                placeholder="เช่น AA:BB:CC:DD:EE:FF"
-                className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text uppercase font-mono tracking-widest"
+                placeholder="เช่น 192.168.1.10"
+                className={`${inputBaseClass} border-[var(--tb-border)] focus:border-[var(--tb-primary)] focus:ring-[var(--tb-primary-ring)] font-mono`}
               />
-            )}
+            </div>
           </div>
 
-          {/* IP Address */}
-          <div>
-            <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-              IP Address (ถ้ามี)
-            </label>
-            <input
-              type="text"
-              name="ipAddress"
-              value={formData.ipAddress}
-              onChange={handleChange}
-              placeholder="เช่น 192.168.1.10"
-              className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text font-mono"
-            />
-          </div>
-        </div>
-
-        {/* Note Information */}
-        <div className="neu-card-sm mt-4 p-4 bg-blue-50">
-          <p className="text-xs text-blue-700 dark:text-blue-400 flex items-start gap-2">
-            <svg
-              className="w-4 h-4 mt-0.5 flex-shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
+          {/* Note Information */}
+          <div className="mt-5 flex items-start gap-2.5 rounded-[var(--tb-radius)] border border-[var(--tb-primary)]/25 bg-[var(--tb-primary-tint)] p-3 sm:p-4">
+            <svg className="w-4 h-4 mt-0.5 shrink-0 text-[var(--tb-primary-text)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4" />
+              <path d="M12 8h.01" />
             </svg>
-            <span>
+            <p className="min-w-0 text-xs sm:text-sm leading-relaxed text-[var(--tb-primary-text)]">
               <strong>หมายเหตุ:</strong>{" "}
               บอร์ดที่ลงทะเบียนผ่านหน้านี้จะถูกตั้งค่า{" "}
-              <code className="font-bold">is_verified = true</code> และ{" "}
-              <code className="font-bold">is_active = false</code> โดยอัตโนมัติ
+              <code className="font-mono font-semibold">is_verified = true</code> และ{" "}
+              <code className="font-mono font-semibold">is_active = false</code> โดยอัตโนมัติ
               (รอการผูกกับผู้ป่วยเพื่อเปิดใช้งาน)
-            </span>
-          </p>
+            </p>
+          </div>
         </div>
-      </div>
+      </section>
 
       {/* Submit Button */}
-      <div className="flex justify-end pt-2">
+      <div className="flex justify-end">
         <button
           type="submit"
           disabled={isSubmitting || (!scannedMAC && !formData.macAddress)}
-          className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all hover:-translate-y-1 active:translate-y-0 disabled:opacity-60 disabled:cursor-not-allowed"
+          className={`${btnPrimary} w-full sm:w-auto h-11 px-5 text-base`}
         >
           {isSubmitting ? (
             <>
-              <svg
-                className="animate-spin w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                />
-              </svg>
+              <span aria-hidden="true" className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
               กำลังบันทึก...
             </>
           ) : (
             <>
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-                />
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
               </svg>
               ลงทะเบียนบอร์ดเข้าระบบ
             </>
@@ -605,7 +472,7 @@ function RegisterDeviceTab({ scannedMAC }: { scannedMAC: string }) {
 }
 
 // ============================================================
-// 🏠 Main Page (Tabs Controller) — wrapped in Suspense
+// Main Page (Tabs Controller) — wrapped in Suspense
 // ============================================================
 function DevicesPageContent() {
   // หน้านี้เคยไม่มีด่านตรวจสิทธิ์เลย ใครล็อกอินก็พิมพ์ URL เข้ามาได้
@@ -613,7 +480,10 @@ function DevicesPageContent() {
   const { isAdmin, isChecking } = useAdminGuard();
 
   const searchParams = useSearchParams();
-  const scannedMAC = searchParams.get("mac")?.toUpperCase() || "";
+  // ?mac= มาได้ทั้งแบบมีและไม่มี ":" (เช่น AABBCCDDEEFF จากหน้าเว็บของบอร์ด) — จัดเป็น AA:BB:CC:DD:EE:FF
+  const scannedMAC = ((searchParams.get("mac") || "").replace(/[^0-9a-fA-F]/g, "").toUpperCase().match(/.{1,2}/g) || [])
+    .slice(0, 6)
+    .join(":");
 
   // ถ้ามี ?mac= → เปิด Tab ลงทะเบียนบอร์ด, ถ้าไม่มี → เปิด Tab สร้าง QR
   const [activeTab, setActiveTab] = useState<"qr" | "register">(
@@ -622,9 +492,9 @@ function DevicesPageContent() {
 
   if (isChecking) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-3">
-        <div className="w-8 h-8 border-2 border-slate-300 border-t-indigo-600 rounded-full animate-spin" />
-        <p className="text-sm neu-text-muted">
+      <div className="max-w-5xl mx-auto px-4 py-20 flex flex-col items-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin" />
+        <p className="text-sm text-[var(--tb-muted)]">
           กำลังตรวจสอบสิทธิ์ผู้ดูแลระบบ...
         </p>
       </div>
@@ -634,113 +504,111 @@ function DevicesPageContent() {
   // ไม่ผ่านด่าน — useAdminGuard สั่ง redirect ไปแล้ว
   if (!isAdmin) return null;
 
+  const tabClass = (active: boolean) =>
+    `flex-1 min-w-0 inline-flex items-center justify-center gap-2 h-9 px-3 rounded-[calc(var(--tb-radius)-2px)] text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)] ${
+      active
+        ? "bg-[var(--tb-surface)] text-[var(--tb-primary-text)] shadow-[var(--tb-shadow-xs)] border border-[var(--tb-border)]"
+        : "text-[var(--tb-muted)] hover:text-[var(--tb-text)] border border-transparent"
+    }`;
+
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 md:p-8 font-sans overflow-hidden">
-      {/* 📦 Main Container */}
-      <div className="neu-card relative z-10 w-full max-w-4xl p-6 md:p-10">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="neu-card inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 mb-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-8 h-8 text-blue-600 dark:text-blue-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 11h4M12 16h4"
-              />
-              <circle cx="8" cy="11" r="1" fill="currentColor" stroke="none" />
-              <circle cx="8" cy="16" r="1" fill="currentColor" stroke="none" />
-            </svg>
-          </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold neu-text">
-            จัดการอุปกรณ์
-          </h1>
-          <p className="neu-text-muted mt-2">
-            สร้าง QR Code หรือลงทะเบียนบอร์ด ESP32 ใหม่เข้าระบบ
-          </p>
-        </div>
+    <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      {/* Header */}
+      <div className="mb-6 min-w-0">
+        <p className="text-xs font-semibold text-[var(--tb-muted)]">ผู้ดูแลระบบ</p>
+        <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">
+          จัดการอุปกรณ์
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
+          สร้าง QR Code หรือลงทะเบียนบอร์ด ESP32 ใหม่เข้าระบบ
+        </p>
+      </div>
 
-        {/* ===== TABS ===== */}
-        <div className="neu-inset flex gap-1 p-1.5 rounded-2xl mb-8">
-          {/* Tab: QR Code */}
-          <button
-            id="tab-qr"
-            onClick={() => setActiveTab("qr")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-              activeTab === "qr"
-                ? "neu-card-sm neu-text-accent"
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-            }`}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5V16M4.5 4.5h3v3h-3v-3zm9 0h3v3h-3v-3zm-9 9h3v3h-3v-3z"
-              />
-            </svg>
-            สร้าง QR Code
-          </button>
+      {/* ===== TABS ===== */}
+      <div className="mb-6 flex w-full sm:w-fit gap-1 p-1 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface-2)]">
+        {/* Tab: QR Code */}
+        <button
+          type="button"
+          id="tab-qr"
+          onClick={() => setActiveTab("qr")}
+          aria-pressed={activeTab === "qr"}
+          className={tabClass(activeTab === "qr")}
+        >
+          <QrIcon className="w-4 h-4 shrink-0" />
+          <span className="truncate">สร้าง QR Code</span>
+        </button>
 
-          {/* Tab: ลงทะเบียนบอร์ด */}
-          <button
-            id="tab-register"
-            onClick={() => setActiveTab("register")}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-              activeTab === "register"
-                ? "neu-card-sm neu-text-accent"
-                : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
-            }`}
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"
-              />
-            </svg>
-            ลงทะเบียนบอร์ด
-            {scannedMAC && (
-              <span className="bg-emerald-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full ml-1 animate-pulse">
-                QR
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* ===== TAB CONTENT ===== */}
-        <div>
-          {activeTab === "qr" && <QRGeneratorTab />}
-          {activeTab === "register" && (
-            <RegisterDeviceTab scannedMAC={scannedMAC} />
+        {/* Tab: ลงทะเบียนบอร์ด */}
+        <button
+          type="button"
+          id="tab-register"
+          onClick={() => setActiveTab("register")}
+          aria-pressed={activeTab === "register"}
+          className={tabClass(activeTab === "register")}
+        >
+          <ChipIcon className="w-4 h-4 shrink-0" />
+          <span className="truncate">ลงทะเบียนบอร์ด</span>
+          {scannedMAC && (
+            <span className="shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-bold bg-[var(--tb-success-tint)] text-[var(--tb-success-text)] animate-pulse">
+              QR
+            </span>
           )}
-        </div>
+        </button>
+      </div>
+
+      {/* ===== TAB CONTENT ===== */}
+      <div>
+        {activeTab === "qr" && <QRGeneratorTab />}
+        {activeTab === "register" && (
+          <RegisterDeviceTab scannedMAC={scannedMAC} />
+        )}
       </div>
     </div>
+  );
+}
+
+// ============================================================
+// คลาสและไอคอนที่ใช้ซ้ำ — Tailwind + ตัวแปร --tb-* ตามแบบหน้า patients
+// ============================================================
+const cardClass =
+  "rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)]";
+const cardHeaderClass =
+  "flex items-center gap-3 px-5 py-4 border-b border-[var(--tb-border)]";
+const headerIconClass =
+  "inline-flex shrink-0 items-center justify-center w-9 h-9 rounded-[var(--tb-radius)]";
+const labelClass = "block mb-1.5 text-sm font-semibold text-[var(--tb-text)]";
+// สีขอบ/วงโฟกัสใส่แยกตามสถานะของแต่ละช่อง
+const inputBaseClass =
+  "block w-full h-10 px-3 rounded-[var(--tb-radius)] border bg-[var(--tb-surface)] text-sm text-[var(--tb-text)] placeholder:text-[var(--tb-placeholder)] shadow-[var(--tb-shadow-xs)] transition-colors focus:outline-none focus:ring-4";
+const btnSecondary =
+  "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+const btnPrimary =
+  "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] bg-[var(--tb-primary)] text-sm font-semibold text-[var(--tb-primary-contrast)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-primary-hover)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+
+function QrIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="6" height="6" rx="1" />
+      <rect x="15" y="3" width="6" height="6" rx="1" />
+      <rect x="3" y="15" width="6" height="6" rx="1" />
+      <path d="M15 15h2v2h-2z" />
+      <path d="M21 15v.01" />
+      <path d="M15 21h.01" />
+      <path d="M18 18h3v3h-3" />
+      <path d="M12 3v3" />
+      <path d="M12 9v3h3" />
+      <path d="M3 12h6" />
+    </svg>
+  );
+}
+
+function ChipIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+      <rect x="9" y="9" width="6" height="6" />
+      <path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3" />
+    </svg>
   );
 }
 
@@ -751,29 +619,9 @@ export default function DeviceRegistrationPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <svg
-              className="animate-spin w-10 h-10 text-purple-500"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-              />
-            </svg>
-            <p className="neu-text-muted font-medium">กำลังโหลด...</p>
-          </div>
+        <div className="max-w-5xl mx-auto px-4 py-20 flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin" />
+          <p className="text-sm text-[var(--tb-muted)]">กำลังโหลด...</p>
         </div>
       }
     >

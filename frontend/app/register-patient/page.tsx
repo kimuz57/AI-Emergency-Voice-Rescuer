@@ -79,7 +79,7 @@ function RegistrationFormContent() {
           gender: formData.gender,
           roomNumber: formData.roomNumber,
           medicalCondition: formData.medicalCondition,
-          // 💡 ไม่ต้องส่ง caregiverEmail จากฟอร์มแล้ว ให้ Backend ดึงจาก Session ของผู้ใช้ที่ล็อกอินอยู่
+          // ไม่ต้องส่ง caregiverEmail จากฟอร์มแล้ว ให้ Backend ดึงจาก Session ของผู้ใช้ที่ล็อกอินอยู่
           board_id: formData.boardId,
           deviceName: formData.deviceName,
         }),
@@ -109,237 +109,262 @@ function RegistrationFormContent() {
   };
 
   return (
-    <div className="dark:bg-slate-800 relative min-h-screen bg-slate-50 flex items-center justify-center p-4 md:p-8 font-sans overflow-hidden">
-      {/* Background Glowing Orbs */}
-      <div className="hidden absolute top-[-5%] left-[-10%] w-[500px] h-[500px] bg-blue-400 rounded-full mix-blend-multiply filter blur-[120px] opacity-40 animate-pulse pointer-events-none"></div>
-      <div
-        className="hidden absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-purple-400 rounded-full mix-blend-multiply filter blur-[100px] opacity-40 animate-pulse pointer-events-none"
-        style={{ animationDelay: "2s" }}
-      ></div>
-      <div
-        className="hidden absolute top-[40%] left-[20%] w-[300px] h-[300px] bg-emerald-300 rounded-full mix-blend-multiply filter blur-[100px] opacity-20 animate-pulse pointer-events-none"
-        style={{ animationDelay: "4s" }}
-      ></div>
+    <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      {/* หัวหน้า */}
+      <div className="mb-6 min-w-0">
+        <p className="text-xs font-semibold text-[var(--tb-muted)]">ผู้ป่วย</p>
+        <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">
+          ลงทะเบียนผู้ป่วย
+        </h1>
+        <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
+          สร้าง QR Code สำหรับบอร์ด หรือลงทะเบียนผู้ป่วยพร้อมผูกอุปกรณ์
+        </p>
+      </div>
 
-      {/* Main Container */}
-      <div className="neu-card relative z-10 w-full max-w-4xl p-8 md:p-10">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="neu-card inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 mb-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-8 h-8 text-blue-600 dark:text-blue-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ส่วนที่ 1: ข้อมูลผู้ป่วย */}
+        <section
+          aria-labelledby="section-patient"
+          className={cardClass}
+        >
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--tb-border)]">
+            <span
+              aria-hidden="true"
+              className="inline-flex shrink-0 items-center justify-center w-9 h-9 rounded-[var(--tb-radius)] bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]"
             >
-              <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
-              <path
+              <svg
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"
-              />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 11h4M12 16h4"
-              />
-              <circle cx="8" cy="11" r="1" fill="currentColor" stroke="none" />
-              <circle cx="8" cy="16" r="1" fill="currentColor" stroke="none" />
-            </svg>
+                aria-hidden="true"
+              >
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            </span>
+            <h2
+              id="section-patient"
+              className="text-base font-semibold text-[var(--tb-text)]"
+            >
+              ข้อมูลผู้ป่วย
+            </h2>
+            {scannedMAC && (
+              <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold bg-[var(--tb-success-tint)] text-[var(--tb-success-text)] animate-pulse">
+                QR
+              </span>
+            )}
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold bg-gradient-to-r from-blue-700 to-purple-600 bg-clip-text text-transparent">
-            ลงทะเบียนผู้ป่วย
-          </h1>
-          <p className="neu-text-muted mt-2">
-            สร้าง QR Code สำหรับบอร์ด หรือลงทะเบียนผู้ป่วยพร้อมผูกอุปกรณ์
-          </p>
-        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* ส่วนที่ 1: ข้อมูลผู้ป่วย */}
-          <div className="neu-card p-6 md:p-8 flex flex-col gap-5 relative overflow-hidden group transition-shadow">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-400 to-purple-500"></div>
-
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold neu-text">
-                  ข้อมูลผู้ป่วย
-                </h2>
-                {scannedMAC && (
-                  <span className="bg-emerald-500 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
-                    QR
-                  </span>
-                )}
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 p-5">
+            <div className="min-w-0">
+              <label htmlFor="patientName" className={labelClass}>
+                ชื่อ-นามสกุล
+              </label>
+              <input
+                id="patientName"
+                type="text"
+                name="patientName"
+                value={formData.patientName}
+                onChange={handleChange}
+                required
+                className={inputClass}
+              />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-                  ชื่อ-นามสกุล
+            <div className="grid grid-cols-2 gap-3 sm:gap-4 min-w-0">
+              <div className="min-w-0">
+                <label htmlFor="age" className={labelClass}>
+                  อายุ (ปี)
                 </label>
                 <input
-                  type="text"
-                  name="patientName"
-                  value={formData.patientName}
+                  id="age"
+                  type="number"
+                  name="age"
+                  value={formData.age}
                   onChange={handleChange}
-                  required
-                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
+                  className={inputClass}
                 />
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-                    อายุ (ปี)
-                  </label>
-                  <input
-                    type="number"
-                    name="age"
-                    value={formData.age}
-                    onChange={handleChange}
-                    className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-                    เพศ
-                  </label>
+              <div className="min-w-0">
+                <label htmlFor="gender" className={labelClass}>
+                  เพศ
+                </label>
+                <div className="relative">
                   <select
+                    id="gender"
                     name="gender"
                     value={formData.gender}
                     onChange={handleChange}
-                    className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text appearance-none"
+                    className={`${inputClass} appearance-none pr-9 cursor-pointer`}
                   >
                     <option value="ชาย">ชาย</option>
                     <option value="หญิง">หญิง</option>
                     <option value="อื่นๆ">อื่นๆ</option>
                   </select>
+                  <svg
+                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--tb-muted)]"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
                 </div>
               </div>
+            </div>
 
-              <div>
-                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-                  หมายเลขห้อง
-                </label>
-                <input
-                  type="text"
-                  name="roomNumber"
-                  value={formData.roomNumber}
-                  onChange={handleChange}
-                  required
-                  placeholder="เช่น 101A"
-                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
-                />
-              </div>
+            <div className="min-w-0">
+              <label htmlFor="roomNumber" className={labelClass}>
+                หมายเลขห้อง
+              </label>
+              <input
+                id="roomNumber"
+                type="text"
+                name="roomNumber"
+                value={formData.roomNumber}
+                onChange={handleChange}
+                required
+                placeholder="เช่น 101A"
+                className={inputClass}
+              />
+            </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-                  โรคประจำตัว (ถ้ามี)
-                </label>
-                <input
-                  type="text"
-                  name="medicalCondition"
-                  value={formData.medicalCondition}
-                  onChange={handleChange}
-                  placeholder="เช่น ความดัน, เบาหวาน"
-                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
-                />
-              </div>
+            <div className="md:col-span-2 min-w-0">
+              <label htmlFor="medicalCondition" className={labelClass}>
+                โรคประจำตัว (ถ้ามี)
+              </label>
+              <input
+                id="medicalCondition"
+                type="text"
+                name="medicalCondition"
+                value={formData.medicalCondition}
+                onChange={handleChange}
+                placeholder="เช่น ความดัน, เบาหวาน"
+                className={inputClass}
+              />
             </div>
           </div>
+        </section>
 
-          {/* ส่วนที่ 2: ข้อมูลอุปกรณ์ ESP32 */}
-          <div className="neu-card p-6 md:p-8 flex flex-col gap-5 relative overflow-hidden group transition-shadow">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-emerald-400 to-teal-500"></div>
-
-            <h2 className="text-xl font-bold neu-text flex items-center gap-2">
-              <span className="text-emerald-500">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-5 h-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <circle cx="12" cy="12" r="2" />
-                  <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
-                </svg>
-              </span>{" "}
-              ผูกอุปกรณ์ EVR Sensor
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-                  รหัสบอร์ด (MAC Address)
-                </label>
-                <input
-                  type="text"
-                  name="boardId"
-                  value={formData.boardId}
-                  onChange={handleChange}
-                  required
-                  placeholder="เช่น AA:BB:CC:DD:EE:FF"
-                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text uppercase font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold neu-text-muted mb-1 ml-1 uppercase tracking-wide">
-                  จุดติดตั้งอุปกรณ์
-                </label>
-                <input
-                  type="text"
-                  name="deviceName"
-                  value={formData.deviceName}
-                  onChange={handleChange}
-                  required
-                  className="neu-input w-full px-4 py-3 outline-none transition-all text-sm neu-text"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* ปุ่ม Submit */}
-          <div className="flex justify-end pt-4">
-            <button
-              type="submit"
-              className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-2xl font-bold text-lg hover:shadow-xl hover:shadow-purple-500/30 transition-all hover:-translate-y-1 active:translate-y-0"
+        {/* ส่วนที่ 2: ข้อมูลอุปกรณ์ ESP32 */}
+        <section
+          aria-labelledby="section-device"
+          className={cardClass}
+        >
+          <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--tb-border)]">
+            <span
+              aria-hidden="true"
+              className="inline-flex shrink-0 items-center justify-center w-9 h-9 rounded-[var(--tb-radius)] bg-[var(--tb-success-tint)] text-[var(--tb-success-text)]"
             >
               <svg
-                className="w-6 h-6"
+                className="w-5 h-5"
+                viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                viewBox="0 0 24 24"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"
-                ></path>
+                <circle cx="12" cy="12" r="2" />
+                <path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14" />
               </svg>
-              บันทึกข้อมูลเข้าระบบ
-            </button>
+            </span>
+            <h2
+              id="section-device"
+              className="text-base font-semibold text-[var(--tb-text)]"
+            >
+              ผูกอุปกรณ์ EVR Sensor
+            </h2>
           </div>
-        </form>
-      </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5 p-5">
+            <div className="min-w-0">
+              <label htmlFor="boardId" className={labelClass}>
+                รหัสบอร์ด (MAC Address)
+              </label>
+              <input
+                id="boardId"
+                type="text"
+                name="boardId"
+                value={formData.boardId}
+                onChange={handleChange}
+                required
+                placeholder="เช่น AA:BB:CC:DD:EE:FF"
+                className={`${inputClass} uppercase font-mono tracking-wider`}
+              />
+            </div>
+
+            <div className="min-w-0">
+              <label htmlFor="deviceName" className={labelClass}>
+                จุดติดตั้งอุปกรณ์
+              </label>
+              <input
+                id="deviceName"
+                type="text"
+                name="deviceName"
+                value={formData.deviceName}
+                onChange={handleChange}
+                required
+                className={inputClass}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* ปุ่ม Submit */}
+        <div className="flex justify-end">
+          {/* กันกดซ้ำระหว่างส่ง ไม่งั้นได้ผู้ป่วยซ้ำ 2 รายการ */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            aria-busy={isSubmitting}
+            className={`${btnPrimary} w-full sm:w-auto disabled:opacity-60 disabled:cursor-not-allowed`}
+          >
+            <svg
+              className="w-5 h-5"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            {isSubmitting ? "กำลังบันทึก..." : "บันทึกข้อมูลเข้าระบบ"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
+
+// คลาสที่ใช้ซ้ำในหน้านี้ — Tailwind + ตัวแปร --tb-* ตามแบบหน้า patients
+const cardClass =
+  "rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)]";
+const labelClass = "block mb-1.5 text-sm font-semibold text-[var(--tb-text)]";
+const inputClass =
+  "block w-full h-10 px-3 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm text-[var(--tb-text)] placeholder:text-[var(--tb-placeholder)] shadow-[var(--tb-shadow-xs)] transition-colors focus:outline-none focus:border-[var(--tb-primary)] focus:ring-4 focus:ring-[var(--tb-primary-ring)]";
+const btnPrimary =
+  "inline-flex items-center justify-center gap-2 h-11 px-5 rounded-[var(--tb-radius)] bg-[var(--tb-primary)] text-base font-semibold text-[var(--tb-primary-contrast)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
 
 export default function DeviceRegistrationPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-800 neu-text-muted">
-          กำลังโหลดข้อมูล...
+        <div className="max-w-3xl mx-auto px-4 py-20 flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin" />
+          <p className="text-sm text-[var(--tb-muted)]">กำลังโหลดข้อมูล...</p>
         </div>
       }
     >

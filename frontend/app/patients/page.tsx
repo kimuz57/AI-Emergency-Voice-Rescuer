@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import PatientFormModal from "@/components/PatientFormModal";
 import { authHeaders } from "@/lib/auth";
+import { nameInitial } from "@/lib/initials";
 
 // ปรับ Type ให้ตรงกับข้อมูลที่ใช้ใน Frontend
 type Patient = {
@@ -46,9 +47,7 @@ export default function PatientsPage() {
 
       // แปลงข้อมูลจาก Backend (GORM) ให้อยู่ในรูปแบบที่ Frontend ต้องการ
       const mappedPatients: Patient[] = data.map((p: any) => {
-        // ตัวย่อในวงกลม: ตัดคำนำหน้าชื่อออกก่อน ไม่งั้นทุกคนได้ "นา" จาก นาย/นาง
-        const firstName = (p.Name || "").replace(/^(นางสาว|นาง|นาย|ด\.ช\.|ด\.ญ\.)\s*/, "");
-        const initials = firstName ? firstName.substring(0, 1) : "ผ";
+        const initials = nameInitial(p.Name);
         // ดึง MAC Address จากอุปกรณ์ที่ผูกไว้ตัวแรก (ถ้ามี)
         // Backend ส่ง models.Patient ดิบมา ข้อมูลอุปกรณ์เลยอยู่ที่
         // DeviceAssignments[].device.mac_address ไม่ใช่ Devices[].board_id

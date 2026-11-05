@@ -114,141 +114,182 @@ export default function CalendarPage() {
   const selectedRows = byDay.get(selected) ?? [];
   const monthTotal = rows.length;
 
+  // คลาสที่ใช้ซ้ำในหน้านี้ — Tailwind + ตัวแปร --tb-* ตามแบบหน้า patients
+  const card =
+    "rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)]";
+  const btnSecondary =
+    "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+  const iconBtn =
+    "inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+
   return (
-    <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6 sm:py-8 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold neu-text">ปฏิทินเหตุการณ์</h1>
-          <p className="text-sm neu-text-muted mt-1">
+    <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      {/* ---------- หัวหน้า ---------- */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[var(--tb-muted)]">ประวัติ</p>
+          <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">ปฏิทินเหตุการณ์</h1>
+          <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
             ดูว่าเดือนไหนวันไหนมีการแจ้งเตือนบ้าง กดที่วันเพื่อดูรายการของวันนั้น
           </p>
         </div>
-        <Link href="/history" className="neu-btn px-4 py-2.5 text-sm font-medium">
+        <Link href="/history" className={`${btnSecondary} self-start sm:self-auto`}>
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="8" y1="6" x2="21" y2="6" />
+            <line x1="8" y1="12" x2="21" y2="12" />
+            <line x1="8" y1="18" x2="21" y2="18" />
+            <line x1="3" y1="6" x2="3.01" y2="6" />
+            <line x1="3" y1="12" x2="3.01" y2="12" />
+            <line x1="3" y1="18" x2="3.01" y2="18" />
+          </svg>
           ดูแบบรายการ
         </Link>
       </div>
 
-      {/* ---------- ตัวควบคุมเดือน ---------- */}
-      <div className="neu-card p-4 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => move(-1)}
-          aria-label="เดือนก่อนหน้า"
-          className="neu-icon-btn p-2.5"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-
-        <div className="text-center">
-          <p className="text-lg font-bold neu-text">
-            {TH_MONTHS[month]} {year + 543}
-          </p>
-          <p className="text-xs neu-text-muted mt-0.5">
-            {hasLoaded ? `${monthTotal} เหตุการณ์ในเดือนนี้` : "กำลังโหลด..."}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => move(1)}
-          aria-label="เดือนถัดไป"
-          className="neu-icon-btn p-2.5"
-        >
-          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
-        </button>
-      </div>
-
       {loadError && (
-        <div className="neu-inset p-4">
-          <p className="text-xs font-medium text-rose-600 dark:text-rose-400">{loadError}</p>
+        <div role="alert" className="mb-6 rounded-[var(--tb-radius-lg)] border border-[var(--tb-danger)]/25 bg-[var(--tb-danger-tint)] p-4 text-sm font-medium text-[var(--tb-danger-text)]">
+          {loadError}
         </div>
       )}
 
-      {/* ---------- ตารางปฏิทิน ---------- */}
-      <div className="neu-card p-2 sm:p-4">
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
-          {TH_DAYS.map((d) => (
-            <div key={d} className="text-center text-[11px] font-bold neu-text-muted uppercase tracking-wide py-1">
-              {d}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+        {/* ---------- ตารางปฏิทิน ---------- */}
+        <div className={card}>
+          {/* ---------- ตัวควบคุมเดือน ---------- */}
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--tb-border)]">
+            <button
+              type="button"
+              onClick={() => move(-1)}
+              aria-label="เดือนก่อนหน้า"
+              className={iconBtn}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+
+            <div className="text-center min-w-0" aria-live="polite">
+              <p className="text-base sm:text-lg font-bold text-[var(--tb-text)]">
+                {TH_MONTHS[month]} {year + 543}
+              </p>
+              <p className="text-xs font-medium text-[var(--tb-muted)] mt-0.5">
+                {hasLoaded ? `${monthTotal} เหตุการณ์ในเดือนนี้` : "กำลังโหลด..."}
+              </p>
             </div>
-          ))}
-        </div>
 
-        <div className="grid grid-cols-7 gap-1 sm:gap-2">
-          {cells.map((day, i) => {
-            if (day === null) return <div key={`pad-${i}`} />;
-
-            const key = ymd(new Date(year, month, day));
-            const count = byDay.get(key)?.length ?? 0;
-            const isToday = key === ymd(today);
-            const isSelected = key === selected;
-
-            return (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setSelected(key)}
-                aria-current={isSelected ? "date" : undefined}
-                className={`relative aspect-square rounded-xl flex flex-col items-center justify-center gap-1 text-sm transition-all ${
-                  isSelected ? "neu-inset-sm neu-text-accent font-bold" : "neu-card-sm neu-text"
-                }`}
-              >
-                <span className={isToday ? "underline underline-offset-4" : ""}>{day}</span>
-                {count > 0 && (
-                  <span
-                    className="w-1.5 h-1.5 rounded-full bg-rose-500"
-                    title={`${count} เหตุการณ์`}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ---------- รายการของวันที่เลือก ---------- */}
-      <div className="neu-card p-5 space-y-3">
-        <p className="text-sm font-bold neu-text">
-          เหตุการณ์วันที่ {selected.split("-").reverse().join("/")}
-        </p>
-
-        {selectedRows.length === 0 ? (
-          <p className="text-sm neu-text-muted">ไม่มีเหตุการณ์ในวันนี้</p>
-        ) : (
-          <div className="space-y-2">
-            {selectedRows.map((r) => (
-              <div key={r.id} className="neu-inset-sm p-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold neu-text">
-                    {r.patient_name || "ไม่ทราบชื่อผู้ป่วย"}
-                    <span className="ml-2 text-xs font-medium neu-text-muted">
-                      ห้อง {r.room_number || "—"}
-                    </span>
-                  </p>
-                  <p className="text-[11px] neu-text-muted mt-0.5">
-                    {new Date(r.created_at).toLocaleTimeString("th-TH", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })} น.
-                  </p>
-                </div>
-                <span
-                  className={`text-[11px] font-bold px-3 py-1 rounded-full ${
-                    r.is_resolved
-                      ? "text-emerald-600 dark:text-emerald-400"
-                      : "text-rose-600 dark:text-rose-400"
-                  }`}
-                >
-                  {r.is_resolved ? "รับทราบแล้ว" : "ยังไม่รับทราบ"}
-                </span>
-              </div>
-            ))}
+            <button
+              type="button"
+              onClick={() => move(1)}
+              aria-label="เดือนถัดไป"
+              className={iconBtn}
+            >
+              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
           </div>
-        )}
+
+          <div className="p-2 sm:p-4">
+            <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-1">
+              {TH_DAYS.map((d) => (
+                <div key={d} className="text-center text-xs font-semibold text-[var(--tb-muted)] py-1.5">
+                  {d}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 sm:gap-2">
+              {cells.map((day, i) => {
+                if (day === null) return <div key={`pad-${i}`} />;
+
+                const key = ymd(new Date(year, month, day));
+                const count = byDay.get(key)?.length ?? 0;
+                const isToday = key === ymd(today);
+                const isSelected = key === selected;
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSelected(key)}
+                    aria-current={isSelected ? "date" : undefined}
+                    className={`relative aspect-square rounded-[var(--tb-radius)] border flex flex-col items-center justify-center gap-1 text-sm tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)] ${
+                      isSelected
+                        ? "border-[var(--tb-primary)] bg-[var(--tb-primary)] text-[var(--tb-primary-contrast)] font-bold"
+                        : isToday
+                          ? "border-[var(--tb-primary)]/40 bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)] font-semibold hover:bg-[var(--tb-surface-2)]"
+                          : "border-transparent text-[var(--tb-text)] hover:border-[var(--tb-border)] hover:bg-[var(--tb-surface-2)]"
+                    }`}
+                  >
+                    <span className={isToday ? "underline underline-offset-4" : ""}>{day}</span>
+                    {count > 0 && (
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full ${
+                          isSelected ? "bg-[var(--tb-primary-contrast)]" : "bg-[var(--tb-danger)]"
+                        }`}
+                        title={`${count} เหตุการณ์`}
+                      />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ---------- รายการของวันที่เลือก ---------- */}
+        <div className={card}>
+          <div className="px-5 py-4 border-b border-[var(--tb-border)]">
+            <p className="text-xs font-semibold text-[var(--tb-muted)]">วันที่เลือก</p>
+            <p className="mt-0.5 text-base font-semibold text-[var(--tb-text)]">
+              เหตุการณ์วันที่ {selected.split("-").reverse().join("/")}
+            </p>
+          </div>
+
+          {selectedRows.length === 0 ? (
+            <div className="px-5 py-8 text-center">
+              <span className="inline-flex items-center justify-center w-10 h-10 mb-2 rounded-full bg-[var(--tb-surface-2)] text-[var(--tb-muted)]">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <rect x="3" y="4" width="18" height="18" rx="2" />
+                  <line x1="16" y1="2" x2="16" y2="6" />
+                  <line x1="8" y1="2" x2="8" y2="6" />
+                  <line x1="3" y1="10" x2="21" y2="10" />
+                </svg>
+              </span>
+              <p className="text-sm text-[var(--tb-muted)]">ไม่มีเหตุการณ์ในวันนี้</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-[var(--tb-border)]">
+              {selectedRows.map((r) => (
+                <li key={r.id} className="px-5 py-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--tb-text)]">
+                      {r.patient_name || "ไม่ทราบชื่อผู้ป่วย"}
+                      <span className="ml-2 text-xs font-medium text-[var(--tb-muted)]">
+                        ห้อง {r.room_number || "—"}
+                      </span>
+                    </p>
+                    <p className="text-xs text-[var(--tb-muted)] mt-0.5 tabular-nums">
+                      {new Date(r.created_at).toLocaleTimeString("th-TH", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })} น.
+                    </p>
+                  </div>
+                  <span
+                    className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      r.is_resolved
+                        ? "bg-[var(--tb-success-tint)] text-[var(--tb-success-text)]"
+                        : "bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)]"
+                    }`}
+                  >
+                    {r.is_resolved ? "รับทราบแล้ว" : "ยังไม่รับทราบ"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
     </div>
   );

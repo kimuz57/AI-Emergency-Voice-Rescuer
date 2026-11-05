@@ -3,16 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { authHeaders, getAuthToken } from "@/lib/auth";
+import { nameInitial } from "@/lib/initials";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-const avatarColors = [
-  "#EF4444",
-  "#3B82F6",
-  "#10B981",
-  "#F59E0B",
-  "#8B5CF6",
-  "#EC4899",
-];
+// ชุดสีเดียวกับหน้า /patients
+const avatarColors = ["#066fd1", "#0891b2", "#2f9e44", "#c2410c", "#7048e8"];
 
 export default function AdminPatients() {
   const router = useRouter();
@@ -23,7 +18,7 @@ export default function AdminPatients() {
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null);
   const [editPatient, setEditPatient] = useState<any>(null);
 
-  // 🟢 1. เพิ่ม State สำหรับช่องค้นหาผู้ดูแล
+  // 1. เพิ่ม State สำหรับช่องค้นหาผู้ดูแล
   const [caregiverSearch, setCaregiverSearch] = useState("");
 
   const [editForm, setEditForm] = useState({
@@ -46,7 +41,7 @@ export default function AdminPatients() {
           return;
         }
 
-        // 🚨 1. ยิง API เช็คสิทธิ์จาก Database ตรงๆ เพื่อความปลอดภัยสูงสุด
+        // 1. ยิง API เช็คสิทธิ์จาก Database ตรงๆ เพื่อความปลอดภัยสูงสุด
         const profileRes = await fetch(
           `${API_URL}/api/user/profile?email=${encodeURIComponent(email)}`,
           {
@@ -70,7 +65,7 @@ export default function AdminPatients() {
           return;
         }
 
-        // 🟢 3. ถ้าเป็น Admin ตัวจริง ค่อยดึงข้อมูลผู้ป่วยและผู้ดูแล
+        // 3. ถ้าเป็น Admin ตัวจริง ค่อยดึงข้อมูลผู้ป่วยและผู้ดูแล
         const fetchPatients = fetch(`${API_URL}/api/admin/patients`, {
           method: "GET",
           credentials: "include",
@@ -115,7 +110,7 @@ export default function AdminPatients() {
 
   const openEditPopup = (patient: any) => {
     setEditPatient(patient);
-    // 🟢 2. เคลียร์ช่องค้นหาทุกครั้งที่เปิด Popup ใหม่
+    // 2. เคลียร์ช่องค้นหาทุกครั้งที่เปิด Popup ใหม่
     setCaregiverSearch("");
 
     const existingCaregiverIds = patient.Caregivers
@@ -199,7 +194,7 @@ export default function AdminPatients() {
     });
   };
 
-  // 🟢 3. กรองรายชื่อผู้ดูแลตามข้อความที่ค้นหา (ค้นหาได้ทั้งชื่อและอีเมล)
+  // 3. กรองรายชื่อผู้ดูแลตามข้อความที่ค้นหา (ค้นหาได้ทั้งชื่อและอีเมล)
   const filteredCaregivers = availableCaregivers.filter(
     (cg) =>
       (cg.name &&
@@ -207,387 +202,377 @@ export default function AdminPatients() {
       (cg.email &&
         cg.email.toLowerCase().includes(caregiverSearch.toLowerCase())),
   );
+  // ระหว่างตรวจสิทธิ์ + โหลดข้อมูล แสดงตัวหมุนแบบเดียวกับหน้า admin อื่นๆ
   if (isLoading) {
-    return <div className="min-h-screen"></div>;
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-20 flex flex-col items-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin" />
+        <p className="text-sm text-[var(--tb-muted)]">กำลังโหลดข้อมูล...</p>
+      </div>
+    );
   }
+
+  // คลาสที่ใช้ซ้ำในหน้านี้ — Tailwind + ตัวแปร --tb-* ตามแบบหน้า /patients
+  const th = "px-5 py-3 text-xs font-semibold text-[var(--tb-muted)] text-left whitespace-nowrap";
+  const td = "px-5 py-4 align-middle";
+  const btnSecondary =
+    "inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] hover:bg-[var(--tb-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+  const btnPrimary =
+    "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] bg-[var(--tb-primary)] text-sm font-semibold text-[var(--tb-primary-contrast)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+  const labelClass = "block mb-1.5 text-sm font-medium text-[var(--tb-text)]";
+  const inputClass =
+    "w-full h-10 px-3 rounded-[var(--tb-radius)] border border-[var(--tb-border-strong)] bg-[var(--tb-surface)] text-sm text-[var(--tb-text)] placeholder:text-[var(--tb-placeholder)] shadow-[var(--tb-shadow-xs)] outline-none transition focus:border-[var(--tb-primary)] focus:ring-4 focus:ring-[var(--tb-primary-ring)]";
+  const emptyCell = "text-xs italic text-[var(--tb-muted)]";
+
   return (
-    <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold neu-text">
-            จัดการข้อมูลผู้ป่วย
-          </h1>
-          <p className="text-sm neu-text-muted mt-1">
+    <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      {/* ---------- หัวหน้า ---------- */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[var(--tb-muted)]">ผู้ดูแลระบบ</p>
+          <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">จัดการข้อมูลผู้ป่วย</h1>
+          <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
             แอดมินสามารถแก้ไขประวัติผู้ป่วยและลบข้อมูลออกจากระบบได้
           </p>
         </div>
       </div>
 
-      <div className="overflow-x-auto shadow-md rounded-lg">
-        <table className="neu-table w-full text-sm text-left">
-          <thead className="border-b border-[var(--neu-shadow-dark)]/30">
-            <tr>
-              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
-                ผู้ป่วย
-              </th>
-              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
-                อายุ
-              </th>
-              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
-                ห้องพัก
-              </th>
-              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
-                โรคประจำตัว
-              </th>
-              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
-                ผู้ดูแล
-              </th>
-              <th className="px-6 py-4 neu-text-muted font-semibold uppercase tracking-wide text-xs">
-                Device ID
-              </th>
-              <th className="px-6 py-4 text-right neu-text-muted font-semibold uppercase tracking-wide text-xs">
-                การดำเนินการ
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {isLoading ? (
+      {/* ---------- ตาราง — จอมือถือแต่ละแถวกลายเป็นการ์ด (กฎ .neu-table ใน globals.css อ่านจาก data-label) ---------- */}
+      <div className="rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)] overflow-hidden max-md:border-0 max-md:bg-transparent max-md:shadow-none">
+        <div className="overflow-x-auto">
+          <table className="neu-table w-full text-sm">
+            <thead className="bg-[var(--tb-surface-2)] border-b border-[var(--tb-border)]">
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-6 py-8 text-center neu-text-muted"
-                >
-                  กำลังโหลดข้อมูล...
-                </td>
+                <th className={th}>ผู้ป่วย</th>
+                <th className={th}>อายุ</th>
+                <th className={th}>ห้องพัก</th>
+                <th className={th}>โรคประจำตัว</th>
+                <th className={th}>ผู้ดูแล</th>
+                <th className={th}>Device ID</th>
+                <th className={`${th} text-right`}>การดำเนินการ</th>
               </tr>
-            ) : patients.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={7}
-                  className="px-6 py-8 text-center neu-text-muted"
-                >
-                  ยังไม่มีข้อมูลผู้ป่วยในระบบ
-                </td>
-              </tr>
-            ) : (
-              patients.map((p: any, i) => (
-                <tr
-                  key={p.ID}
-                  className="transition-colors"
-                >
-                  <td data-label="ผู้ป่วย" className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                        style={{
-                          backgroundColor:
-                            avatarColors[i % avatarColors.length],
-                        }}
-                      >
-                        {p.Name ? p.Name.charAt(0) : "?"}
-                      </div>
-                      <span className="font-medium neu-text">
-                        {p.Name}
-                      </span>
-                    </div>
-                  </td>
-                  <td data-label="อายุ" className="px-6 py-4 neu-text-muted">
-                    {p.Age} ปี
-                  </td>
-                  <td data-label="ห้องพัก" className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                      {p.RoomNumber}
-                    </span>
-                  </td>
-                  <td data-label="โรคประจำตัว" className="px-6 py-4 neu-text-muted">
-                    {p.MedicalCondition}
-                  </td>
-                  <td data-label="ผู้ดูแล" className="px-6 py-4 neu-text-muted">
-                    {p.Caregivers && p.Caregivers.length > 0 ? (
-                      p.Caregivers.map((c: any) => c.name || c.Name).join(", ")
-                    ) : (
-                      <span className="neu-text-muted italic text-xs">
-                        ยังไม่มีผู้ดูแล
-                      </span>
-                    )}
-                  </td>
-                  <td data-label="Device ID" className="px-6 py-4 font-mono text-xs neu-text-muted">
-                    {p.DeviceAssignments && p.DeviceAssignments.length > 0 ? (
-                      p.DeviceAssignments.map(
-                        (d: any) =>
-                          d.device?.mac_address || d.device_id || d.DeviceID,
-                      ).join(", ")
-                    ) : (
-                      <span className="neu-text-muted italic text-xs">
-                        ไม่มีอุปกรณ์
-                      </span>
-                    )}
-                  </td>
-                  <td data-label="การดำเนินการ" className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEditPopup(p)}
-                        className="p-2 neu-text-muted hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                        title="แก้ไข"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(p.ID)}
-                        className="p-2 neu-text-muted hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="ลบ"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="15"
-                          height="15"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <polyline points="3 6 5 6 21 6" />
-                          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                          <path d="M10 11v6" />
-                          <path d="M14 11v6" />
-                          <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                        </svg>
-                      </button>
-                    </div>
+            </thead>
+            <tbody className="divide-y divide-[var(--tb-border)]">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-10 text-center text-[var(--tb-muted)]">
+                    กำลังโหลดข้อมูล...
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : patients.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-12 text-center">
+                    <p className="text-base font-semibold text-[var(--tb-text)]">ยังไม่มีข้อมูลผู้ป่วยในระบบ</p>
+                  </td>
+                </tr>
+              ) : (
+                patients.map((p: any, i) => (
+                  <tr key={p.ID} className="hover:bg-[var(--tb-surface-2)] transition-colors">
+                    <td data-label="ผู้ป่วย" className={td}>
+                      <div className="flex items-center gap-3">
+                        <span
+                          aria-hidden="true"
+                          className="w-9 h-9 shrink-0 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                          style={{ backgroundColor: avatarColors[i % avatarColors.length] }}
+                        >
+                          {nameInitial(p.Name)}
+                        </span>
+                        <span className="font-semibold text-[var(--tb-text)]">{p.Name}</span>
+                      </div>
+                    </td>
+                    <td data-label="อายุ" className={`${td} whitespace-nowrap text-[var(--tb-text)]`}>
+                      {p.Age} ปี
+                    </td>
+                    <td data-label="ห้องพัก" className={td}>
+                      <span className="inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]">
+                        {p.RoomNumber}
+                      </span>
+                    </td>
+                    <td data-label="โรคประจำตัว" className={`${td} text-[var(--tb-muted)]`}>
+                      {p.MedicalCondition}
+                    </td>
+                    <td data-label="ผู้ดูแล" className={`${td} text-[var(--tb-text)]`}>
+                      {p.Caregivers && p.Caregivers.length > 0 ? (
+                        p.Caregivers.map((c: any) => c.name || c.Name).join(", ")
+                      ) : (
+                        <span className={emptyCell}>ยังไม่มีผู้ดูแล</span>
+                      )}
+                    </td>
+                    <td data-label="Device ID" className={`${td} font-mono text-xs text-[var(--tb-text)] break-all`}>
+                      {p.DeviceAssignments && p.DeviceAssignments.length > 0 ? (
+                        p.DeviceAssignments.map(
+                          (d: any) =>
+                            d.device?.mac_address || d.device_id || d.DeviceID,
+                        ).join(", ")
+                      ) : (
+                        <span className={`${emptyCell} font-sans`}>ไม่มีอุปกรณ์</span>
+                      )}
+                    </td>
+                    <td data-label="การดำเนินการ" className={td}>
+                      <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => openEditPopup(p)}
+                          className={btnSecondary}
+                          title="แก้ไข"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                          </svg>
+                          แก้ไข
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirm(p.ID)}
+                          className={`${btnSecondary} text-[var(--tb-danger-text)] hover:bg-[var(--tb-danger-tint)]`}
+                          title="ลบ"
+                        >
+                          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <polyline points="3 6 5 6 21 6" />
+                            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                            <path d="M10 11v6" />
+                            <path d="M14 11v6" />
+                            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                          </svg>
+                          ลบ
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-        {/* 🟡 Popup แก้ไขข้อมูลผู้ป่วย */}
-        {editPatient && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="neu-card w-full max-w-md mx-4 p-6 overflow-y-auto max-h-[90vh]">
-              <h3 className="text-xl font-bold neu-text mb-4 border-b pb-3 dark:border-slate-700">
+      {/* ---------- Popup แก้ไขข้อมูลผู้ป่วย ---------- */}
+      {editPatient && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-edit-patient-title"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-pop)]"
+          >
+            <div className="px-6 py-4 border-b border-[var(--tb-border)]">
+              <h3 id="admin-edit-patient-title" className="text-lg font-bold text-[var(--tb-text)]">
                 แก้ไขข้อมูลผู้ป่วย
               </h3>
+            </div>
 
-              <div className="flex flex-col gap-4 mb-6">
+            <div className="flex flex-col gap-4 px-6 py-5">
+              <div>
+                <label htmlFor="admin-patient-name" className={labelClass}>
+                  ชื่อ-นามสกุลผู้ป่วย
+                </label>
+                <input
+                  id="admin-patient-name"
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
-                    ชื่อ-นามสกุลผู้ป่วย
+                  <label htmlFor="admin-patient-age" className={labelClass}>
+                    อายุ (ปี)
                   </label>
                   <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(e) =>
-                      setEditForm({ ...editForm, name: e.target.value })
-                    }
-                    className="neu-input w-full p-2.5 text-sm outline-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
-                      อายุ (ปี)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={editForm.age}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          age: Number(e.target.value),
-                        })
-                      }
-                      className="neu-input w-full p-2.5 text-sm outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
-                      ห้องพัก
-                    </label>
-                    <input
-                      type="text"
-                      value={editForm.room_number}
-                      onChange={(e) =>
-                        setEditForm({
-                          ...editForm,
-                          room_number: e.target.value,
-                        })
-                      }
-                      className="neu-input w-full p-2.5 text-sm outline-none"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
-                    โรคประจำตัว / อาการ
-                  </label>
-                  <input
-                    type="text"
-                    value={editForm.medical_condition}
+                    id="admin-patient-age"
+                    type="number"
+                    min="0"
+                    value={editForm.age}
                     onChange={(e) =>
                       setEditForm({
                         ...editForm,
-                        medical_condition: e.target.value,
+                        age: Number(e.target.value),
                       })
                     }
-                    className="neu-input w-full p-2.5 text-sm outline-none"
+                    className={inputClass}
                   />
                 </div>
-
-                {/* 🟢 ส่วนแสดงรายชื่อผู้ดูแล พร้อมช่องค้นหา */}
                 <div>
-                  <label className="text-xs font-semibold neu-text-muted ml-1 block mb-1">
-                    ผู้ดูแล (เลือกได้มากกว่า 1 คน)
+                  <label htmlFor="admin-patient-room" className={labelClass}>
+                    ห้องพัก
                   </label>
+                  <input
+                    id="admin-patient-room"
+                    type="text"
+                    value={editForm.room_number}
+                    onChange={(e) =>
+                      setEditForm({
+                        ...editForm,
+                        room_number: e.target.value,
+                      })
+                    }
+                    className={inputClass}
+                  />
+                </div>
+              </div>
 
-                  <div className="neu-card-sm overflow-hidden flex flex-col">
-                    {/* ช่องพิมพ์ค้นหา */}
-                    <div className="neu-inset-sm p-2 mb-2">
-                      <div className="relative">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 neu-text-muted"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <circle cx="11" cy="11" r="8"></circle>
-                          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                        </svg>
-                        <input
-                          type="text"
-                          placeholder="ค้นหาชื่อ หรือ อีเมล..."
-                          value={caregiverSearch}
-                          onChange={(e) => setCaregiverSearch(e.target.value)}
-                          className="neu-input w-full pl-8 pr-3 py-1.5 text-xs outline-none"
-                        />
+              <div>
+                <label htmlFor="admin-patient-condition" className={labelClass}>
+                  โรคประจำตัว / อาการ
+                </label>
+                <input
+                  id="admin-patient-condition"
+                  type="text"
+                  value={editForm.medical_condition}
+                  onChange={(e) =>
+                    setEditForm({
+                      ...editForm,
+                      medical_condition: e.target.value,
+                    })
+                  }
+                  className={inputClass}
+                />
+              </div>
+
+              {/* ส่วนแสดงรายชื่อผู้ดูแล พร้อมช่องค้นหา */}
+              <div>
+                <label htmlFor="admin-caregiver-search" className={labelClass}>
+                  ผู้ดูแล (เลือกได้มากกว่า 1 คน)
+                </label>
+
+                <div className="overflow-hidden flex flex-col rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)]">
+                  {/* ช่องพิมพ์ค้นหา */}
+                  <div className="p-2 border-b border-[var(--tb-border)] bg-[var(--tb-surface-2)]">
+                    <div className="relative">
+                      <svg
+                        className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--tb-muted)]"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      <input
+                        id="admin-caregiver-search"
+                        type="text"
+                        placeholder="ค้นหาชื่อ หรือ อีเมล..."
+                        value={caregiverSearch}
+                        onChange={(e) => setCaregiverSearch(e.target.value)}
+                        className="w-full h-9 pl-8 pr-3 rounded-[var(--tb-radius)] border border-[var(--tb-border-strong)] bg-[var(--tb-surface)] text-sm text-[var(--tb-text)] placeholder:text-[var(--tb-placeholder)] outline-none transition focus:border-[var(--tb-primary)] focus:ring-4 focus:ring-[var(--tb-primary-ring)]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* กล่องรายการ Checklist (ใช้ข้อมูลที่ Filter แล้ว) */}
+                  <div className="max-h-40 overflow-y-auto p-1.5 flex flex-col gap-0.5">
+                    {filteredCaregivers.length > 0 ? (
+                      filteredCaregivers.map((cg) => {
+                        const isChecked = editForm.caregiver_ids.includes(
+                          cg.id || cg.ID,
+                        );
+                        return (
+                          <label
+                            key={cg.id || cg.ID}
+                            className={`flex items-center gap-3 cursor-pointer px-2 py-1.5 rounded-[var(--tb-radius)] transition-colors ${
+                              isChecked
+                                ? "bg-[var(--tb-primary-tint)]"
+                                : "hover:bg-[var(--tb-surface-2)]"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() =>
+                                handleCaregiverToggle(cg.id || cg.ID)
+                              }
+                              className="w-4 h-4 shrink-0 cursor-pointer accent-[var(--tb-primary)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
+                            />
+                            <span className="flex min-w-0 flex-col">
+                              <span className="text-sm font-medium text-[var(--tb-text)] truncate">
+                                {cg.name}
+                              </span>
+                              <span className="text-xs text-[var(--tb-muted)] truncate">
+                                {cg.email}
+                              </span>
+                            </span>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <div className="p-3 text-center text-xs italic text-[var(--tb-muted)]">
+                        ไม่พบผู้ดูแลที่คุณค้นหา
                       </div>
-                    </div>
-
-                    {/* กล่องรายการ Checklist (ใช้ข้อมูลที่ Filter แล้ว) */}
-                    <div className="max-h-32 overflow-y-auto p-2 flex flex-col gap-1">
-                      {filteredCaregivers.length > 0 ? (
-                        filteredCaregivers.map((cg) => {
-                          const isChecked = editForm.caregiver_ids.includes(
-                            cg.id || cg.ID,
-                          );
-                          return (
-                            <label
-                              key={cg.id || cg.ID}
-                              className="flex items-center gap-3 cursor-pointer p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() =>
-                                  handleCaregiverToggle(cg.id || cg.ID)
-                                }
-                                className="neu-input w-4 h-4 text-indigo-600"
-                              />
-                              <div className="flex flex-col">
-                                <span className="text-sm font-medium">
-                                  {cg.name}
-                                </span>
-                                <span className="text-xs neu-text-muted">
-                                  {cg.email}
-                                </span>
-                              </div>
-                            </label>
-                          );
-                        })
-                      ) : (
-                        <div className="p-3 text-center text-xs neu-text-muted italic">
-                          ไม่พบผู้ดูแลที่คุณค้นหา
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
+            </div>
 
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setEditPatient(null)}
-                  className="neu-btn flex-1 px-4 py-3 text-sm font-medium"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={handleUpdatePatient}
-                  className="flex-1 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-colors shadow-sm"
-                >
-                  บันทึกข้อมูล
-                </button>
-              </div>
+            <div className="flex gap-3 px-6 py-4 border-t border-[var(--tb-border)] bg-[var(--tb-surface-2)] rounded-b-[var(--tb-radius-lg)]">
+              <button
+                type="button"
+                onClick={() => setEditPatient(null)}
+                className={`${btnSecondary} flex-1 h-10`}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleUpdatePatient}
+                className={`${btnPrimary} flex-1`}
+              >
+                บันทึกข้อมูล
+              </button>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* 🔴 Popup ยืนยันการลบ */}
-        {deleteConfirm !== null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-            <div className="neu-card w-full max-w-sm mx-4 p-6 text-center">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#dc2626"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="3 6 5 6 21 6" />
-                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                </svg>
-              </div>
-              <h3 className="text-base font-bold neu-text mb-1">
-                ยืนยันการลบผู้ป่วย
-              </h3>
-              <p className="text-sm neu-text-muted mb-5">
-                ข้อมูลผู้ป่วยและอุปกรณ์ที่เชื่อมโยงจะถูกลบออกจากระบบ
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setDeleteConfirm(null)}
-                  className="neu-btn flex-1 px-4 py-3 text-sm font-medium"
-                >
-                  ยกเลิก
-                </button>
-                <button
-                  onClick={() => handleDelete(deleteConfirm)}
-                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold transition-colors"
-                >
-                  ยืนยันลบ
-                </button>
-              </div>
+      {/* ---------- Popup ยืนยันการลบ ---------- */}
+      {deleteConfirm !== null && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-delete-patient-title"
+            className="w-full max-w-sm rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-pop)] p-6 text-center"
+          >
+            <span className="inline-flex items-center justify-center w-12 h-12 mb-4 rounded-full bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)]">
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              </svg>
+            </span>
+            <h3 id="admin-delete-patient-title" className="text-lg font-bold text-[var(--tb-text)] mb-1">
+              ยืนยันการลบผู้ป่วย
+            </h3>
+            <p className="text-sm text-[var(--tb-muted)] mb-6">
+              ข้อมูลผู้ป่วยและอุปกรณ์ที่เชื่อมโยงจะถูกลบออกจากระบบ
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirm(null)}
+                className={`${btnSecondary} flex-1 h-10`}
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(deleteConfirm)}
+                className="flex-1 inline-flex items-center justify-center h-10 px-4 rounded-[var(--tb-radius)] bg-[var(--tb-danger)] text-sm font-semibold text-white hover:brightness-110 transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-danger)]/30"
+              >
+                ยืนยันลบ
+              </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
