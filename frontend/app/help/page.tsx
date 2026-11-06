@@ -8,6 +8,10 @@ type Faq = {
   a: React.ReactNode;
 };
 
+// ลิงก์ในคำตอบ — สีหลักของธีม Tabler
+const faqLink =
+  "font-semibold text-[var(--tb-primary-text)] underline-offset-2 hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+
 // เนื้อหาอิงจากระบบจริง ไม่ใช่ข้อความตัวอย่าง — ถ้าพฤติกรรมระบบเปลี่ยน
 // ต้องมาแก้ตรงนี้ด้วย
 const FAQS: Faq[] = [
@@ -28,7 +32,7 @@ const FAQS: Faq[] = [
       <>
         ผู้ป่วยจะปรากฏบนแดชบอร์ดเฉพาะรายที่ผูกกับบัญชีผู้ดูแลของคุณเท่านั้น
         ถ้าคนอื่นเป็นคนลงทะเบียนไว้ คุณจะยังไม่เห็น ให้ตรวจสอบที่หน้า{" "}
-        <Link href="/patients" className="neu-text-accent font-semibold">
+        <Link href="/patients" className={faqLink}>
           ข้อมูลผู้ป่วย
         </Link>{" "}
         ว่ามีรายชื่ออยู่หรือไม่
@@ -53,7 +57,7 @@ const FAQS: Faq[] = [
         ให้ตรวจสอบตามลำดับนี้ — ไฟเลี้ยงบอร์ดติดหรือไม่, บอร์ดเชื่อม WiFi
         ได้หรือยัง (ไฟสถานะสีแดง), และเราเตอร์ที่ใช้ยังทำงานปกติหรือไม่
         ถ้าบอร์ดหลุด WiFi ให้กดปุ่มรีเซ็ตค้างเพื่อเข้าโหมดตั้งค่า
-        แล้วต่อ WiFi ชื่อ SmartVoice_AP เพื่อตั้งค่าใหม่
+        แล้วต่อ WiFi ชื่อ Smartvoice-XXXXXX (XXXXXX คือ 6 ตัวท้ายของ MAC บนบอร์ด) เพื่อตั้งค่าใหม่
       </>
     ),
   },
@@ -75,7 +79,7 @@ const FAQS: Faq[] = [
         ไปที่หน้า{" "}
         <Link
           href="/settings/notifications"
-          className="neu-text-accent font-semibold"
+          className={faqLink}
         >
           ตั้งค่าการแจ้งเตือน
         </Link>{" "}
@@ -90,7 +94,7 @@ const FAQS: Faq[] = [
       <>
         เหตุการณ์ที่กดรับทราบจะถูกย้ายออกจากแดชบอร์ดเพื่อให้เหลือเฉพาะเหตุที่ยังไม่มีคนดูแล
         แต่ยังดูย้อนหลังได้ทั้งหมดที่หน้า{" "}
-        <Link href="/history" className="neu-text-accent font-semibold">
+        <Link href="/history" className={faqLink}>
           ประวัติและสถิติ
         </Link>
       </>
@@ -112,32 +116,44 @@ export default function HelpPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold neu-text">ช่วยเหลือ / คำถามที่พบบ่อย</h1>
-        <p className="text-sm neu-text-muted mt-1">
+    <div className="max-w-3xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      {/* ---------- หัวหน้า ---------- */}
+      <div className="mb-6 min-w-0">
+        <p className="text-xs font-semibold text-[var(--tb-muted)]">ช่วยเหลือ</p>
+        <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">ช่วยเหลือ / คำถามที่พบบ่อย</h1>
+        <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
           รวมคำถามที่ผู้ดูแลถามบ่อยเกี่ยวกับการใช้งานระบบแจ้งเตือนเหตุฉุกเฉิน
         </p>
       </div>
 
-      <div className="space-y-3">
+      {/* ---------- คำถาม (accordion) ---------- */}
+      <div className="rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)] divide-y divide-[var(--tb-border)] overflow-hidden">
         {FAQS.map((item, i) => {
           const open = openIndex === i;
           return (
-            <div key={item.q} className={open ? "neu-inset p-1" : "neu-card p-1"}>
+            <div key={item.q}>
               <button
                 type="button"
+                id={`faq-q-${i}`}
                 onClick={() => setOpenIndex(open ? null : i)}
                 aria-expanded={open}
-                className="w-full flex items-center justify-between gap-4 text-left px-5 py-4"
+                aria-controls={`faq-a-${i}`}
+                className={`w-full flex items-center justify-between gap-4 text-left px-5 py-4 transition-colors hover:bg-[var(--tb-surface-2)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-[var(--tb-primary-ring)] ${
+                  open ? "bg-[var(--tb-surface-2)]" : ""
+                }`}
               >
-                <span className="text-sm font-semibold neu-text">
-                  <span className="neu-text-accent mr-2">Q:</span>
-                  {item.q}
+                <span className="flex items-start gap-3 text-sm font-semibold text-[var(--tb-text)]">
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex items-center justify-center w-6 h-6 shrink-0 rounded-full bg-[var(--tb-primary-tint)] text-xs font-bold text-[var(--tb-primary-text)]"
+                  >
+                    Q
+                  </span>
+                  <span className="pt-0.5">{item.q}</span>
                 </span>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  className={`w-5 h-5 shrink-0 neu-text-muted transition-transform duration-300 ${
+                  className={`w-5 h-5 shrink-0 text-[var(--tb-muted)] transition-transform duration-300 ${
                     open ? "rotate-180" : ""
                   }`}
                   viewBox="0 0 24 24"
@@ -153,7 +169,12 @@ export default function HelpPage() {
               </button>
 
               {open && (
-                <div className="px-5 pb-5 -mt-1 text-sm leading-relaxed neu-text-muted">
+                <div
+                  id={`faq-a-${i}`}
+                  role="region"
+                  aria-labelledby={`faq-q-${i}`}
+                  className="pt-1 pb-5 pr-5 pl-14 text-sm leading-relaxed text-[var(--tb-muted)] bg-[var(--tb-surface-2)]"
+                >
                   {item.a}
                 </div>
               )}
@@ -162,14 +183,27 @@ export default function HelpPage() {
         })}
       </div>
 
-      <div className="neu-card p-5 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-        <div>
-          <p className="text-sm font-semibold neu-text">ยังไม่เจอคำตอบที่ต้องการ?</p>
-          <p className="text-xs neu-text-muted mt-0.5">
-            ติดต่อผู้ดูแลระบบของหน่วยงาน พร้อมแจ้งเวลาที่เกิดปัญหาและหมายเลขห้อง
-          </p>
+      {/* ---------- ติดต่อเพิ่มเติม ---------- */}
+      <div className="mt-6 rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)] p-5 flex flex-col sm:flex-row sm:items-center gap-4 justify-between">
+        <div className="flex items-start gap-3 min-w-0">
+          <span className="inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-[var(--tb-radius)] bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-[var(--tb-text)]">ยังไม่เจอคำตอบที่ต้องการ?</p>
+            <p className="text-sm text-[var(--tb-muted)] mt-0.5">
+              ติดต่อผู้ดูแลระบบของหน่วยงาน พร้อมแจ้งเวลาที่เกิดปัญหาและหมายเลขห้อง
+            </p>
+          </div>
         </div>
-        <Link href="/dashboard" className="neu-btn px-5 py-2.5 text-sm font-medium">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center justify-center gap-2 h-10 px-4 shrink-0 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
+        >
           กลับหน้าแดชบอร์ด
         </Link>
       </div>

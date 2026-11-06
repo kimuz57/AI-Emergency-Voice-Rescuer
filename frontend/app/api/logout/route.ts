@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { isSameOrigin } from "@/lib/sameOrigin";
 
-export async function POST() {
+export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   // 1. สร้างแพ็กเกจ Response เตรียมไว้ก่อน
   const response = NextResponse.json({ message: "ลบคุกกี้สำเร็จ!" }, { status: 200 });
 

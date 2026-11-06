@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
+import { isSameOrigin } from "@/lib/sameOrigin";
 
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { token } = await request.json().catch(() => ({ token: "" }));
 
   if (!token || typeof token !== "string") {

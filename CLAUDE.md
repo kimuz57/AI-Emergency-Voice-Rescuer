@@ -228,8 +228,8 @@ inference throws.
 - `WaveformAudioPlayer.tsx` — wavesurfer.js player with a load-failure fallback.
   The only audio player. Recordings are not public: it sends the Bearer token
   to `GET /api/audio/:filename` (the fallback `<audio>` uses `?token=`).
-- `MicLevelIndicator.tsx` — signal bars, hardcoded to **4** channels although
-  firmwareV2 has 2 mics. `compact` renders mini bars with a state-driven hover
+- `MicLevelIndicator.tsx` — signal bars, one per entry in `levels`
+  (default labels `MIC_LABELS` = the 2 mics, left/right). `compact` renders mini bars with a state-driven hover
   tooltip; `compact={false}` renders labelled rows (admin diagnostics page).
 - `PatientFormModal.tsx` — shared add/edit form. Only `mode="edit"` has a caller
   today; the `add` branch is wired but unused.

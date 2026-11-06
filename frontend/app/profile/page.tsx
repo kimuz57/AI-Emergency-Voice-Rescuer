@@ -105,7 +105,7 @@ export default function ProfilePage() {
     }
   };
 
-  // 🟢 ฟังก์ชันยืนยันการตัดรูป
+  // ฟังก์ชันยืนยันการตัดรูป
   const handleConfirmCrop = async () => {
     try {
       if (!tempImage || !croppedAreaPixels) return;
@@ -202,48 +202,75 @@ export default function ProfilePage() {
 
 
 
+  // คลาสที่ใช้ซ้ำในหน้านี้ — Tailwind + ตัวแปร --tb-* ตามแบบหน้า patients
+  const card =
+    "rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)]";
+  const btnSecondary =
+    "inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+  const btnPrimary =
+    "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] bg-[var(--tb-primary)] text-sm font-semibold text-[var(--tb-primary-contrast)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+  const labelClass = "block text-sm font-semibold text-[var(--tb-text)] mb-1.5";
+  const inputClass =
+    "w-full h-10 px-3 rounded-[var(--tb-radius)] border border-[var(--tb-border-strong)] bg-[var(--tb-surface)] text-sm text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] outline-none transition placeholder:text-[var(--tb-placeholder)] focus:border-[var(--tb-primary)] focus:ring-4 focus:ring-[var(--tb-primary-ring)] disabled:bg-[var(--tb-surface-2)] disabled:text-[var(--tb-muted)] disabled:shadow-none disabled:cursor-not-allowed";
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-screen w-full">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="neu-inset h-12 w-12 !rounded-full mb-4"></div>
-          <p className="neu-text-muted font-medium">
-            กำลังโหลดข้อมูลผู้ดูแล...
-          </p>
-        </div>
+      <div className="max-w-5xl mx-auto px-4 py-20 flex flex-col items-center gap-3">
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin" />
+        <p className="text-sm text-[var(--tb-muted)]">
+          กำลังโหลดข้อมูลผู้ดูแล...
+        </p>
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="flex justify-center items-center h-screen w-full text-rose-500 font-medium">
-        ไม่พบข้อมูลผู้ใช้งาน กรุณาล็อกอินใหม่อีกครั้ง
+      <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-20">
+        <div
+          role="alert"
+          className="mx-auto max-w-md flex flex-col items-center text-center px-6 py-10 rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)]"
+        >
+          <span className="inline-flex items-center justify-center w-12 h-12 mb-3 rounded-full bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)]">
+            <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4" />
+              <path d="M12 16h.01" />
+            </svg>
+          </span>
+          <p className="text-base font-semibold text-[var(--tb-danger-text)]">
+            ไม่พบข้อมูลผู้ใช้งาน กรุณาล็อกอินใหม่อีกครั้ง
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 space-y-6 neu-text">
-      <div className="border-b border-slate-200 pb-4">
-        <h1 className="text-2xl font-bold neu-text">
+    <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+      {/* หัวหน้า */}
+      <div className="mb-6">
+        <p className="text-xs font-semibold text-[var(--tb-muted)]">บัญชี</p>
+        <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">
           ข้อมูลส่วนตัว
         </h1>
-        <p className="text-sm neu-text-muted">
+        <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
           จัดการข้อมูลบัญชีผู้ดูแลระบบและการแจ้งเตือนเหตุฉุกเฉิน
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
         <div className="md:col-span-1 space-y-6">
           {/* ========================================== */}
-          {/* 👤 ส่วนโปรไฟล์รูปภาพ (คอลัมน์ซ้าย) */}
+          {/* ส่วนโปรไฟล์รูปภาพ (คอลัมน์ซ้าย) */}
           {/* ========================================== */}
-          <div className="neu-card p-6 flex flex-col items-center text-center">
-            <div className="relative group select-none">
+          <div className={`${card} p-6 flex flex-col items-center text-center`}>
+            <div className="relative select-none">
+              {/* กดที่รูปก็เปิดเลือกไฟล์ได้ (เมาส์) — ผู้ใช้คีย์บอร์ดใช้ปุ่มดินสอด้านล่าง */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className={`neu-card w-28 h-28 !rounded-full flex items-center justify-center neu-text text-4xl font-bold overflow-hidden cursor-pointer transition-all hover:brightness-95 border-4 border-slate-100 dark:border-slate-700 ${
+                aria-hidden="true"
+                className={`w-28 h-28 rounded-full flex items-center justify-center text-4xl font-bold overflow-hidden cursor-pointer transition hover:brightness-95 bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)] border-4 border-[var(--tb-surface)] ring-1 ring-[var(--tb-border)] ${
                   isUploading ? "animate-pulse" : ""
                 }`}
               >
@@ -270,14 +297,16 @@ export default function ProfilePage() {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="neu-btn-accent absolute bottom-0 right-0 p-3 min-w-[44px] !rounded-full transition-all border-0 dark:border-slate-800 flex items-center justify-center transform group-hover:scale-110"
+                className="absolute -bottom-1 -right-1 w-11 h-11 rounded-full flex items-center justify-center bg-[var(--tb-primary)] text-[var(--tb-primary-contrast)] border-4 border-[var(--tb-surface)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-primary-hover)] transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
                 title="เปลี่ยนรูปโปรไฟล์"
+                aria-label="เปลี่ยนรูปโปรไฟล์"
               >
                 <svg
                   className="w-4 h-4"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
+                  aria-hidden="true"
                 >
                   <path
                     strokeLinecap="round"
@@ -297,169 +326,190 @@ export default function ProfilePage() {
               className="hidden"
             />
 
-            <h2 className="mt-4 text-xl font-bold neu-text">
+            <h2 className="mt-4 text-lg font-bold text-[var(--tb-text)] break-words max-w-full">
               {profile?.name}
             </h2>
-            <p className="text-sm neu-text-muted">
+            <p className="text-sm text-[var(--tb-muted)] break-all max-w-full">
               {profile?.email}
             </p>
 
-            <span className="neu-inset-sm mt-3 px-3 py-1.5 neu-text-accent text-xs font-bold !rounded-full tracking-wide uppercase">
+            <span className="mt-3 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]">
               {profile?.role}
             </span>
           </div>
 
         </div>
 
-        <div className="lg:col-span-2 space-y-6">
-          <div className="neu-card p-6 space-y-4">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold neu-text">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+          <section className={card}>
+            <div className="flex flex-wrap justify-between items-center gap-3 px-5 py-4 border-b border-[var(--tb-border)]">
+              <h3 className="text-base font-semibold text-[var(--tb-text)]">
                 รายละเอียดผู้ดูแล
               </h3>
               <button
+                type="button"
                 onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-                className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-medium transition-all  ${
-                  isEditing
-                    ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-                    : "neu-btn"
-                }`}
+                className={isEditing ? btnPrimary : btnSecondary}
               >
+                {isEditing ? (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M20 6 9 17l-5-5" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                )}
                 {isEditing ? "บันทึกข้อมูล" : "แก้ไขข้อมูล"}
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-5">
               <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold neu-text-muted uppercase mb-1">
+                <label htmlFor="profile-name" className={labelClass}>
                   ชื่อผู้ใช้งาน
                 </label>
                 <div className="relative">
                   <input
+                    id="profile-name"
                     type="text"
                     disabled={!isEditing}
                     value={profile.name}
                     onChange={(e) =>
                       setProfile({ ...profile, name: e.target.value })
                     }
-                    className="neu-input w-full px-4 py-2.5 transition-all text-sm neu-text"
+                    className={inputClass}
                   />
                 </div>
               </div>
               <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold neu-text-muted uppercase mb-1">
+                <label htmlFor="profile-phone" className={labelClass}>
                   เบอร์โทรศัพท์รับเหตุฉุกเฉิน
                 </label>
                 <input
+                  id="profile-phone"
                   type="text"
                   disabled={!isEditing}
                   value={profile.phone}
                   onChange={(e) =>
                     setProfile({ ...profile, phone: e.target.value })
                   }
-                  className="neu-input w-full px-4 py-2.5 transition-all text-sm font-mono neu-text"
+                  className={`${inputClass} font-mono`}
                 />
               </div>
             </div>
-          </div>
+          </section>
 
           {/* การตั้งค่าแจ้งเตือนย้ายไปหน้าของตัวเองที่ /settings/notifications
               เก็บไว้ที่เดียวจะได้ไม่ต้องแก้สองที่ทุกครั้งที่เพิ่มช่องทางใหม่ */}
           <a
             href="/settings/notifications"
-            className="neu-card p-6 flex items-center justify-between gap-4 transition-transform hover:-translate-y-0.5"
+            className={`${card} p-5 flex items-center justify-between gap-4 transition-colors hover:bg-[var(--tb-surface-2)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]`}
           >
-            <div className="flex items-start gap-3">
-              <span className="neu-inset p-3 rounded-2xl neu-text-accent shrink-0">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className="inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-[var(--tb-radius)] bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]">
                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
                   <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
                 </svg>
               </span>
-              <div>
-                <h3 className="text-lg font-bold neu-text">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-[var(--tb-text)]">
                   ช่องทางการรับสัญญาณเตือนภัย
                 </h3>
-                <p className="text-xs neu-text-muted mt-0.5">
+                <p className="text-sm text-[var(--tb-muted)] mt-0.5">
                   เชื่อมต่อ LINE / Telegram และเปิด-ปิดการแจ้งเตือนแต่ละช่องทาง
                 </p>
               </div>
             </div>
-            <svg className="w-5 h-5 shrink-0 neu-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <svg className="w-5 h-5 shrink-0 text-[var(--tb-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </a>
 
-          <div className="flex justify-end pt-2">
-            <button className="text-xs font-medium text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:underline transition-all py-3 px-2 inline-flex items-center gap-1.5">
-              <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
-                <path d="M12 9v4" />
-                <path d="M12 17h.01" />
-              </svg>
-              ต้องการลบบัญชีผู้ดูแลและล้างข้อมูลโครงข่าย IoT?
-            </button>
-          </div>
+          {/* ไม่มี API ให้ผู้ใช้ลบบัญชีตัวเอง (ลบได้เฉพาะผู้ดูแลระบบ ที่ /admin/users) จึงบอกช่องทางแทนปุ่มที่กดไม่ได้ */}
+          <p className="flex items-center justify-end gap-1.5 text-sm text-[var(--tb-muted)]">
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 16v-4" />
+              <path d="M12 8h.01" />
+            </svg>
+            หากต้องการลบบัญชี กรุณาติดต่อผู้ดูแลระบบ
+          </p>
         </div>
       </div>
 
       {/* ========================================== */}
-      {/* 🟢 ส่วนของ Modal สำหรับ Cropper วางไว้ตรงนี้ก่อนปิด Component */}
+      {/* ส่วนของ Modal สำหรับ Cropper วางไว้ตรงนี้ก่อนปิด Component */}
       {/* ========================================== */}
       {showCropper && tempImage && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div className="neu-card p-6 w-full max-w-md mx-4">
-            <h3 className="text-xl font-bold mb-4 neu-text">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="crop-title"
+            className="w-full max-w-md rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-pop)]"
+          >
+            <h3
+              id="crop-title"
+              className="px-5 py-4 border-b border-[var(--tb-border)] text-lg font-bold text-[var(--tb-text)]"
+            >
               ปรับตำแหน่งรูปโปรไฟล์
             </h3>
 
-            {/* พื้นที่แสดงรูปสำหรับ Crop */}
-            <div className="relative w-full h-64 bg-gray-900 rounded-xl overflow-hidden mb-6">
-              <Cropper
-                image={tempImage}
-                crop={crop}
-                zoom={zoom}
-                aspect={1} // บังคับสัดส่วนสี่เหลี่ยมจัตุรัส
-                cropShape="round" // ทำให้เห็นกรอบเป็นวงกลม
-                onCropChange={setCrop}
-                onZoomChange={setZoom}
-                onCropComplete={(croppedArea, croppedAreaPixels) => {
-                  setCroppedAreaPixels(croppedAreaPixels);
-                }}
-              />
-            </div>
+            <div className="p-5">
+              {/* พื้นที่แสดงรูปสำหรับ Crop */}
+              <div className="relative w-full h-64 bg-[var(--tb-surface-3)] rounded-[var(--tb-radius)] overflow-hidden mb-5">
+                <Cropper
+                  image={tempImage}
+                  crop={crop}
+                  zoom={zoom}
+                  aspect={1} // บังคับสัดส่วนสี่เหลี่ยมจัตุรัส
+                  cropShape="round" // ทำให้เห็นกรอบเป็นวงกลม
+                  onCropChange={setCrop}
+                  onZoomChange={setZoom}
+                  onCropComplete={(croppedArea, croppedAreaPixels) => {
+                    setCroppedAreaPixels(croppedAreaPixels);
+                  }}
+                />
+              </div>
 
-            {/* แถบเลื่อนปรับระยะซูม */}
-            <div className="mb-6">
-              <label className="text-sm neu-text-muted mb-2 block">
-                ซูมรูปภาพ
-              </label>
-              <input
-                type="range"
-                value={zoom}
-                min={1}
-                max={3}
-                step={0.1}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="w-full accent-blue-600"
-              />
+              {/* แถบเลื่อนปรับระยะซูม */}
+              <div>
+                <label htmlFor="crop-zoom" className={labelClass}>
+                  ซูมรูปภาพ
+                </label>
+                <input
+                  id="crop-zoom"
+                  type="range"
+                  value={zoom}
+                  min={1}
+                  max={3}
+                  step={0.1}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full h-11 accent-[var(--tb-primary)] cursor-pointer"
+                />
+              </div>
             </div>
 
             {/* ปุ่มยืนยัน / ยกเลิก */}
-            <div className="flex justify-end space-x-3">
+            <div className="flex justify-end gap-3 px-5 py-4 border-t border-[var(--tb-border)]">
               <button
+                type="button"
                 onClick={() => {
                   setShowCropper(false);
                   setTempImage(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
-                className="neu-btn px-4 py-2.5 neu-text transition-colors"
+                className={`${btnSecondary} flex-1 sm:flex-none`}
               >
                 ยกเลิก
               </button>
               <button
+                type="button"
                 onClick={handleConfirmCrop}
-                className="px-4 py-2 rounded-lg text-white bg-blue-600 hover:bg-blue-700 shadow-md transition-colors font-medium"
+                className={`${btnPrimary} flex-1 sm:flex-none`}
               >
                 ยืนยันการตัดรูป
               </button>

@@ -185,150 +185,241 @@ export default function NotificationSettingsPage() {
     },
   ];
 
+  // คลาสที่ใช้ซ้ำในหน้านี้ — Tailwind + ตัวแปร --tb-* ตามแบบหน้า /patients
+  const card =
+    "rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface)] shadow-[var(--tb-shadow-card)]";
+  const btnSecondary =
+    "inline-flex items-center justify-center gap-2 h-10 px-4 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)] text-sm font-semibold text-[var(--tb-text)] shadow-[var(--tb-shadow-xs)] hover:bg-[var(--tb-surface-2)] transition-colors disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]";
+  const connectedBadge =
+    "inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold bg-[var(--tb-success-tint)] text-[var(--tb-success-text)]";
+  const channelIcon =
+    "inline-flex items-center justify-center w-10 h-10 shrink-0 rounded-[var(--tb-radius)] bg-[var(--tb-primary-tint)] text-[var(--tb-primary-text)]";
+
+  const checkIcon = (
+    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold neu-text">ตั้งค่าการแจ้งเตือน</h1>
-          <p className="text-sm neu-text-muted mt-1">
+    <div className="max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8 space-y-6">
+      {/* ---------- หัวหน้า ---------- */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold text-[var(--tb-muted)]">ตั้งค่า</p>
+          <h1 className="mt-1 text-2xl font-bold text-[var(--tb-text)]">ตั้งค่าการแจ้งเตือน</h1>
+          <p className="mt-1 text-sm font-medium text-[var(--tb-muted)]">
             เลือกช่องทางที่จะรับสัญญาณเมื่อ AI ตรวจพบเสียงร้องขอความช่วยเหลือ
           </p>
         </div>
-        <Link href="/profile" className="neu-btn px-4 py-2.5 text-sm font-medium">
+        <Link href="/profile" className={`${btnSecondary} self-start sm:self-auto`}>
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <line x1="19" y1="12" x2="5" y2="12" />
+            <polyline points="12 19 5 12 12 5" />
+          </svg>
           กลับหน้าข้อมูลส่วนตัว
         </Link>
       </div>
 
       {status && (
-        <div className="neu-inset p-4">
-          <p
-            className={`text-xs font-medium ${
-              status.kind === "ok"
-                ? "text-emerald-600 dark:text-emerald-400"
-                : "text-rose-600 dark:text-rose-400"
-            }`}
-          >
-            {status.text}
-          </p>
+        <div
+          role={status.kind === "error" ? "alert" : "status"}
+          className={`flex items-start gap-3 rounded-[var(--tb-radius-lg)] border p-4 text-sm font-medium ${
+            status.kind === "ok"
+              ? "border-[var(--tb-success)]/25 bg-[var(--tb-success-tint)] text-[var(--tb-success-text)]"
+              : "border-[var(--tb-danger)]/25 bg-[var(--tb-danger-tint)] text-[var(--tb-danger-text)]"
+          }`}
+        >
+          {status.kind === "ok" ? (
+            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="16 9 10.5 15 8 12.5" />
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          )}
+          <p>{status.text}</p>
         </div>
       )}
 
       {/* ---------- เชื่อมบัญชี ---------- */}
-      <div className="neu-card p-6 space-y-4">
-        <h2 className="text-base font-bold neu-text">การเชื่อมต่อบัญชี</h2>
-
-        <div className="neu-inset p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold neu-text">LINE</p>
-            <p className="text-xs neu-text-muted mt-0.5">
-              ส่งข้อความเตือนภัยและตำแหน่งห้องเข้า LINE ทันทีเมื่อเกิดเหตุ
-            </p>
-          </div>
-          {profile.isLineConnected ? (
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 px-3 py-2">
-              เชื่อมต่อแล้ว
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={connectLine}
-              className="neu-btn px-4 py-2.5 text-xs font-semibold shrink-0"
-            >
-              เชื่อมต่อ LINE
-            </button>
-          )}
+      <section className={card} aria-labelledby="notif-accounts-title">
+        <div className="px-5 py-4 border-b border-[var(--tb-border)]">
+          <h2 id="notif-accounts-title" className="text-base font-semibold text-[var(--tb-text)]">
+            การเชื่อมต่อบัญชี
+          </h2>
         </div>
 
-        <div className="neu-inset p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <p className="text-sm font-bold neu-text">Telegram</p>
-            <p className="text-xs neu-text-muted mt-0.5">
-              ส่งข้อความเตือนภัยและไฟล์เสียงเข้า Telegram ทันทีเมื่อเกิดเหตุ
-            </p>
-          </div>
-          {profile.isTelegramConnected ? (
-            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 px-3 py-2">
-              เชื่อมต่อแล้ว
-            </span>
-          ) : (
-            <button
-              type="button"
-              onClick={connectTelegram}
-              disabled={isLinkingTelegram}
-              className="neu-btn px-4 py-2.5 text-xs font-semibold shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isLinkingTelegram ? "กำลังสร้างลิงก์..." : "เชื่อมต่อ Telegram"}
-            </button>
-          )}
-        </div>
-
-        {telegramLink && !profile.isTelegramConnected && (
-          <div className="neu-inset p-4 rounded-2xl space-y-2">
-            {telegramLink.deepLink ? (
-              <p className="text-xs neu-text">
-                เปิดแท็บ Telegram ให้แล้ว กด <span className="font-bold">Start</span> ในแชทกับบอทเพื่อผูกบัญชี
-                ถ้าแท็บไม่เปิด{" "}
-                <a
-                  href={telegramLink.deepLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold underline neu-text-accent"
-                >
-                  คลิกที่นี่
-                </a>
-              </p>
+        <div className="divide-y divide-[var(--tb-border)]">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className={channelIcon} aria-hidden="true">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--tb-text)]">LINE</p>
+                <p className="mt-0.5 text-sm text-[var(--tb-muted)]">
+                  ส่งข้อความเตือนภัยและตำแหน่งห้องเข้า LINE ทันทีเมื่อเกิดเหตุ
+                </p>
+              </div>
+            </div>
+            {profile.isLineConnected ? (
+              <span className={connectedBadge}>
+                {checkIcon}
+                เชื่อมต่อแล้ว
+              </span>
             ) : (
-              <>
-                <p className="text-xs neu-text">ส่งคำสั่งนี้ไปที่บอท Telegram ของระบบ:</p>
-                <code className="block text-xs font-mono neu-text break-all select-all p-2 rounded-lg bg-black/5 dark:bg-white/5">
-                  /start {telegramLink.token}
-                </code>
-              </>
+              <button
+                type="button"
+                onClick={connectLine}
+                className={`${btnSecondary} shrink-0 self-start sm:self-auto`}
+              >
+                เชื่อมต่อ LINE
+              </button>
             )}
-            <p className="text-[11px] neu-text-muted">
-              ลิงก์/คำสั่งนี้ใช้ได้ครั้งเดียวและหมดอายุใน {Math.round(telegramLink.expiresIn / 60)} นาที
-              เมื่อเชื่อมต่อเสร็จแล้วให้รีโหลดหน้านี้
-            </p>
           </div>
-        )}
-      </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <span className={channelIcon} aria-hidden="true">
+                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13" />
+                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                </svg>
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-[var(--tb-text)]">Telegram</p>
+                <p className="mt-0.5 text-sm text-[var(--tb-muted)]">
+                  ส่งข้อความเตือนภัยและไฟล์เสียงเข้า Telegram ทันทีเมื่อเกิดเหตุ
+                </p>
+              </div>
+            </div>
+            {profile.isTelegramConnected ? (
+              <span className={connectedBadge}>
+                {checkIcon}
+                เชื่อมต่อแล้ว
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={connectTelegram}
+                disabled={isLinkingTelegram}
+                className={`${btnSecondary} shrink-0 self-start sm:self-auto`}
+              >
+                {isLinkingTelegram && (
+                  <span
+                    aria-hidden="true"
+                    className="w-4 h-4 rounded-full border-2 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin"
+                  />
+                )}
+                {isLinkingTelegram ? "กำลังสร้างลิงก์..." : "เชื่อมต่อ Telegram"}
+              </button>
+            )}
+          </div>
+
+          {telegramLink && !profile.isTelegramConnected && (
+            <div className="px-5 py-4">
+              <div className="space-y-2 rounded-[var(--tb-radius)] border border-[var(--tb-primary)]/25 bg-[var(--tb-primary-tint)] p-4">
+                {telegramLink.deepLink ? (
+                  <p className="text-sm text-[var(--tb-text)]">
+                    เปิดแท็บ Telegram ให้แล้ว กด <span className="font-semibold">Start</span> ในแชทกับบอทเพื่อผูกบัญชี
+                    ถ้าแท็บไม่เปิด{" "}
+                    <a
+                      href={telegramLink.deepLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold underline text-[var(--tb-primary-text)] rounded-sm focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)]"
+                    >
+                      คลิกที่นี่
+                    </a>
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-[var(--tb-text)]">ส่งคำสั่งนี้ไปที่บอท Telegram ของระบบ:</p>
+                    <code className="block text-xs font-mono text-[var(--tb-text)] break-all select-all p-2.5 rounded-[var(--tb-radius)] border border-[var(--tb-border)] bg-[var(--tb-surface)]">
+                      /start {telegramLink.token}
+                    </code>
+                  </>
+                )}
+                <p className="text-xs text-[var(--tb-muted)]">
+                  ลิงก์/คำสั่งนี้ใช้ได้ครั้งเดียวและหมดอายุใน {Math.round(telegramLink.expiresIn / 60)} นาที
+                  เมื่อเชื่อมต่อเสร็จแล้วให้รีโหลดหน้านี้
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* ---------- สวิตช์ ---------- */}
-      <div className="neu-card p-6 space-y-2">
-        <h2 className="text-base font-bold neu-text mb-2">ช่องทางรับสัญญาณ</h2>
+      <section className={card} aria-labelledby="notif-channels-title">
+        <div className="px-5 py-4 border-b border-[var(--tb-border)]">
+          <h2 id="notif-channels-title" className="text-base font-semibold text-[var(--tb-text)]">
+            ช่องทางรับสัญญาณ
+          </h2>
+        </div>
 
         {isLoading ? (
-          <p className="text-sm neu-text-muted py-4">กำลังโหลดการตั้งค่า...</p>
+          <div className="flex items-center gap-3 px-5 py-6">
+            <span
+              aria-hidden="true"
+              className="w-5 h-5 rounded-full border-2 border-[var(--tb-border)] border-t-[var(--tb-primary)] animate-spin"
+            />
+            <p className="text-sm text-[var(--tb-muted)]">กำลังโหลดการตั้งค่า...</p>
+          </div>
         ) : (
-          rows.map((row) => (
-            <div
-              key={row.key}
-              className="flex items-center justify-between gap-4 py-4 border-b border-[var(--neu-shadow-dark)]/20 last:border-0"
-            >
-              <div className={row.disabled ? "opacity-50" : ""}>
-                <p className="text-sm font-semibold neu-text">{row.title}</p>
-                <p className="text-xs neu-text-muted mt-0.5">{row.detail}</p>
-                {row.disabled && (
-                  <p className="text-[11px] neu-text-accent mt-1">
-                    ต้องเชื่อมบัญชีก่อนถึงจะเปิดได้
-                  </p>
-                )}
-              </div>
+          <div className="divide-y divide-[var(--tb-border)]">
+            {rows.map((row) => {
+              const checked = Boolean(profile[row.key]);
+              return (
+                <div key={row.key} className="flex items-center justify-between gap-4 px-5 py-4">
+                  <div className={`min-w-0 ${row.disabled ? "opacity-60" : ""}`}>
+                    <p id={`notif-${row.key}-title`} className="text-sm font-semibold text-[var(--tb-text)]">
+                      {row.title}
+                    </p>
+                    <p id={`notif-${row.key}-detail`} className="mt-0.5 text-sm text-[var(--tb-muted)]">
+                      {row.detail}
+                    </p>
+                    {row.disabled && (
+                      <p className="mt-1 text-xs font-medium text-[var(--tb-primary-text)]">
+                        ต้องเชื่อมบัญชีก่อนถึงจะเปิดได้
+                      </p>
+                    )}
+                  </div>
 
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  checked={Boolean(profile[row.key])}
-                  disabled={row.disabled}
-                  onChange={() => toggle(row.key)}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 neu-switch peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:rounded-full after:h-5 after:w-5 after:transition-all peer-disabled:opacity-40 peer-disabled:cursor-not-allowed"></div>
-              </label>
-            </div>
-          ))
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={checked}
+                    aria-labelledby={`notif-${row.key}-title`}
+                    aria-describedby={`notif-${row.key}-detail`}
+                    disabled={row.disabled}
+                    onClick={() => toggle(row.key)}
+                    className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[var(--tb-primary-ring)] disabled:cursor-not-allowed disabled:opacity-50 ${
+                      checked
+                        ? "border-transparent bg-[var(--tb-primary)]"
+                        : "border-[var(--tb-border-strong)] bg-[var(--tb-surface-3)]"
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`inline-block h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(24,36,51,0.3)] transition-transform ${
+                        checked ? "translate-x-[21px]" : "translate-x-px"
+                      }`}
+                    />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
