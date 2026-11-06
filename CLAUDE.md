@@ -28,11 +28,13 @@ untracked leftovers (build output, `.env`) — do not edit those, they are dead.
 | `frontend/` | Next.js 16 app (App Router) | — |
 | `backend/` | Go + Fiber API | `go_backend/` |
 | `api/` | Python FastAPI process: MQTT receiver + BCResNet inference | `backend_ai/` |
-| `firmwareV2/` | ESP32 firmware, dual mic, streams both channels (the only firmware) | — |
+| `firmwareV2/` | ESP32 firmware, dual mic, streams both channels (the one in use) | — |
+| `firmwareV1/` | Old single-mic firmware, restored for reference (MQTT creds in gitignored `main/secrets.h`) | `esp32/` → `firmware/` |
 | `mosquitto/` | MQTT broker config for Docker | — |
 | `docs/` | `ARCHITECTURE.md` — code-verified architecture reference | — |
 
-The single-mic `firmware/` folder has been **deleted** from the working tree.
+The single-mic `firmware/` folder was deleted in `f263642` and restored as
+`firmwareV1/` (reference only; do not edit `firmwareV2` to match it).
 Each service ships a `.env.example` (`api/`, `backend/`, `frontend/`) listing
 every variable it reads — copy it to `.env` / `.env.local`.
 
