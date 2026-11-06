@@ -1,12 +1,14 @@
 package controllers
 
 import (
+	"encoding/json"
 	"fmt"
 	"go_backend/config"
 	"go_backend/database"
 	"go_backend/middleware"
 	"go_backend/models"
 	"go_backend/utils"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -183,6 +185,28 @@ func DeleteAudioFile(c *fiber.Ctx) error {
 	})
 }
 
+// maxMicLevels กันไม่ให้ค่าผิดรูปจาก client ทำแถวบวม (บอร์ดตอนนี้มี 2 ไมค์)
+const maxMicLevels = 8
+
+// parseMicLevels อ่าน mic_levels (JSON array ช่วง 0-1) ที่ Python ส่งมา — ค่าว่างหรือผิดรูป = nil (ไม่มีข้อมูล)
+// ไม่ปฏิเสธทั้ง request เพราะเหตุฉุกเฉินต้องบันทึกได้เสมอ ค่าที่หลุดช่วงถูกบีบให้อยู่ใน 0-1
+func parseMicLevels(raw string) []float64 {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	var levels []float64
+	if err := json.Unmarshal([]byte(raw), &levels); err != nil || len(levels) == 0 || len(levels) > maxMicLevels {
+		return nil
+	}
+	for i, v := range levels {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return nil
+		}
+		levels[i] = math.Min(1, math.Max(0, v))
+	}
+	return levels
+}
+
 // 🚨 ฟังก์ชันสำหรับรับไฟล์เสียงฉุกเฉินจาก Python AI มาบันทึกเก็บไว้
 func SaveEmergencyAudio(c *fiber.Ctx) error {
 	// รับไฟล์เสียงจาก Python (.wav)
@@ -213,6 +237,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 	eventType := c.FormValue("event_type", "emergency")
 	confidence, _ := strconv.ParseFloat(c.FormValue("confidence", "0.0"), 64)
 	decibelLevel, _ := strconv.ParseFloat(c.FormValue("decibel_level", "0.0"), 64)
+	micLevels := parseMicLevels(c.FormValue("mic_levels"))
 
 	// 🟢 2. เก็บไว้ที่เดียวกับ audioDir ที่ GetAudioFile เสิร์ฟ (ต้องตรงกัน)
 	uploadDir := "./audio_recordings"
@@ -264,6 +289,7 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 		EventType:    eventType,
 		Confidence:   confidence,
 		DecibelLevel: decibelLevel,
+		MicLevels:    micLevels,
 		AudioURL:     fmt.Sprintf("/api/audio/%s", filename), // ส่ง URL กลับไปให้หน้าเว็บ
 		Status:       "needs_help",
 		IsResolved:   false, // 🟢 ย้ำสถานะเป็น false ให้ชัดเจนไปเลยว่า "ยังไม่ได้รับการช่วยเหลือ"
@@ -275,7 +301,11 @@ func SaveEmergencyAudio(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to create detection log"})
 	}
 
-	fmt.Println("✅ [GO] บันทึกเหตุฉุกเฉินลงฐานข้อมูลสำเร็จ! ไฟล์:", filename, "ผูกกับผู้ป่วย ID:", log.PatientID)
+	if log.PatientID != nil {
+		fmt.Println("✅ [GO] บันทึกเหตุฉุกเฉินลงฐานข้อมูลสำเร็จ! ไฟล์:", filename, "ผูกกับผู้ป่วย ID:", *log.PatientID)
+	} else {
+		fmt.Println("✅ [GO] บันทึกเหตุฉุกเฉินลงฐานข้อมูลสำเร็จ! ไฟล์:", filename, "(อุปกรณ์ยังไม่ผูกผู้ป่วย)")
+	}
 
 	// ==========================================
 	// 🚀 ระบบแจ้งเตือน (LINE และ Telegram)

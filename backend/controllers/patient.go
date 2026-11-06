@@ -89,6 +89,13 @@ func CreatePatient(c *fiber.Ctx) error {
 			if boundCount > 0 {
 				return fiber.NewError(fiber.StatusConflict, "อุปกรณ์ MAC Address: "+mac+" ถูกลงทะเบียนให้ผู้ป่วยรายอื่นในระบบแล้ว")
 			}
+			allowed, err := canClaimDevice(user, mac)
+			if err != nil {
+				return fiber.NewError(fiber.StatusServiceUnavailable, "ตรวจสอบสถานะอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง")
+			}
+			if !allowed {
+				return fiber.NewError(fiber.StatusBadRequest, msgDeviceNotHeard)
+			}
 
 			deviceName := strings.TrimSpace(dev.DeviceName)
 			if deviceName == "" {

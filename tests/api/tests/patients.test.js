@@ -46,6 +46,9 @@ test('TC-19 GET /api/patients returns only the caller\'s own patients', async ()
 
 test('TC-20 POST /api/patients/register creates the patient and binds the device', async () => {
   const device = await createDevice(cleanup, { active: false });
+  // บอร์ดจริงส่งเสียงเข้า MQTT แล้ว receiver ถาม check-activation — ผู้ดูแลผูกได้เฉพาะบอร์ดที่ระบบได้ยินแล้ว
+  const heard = await api().get('/api/device/check-activation').query({ mac: device.mac }).set(api.internal());
+  expect(heard.status).toBe(200);
   const name = uniqueName('pt-register');
   const res = await api().post('/api/patients/register').set(api.bearer(me.token)).send({
     patientName: name, age: 77, gender: 'ชาย', roomNumber: 'R-201', medicalCondition: 'ความดันสูง',
@@ -61,6 +64,20 @@ test('TC-20 POST /api/patients/register creates the patient and binds the device
   expect(binding).toEqual({ device_id: device.id, device_name: 'ไมค์หัวเตียง' });
   const dev = await db.one('SELECT is_active FROM devices WHERE id = $1', [device.id]);
   expect(dev.is_active).toBe(true);
+});
+
+test('VAL-13 POST /api/patients/register with a board the system has not heard yet returns 400', async () => {
+  const device = await createDevice(cleanup, { active: false });   // มีในระบบ (เคย check-in) แต่ยังไม่ส่งเสียง
+  const name = uniqueName('pt-unheard');
+  const res = await api().post('/api/patients/register').set(api.bearer(me.token)).send({
+    patientName: name, roomNumber: 'R-202', board_id: device.mac,
+  });
+  expect(res.status).toBe(400);
+  expect(res.body.field).toBe('boardId');
+  expect(await trackPatientsNamed(name)).toHaveLength(0);
+  const bound = await db.one('SELECT COUNT(*)::int AS n FROM device_patients WHERE device_id = $1', [device.id]);
+  expect(bound.n).toBe(0);
+  note('VAL-13', `ผูกบอร์ดที่ยังไม่เคยส่งเสียงไม่ได้: ${res.body.error}`);
 });
 
 test('TC-21 POST /api/patients/register with missing required fields returns 400', async () => {

@@ -338,16 +338,31 @@ func seedDetectionLogs(db *gorm.DB, patients []models.Patient, reset bool) {
 	sort.Slice(events, func(i, j int) bool { return events[i].at.Before(events[j].at) })
 
 	const unresolvedCount = 2 // เหตุล่าสุด 2 รายการยังไม่ปิด ที่เหลือปิดแล้ว
+	// อุปกรณ์ลำดับนี้ (02:5E:ED:00:00:03) จำลองไมค์ขวาเบาผิดปกติ ให้หน้า /admin/audio-diagnostics มีตัวอย่างคำเตือน
+	const weakMicDevice = 2
+	// ระดับไมค์ 0-1 แบบเดียวกับ mic_levels() ใน api/mqtt_audio_receiver.py: -60 dBFS = 0, 0 dBFS = 1
+	micLevel := func(dbfs float64) float64 {
+		return math.Round(math.Min(1, math.Max(0, (dbfs+60)/60))*1000) / 1000
+	}
 	logs := make([]models.DetectionLog, len(events))
 	for i, ev := range events {
 		patientID := patients[ev.patient].ID
 		filename := fmt.Sprintf("%s%s-%02d.wav", seedAudioPrefix, ev.at.Format("20060102-150405"), i)
+		loudest := -30 + rng.Float64()*22    // dBFS ของไมค์ที่ดังกว่า (เสียงร้องในห้อง)
+		other := loudest - rng.Float64()*4   // ไมค์ 2 ตัวห่างกันไม่กี่ซม. ระดับใกล้กัน
+		levels := []float64{micLevel(loudest), micLevel(other)}
+		if ev.device == weakMicDevice {
+			levels[1] = micLevel(loudest - 18 - rng.Float64()*6)
+		} else if rng.IntN(2) == 0 {
+			levels[0], levels[1] = levels[1], levels[0]
+		}
 		entry := models.DetectionLog{
 			PatientID:    &patientID,
 			DeviceMAC:    seedDevices[ev.device].MAC,
 			EventType:    "needs_help", // ค่าเดียวกับที่ api/mqtt_audio_receiver.py ส่งมาเมื่อโมเดลตอบ yes
 			Confidence:   math.Round((0.62+rng.Float64()*0.37)*10000) / 10000,
-			DecibelLevel: math.Round((55+rng.Float64()*30)*10) / 10,
+			DecibelLevel: math.Round(loudest*10) / 10, // dBFS ของไมค์ที่ดังที่สุด เหมือนที่ receiver ส่ง
+			MicLevels:    levels,
 			AudioURL:     "/api/audio/" + filename,
 			Status:       "needs_help",
 		}

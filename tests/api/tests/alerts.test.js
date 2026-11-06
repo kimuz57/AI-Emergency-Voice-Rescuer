@@ -116,6 +116,22 @@ test('TC-36 GET /api/alerts/history returns the events with patient data', async
   expect(mine).toMatchObject({ device_mac: device.mac, patient_name: patient.name, room_number: 'T-01' });
 });
 
+test('TC-57 mic_levels from the receiver are stored and returned by /api/alerts/history', async () => {
+  const res = await postEmergency(device.mac, { fields: { mic_levels: '[0.82, 0.31]', decibel_level: '-18.5' } });
+  expect(res.status).toBe(200);
+  cleanup.log(res.body.log_id);
+  const row = await db.one('SELECT mic_levels, decibel_level FROM detection_logs WHERE id = $1', [res.body.log_id]);
+  expect(JSON.parse(row.mic_levels)).toEqual([0.82, 0.31]);
+  expect(Number(row.decibel_level)).toBeCloseTo(-18.5);
+
+  const history = await api().get('/api/alerts/history').set(api.bearer(caregiver.token));
+  const event = history.body.find((h) => h.id === res.body.log_id);
+  expect(event.mic_levels).toEqual([0.82, 0.31]);
+  // เหตุที่ไม่มีระดับไมค์ (เหตุเก่า) ต้องได้ null ไม่ใช่ error
+  expect(history.body.find((h) => h.id === logs[0].id).mic_levels).toBeNull();
+  note('TC-57', `mic_levels ${JSON.stringify(event.mic_levels)}, decibel_level ${row.decibel_level}`);
+});
+
 test('TC-37 GET /api/alerts/stats returns counts for today, this week and in total', async () => {
   const res = await api().get('/api/alerts/stats').set(api.bearer(caregiver.token));
   expect(res.status).toBe(200);

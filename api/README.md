@@ -9,6 +9,7 @@
 | `app.py` | โหลดโมเดล (`MODEL_ARCH`, `MODEL_PATH`), log-Mel, `run_kws_inference()`, `POST /need-help` |
 | `eval_offline.py` | ทดลองแบบ offline กับโฟลเดอร์ WAV ที่มี label (Accuracy, Precision, Recall, F1, FP, FN, เวลาต่อหน้าต่าง) |
 | `tools/mqtt_record.py` | ดูระดับเสียงแต่ละไมค์ และบันทึกเสียงดิบ 2 ช่องจากบอร์ดจริง |
+| `tools/mqtt_simulate.py` | จำลองบอร์ด: ส่งไฟล์ WAV เข้า MQTT แบบเดียวกับ firmwareV2 (ทดสอบทั้งระบบโดยไม่มีบอร์ด) |
 
 รายละเอียดเชิงลึกอยู่ใน `docs/ARCHITECTURE.md` หัวข้อ 4 ค่าตั้งทั้งหมดอยู่ใน `.env.example`
 
@@ -20,8 +21,26 @@ uv run uvicorn app:app --host 0.0.0.0 --port 8000
 uv run pytest                   # unit test (สัญญาณสังเคราะห์ ไม่ต้องต่อ broker)
 ```
 
-> `torchaudio.load` ใช้ torchcodec ซึ่งต้องมี FFmpeg แบบ shared library — บน Windows ถ้าลง FFmpeg แบบ static
-> ทุกหน้าต่างจะได้ `detected="error"` (log `[AI] Inference failed`)
+`app.py` อ่าน WAV ด้วย `scipy.io.wavfile` ไม่ใช้ `torchaudio.load` (รุ่นใหม่ต้องมี FFmpeg แบบ shared library
+ผ่าน torchcodec ซึ่ง Windows ส่วนใหญ่ไม่มี แล้วทุกหน้าต่างจะได้ `detected="error"`)
+
+ตอนแจ้งเหตุ receiver ส่ง `mic_levels` (ระดับเสียงดิบของไมค์ L,R ก่อน DSP ช่วง 0-1: -60 dBFS = 0, 0 dBFS = 1)
+และ `decibel_level` (dBFS ของไมค์ที่ดังที่สุด) ของหน้าต่างเดียวกับไฟล์เสียงไปด้วย ดูได้ที่หน้า `/admin/audio-diagnostics`
+
+## ทดสอบทั้งระบบโดยไม่มีบอร์ด
+
+เปิดทุก service ก่อน (`start_guardian.bat` หรือดู `CLAUDE.md`) แล้วส่งเสียงจากไฟล์เข้า MQTT ในนามบอร์ดที่ลงทะเบียน
+และเปิดใช้งานแล้ว (ข้อมูล seed มี `02:5E:ED:00:00:01`–`03`):
+
+```powershell
+cd api
+uv run python tools/mqtt_simulate.py --mac 02:5E:ED:00:00:01 --wav path\to\help.wav --repeat 2
+uv run python tools/mqtt_simulate.py --mac 02:5E:ED:00:00:01 --wav path\to\help.wav --right-gain 0.2   # ไมค์ขวาเบา
+```
+
+ไฟล์ช่องเดียวถูกคัดลอกเป็นไมค์ขวา (เลื่อน `--delay` ค่าตัวอย่าง) ไฟล์ที่ไม่ใช่ 8 kHz ถูก resample
+ถ้าเสียงเป็นการร้องขอความช่วยเหลือ จะเห็น `-> ALERT` ใน log ของ receiver แถวใหม่ใน `detection_logs`
+และการ์ดแจ้งเตือนขึ้นในแดชบอร์ดของผู้ดูแลผู้ป่วยรายนั้นภายในไม่กี่วินาที
 
 ## วิธีทดสอบกับบอร์ดจริง
 

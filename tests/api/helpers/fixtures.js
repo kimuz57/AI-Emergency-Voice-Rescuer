@@ -104,14 +104,15 @@ function wav(seconds = 0.5) {
 }
 
 /** ส่งเหตุฉุกเฉินแบบที่ Python receiver ส่ง (multipart: audio + device_mac + event_type + confidence) */
-function postEmergency(mac, { file = wav(), filename = 'emergency.wav', headers = api.internal() } = {}) {
-  return api()
+function postEmergency(mac, { file = wav(), filename = 'emergency.wav', headers = api.internal(), fields = {} } = {}) {
+  let req = api()
     .post('/api/audio/emergency')
     .set(headers)
     .field('device_mac', mac)
     .field('event_type', 'needs_help')
-    .field('confidence', '0.93')
-    .attach('audio', file, filename);
+    .field('confidence', '0.93');
+  for (const [name, value] of Object.entries(fields)) req = req.field(name, value);
+  return req.attach('audio', file, filename);
 }
 
 /** ข้อมูล seed (go run ./cmd/seed) ถ้ามี — คืน null ถ้าไม่มี */

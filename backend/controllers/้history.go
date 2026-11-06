@@ -67,8 +67,9 @@ func GetHistoryAlerts(c *fiber.Ctx) error {
 			detection_logs.decibel_level, 
 			detection_logs.is_resolved, 
 			detection_logs.audio_url, 
-			detection_logs.status, 
-			patients.name as patient_name, 
+			detection_logs.status,
+			detection_logs.mic_levels,
+			patients.name as patient_name,
 			patients.room_number
 		`).
 		// อุปกรณ์กับผู้ป่วยผูกกันผ่านตารางกลาง device_patients — ตาราง devices ไม่มีคอลัมน์ patient_id

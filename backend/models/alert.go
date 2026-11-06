@@ -15,6 +15,7 @@ type HistoryResponse struct {
 	Status       string    `json:"status"`
 	PatientName  string    `json:"patient_name"`
 	RoomNumber   string    `json:"room_number"`
+	MicLevels    []float64 `gorm:"serializer:json" json:"mic_levels"` // ระดับไมค์ L,R 0-1 (null = เหตุเก่า/ไม่มีข้อมูล)
 }
 // 📊 โครงสร้างสำหรับกราฟรายวัน/รายชั่วโมง
 type StatItem struct {

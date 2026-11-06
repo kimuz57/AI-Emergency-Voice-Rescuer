@@ -2,9 +2,10 @@ import io
 import os
 import logging
 import threading
+import numpy as np
 import torch
-import torchaudio
 import torch.nn.functional as F
+from scipy.io import wavfile
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.concurrency import run_in_threadpool
@@ -125,10 +126,30 @@ except Exception as e:
 # -------------------------------------------------------------------------
 # 2. Preprocessing Utility
 # -------------------------------------------------------------------------
+_INT_SCALE = {np.dtype(np.int16): 32768.0, np.dtype(np.int32): 2147483648.0}
+
+
+def _decode_wav(audio_bytes: bytes) -> tuple[torch.Tensor, int]:
+    """WAV bytes -> (float32 [channels, samples] ช่วง -1..1, sample rate) แบบเดียวกับ torchaudio.load
+
+    ไม่ใช้ torchaudio.load เพราะรุ่นใหม่ส่งต่อให้ torchcodec ซึ่งต้องมี FFmpeg แบบ shared library
+    (Windows ส่วนใหญ่ไม่มี) แล้วทุกหน้าต่างของ MQTT จะ inference ไม่ได้เลย
+    """
+    sr, data = wavfile.read(io.BytesIO(audio_bytes))
+    if data.dtype == np.uint8:
+        samples = (data.astype(np.float32) - 128.0) / 128.0
+    elif data.dtype in _INT_SCALE:
+        samples = data.astype(np.float32) / _INT_SCALE[data.dtype]
+    else:
+        samples = data.astype(np.float32)
+    samples = samples[np.newaxis, :] if samples.ndim == 1 else samples.T
+    return torch.from_numpy(np.ascontiguousarray(samples)), int(sr)
+
+
 def preprocess_audio(audio_bytes: bytes) -> torch.Tensor:
     """Inference Preprocessing"""
     try:
-        waveform, sr = torchaudio.load(io.BytesIO(audio_bytes))
+        waveform, sr = _decode_wav(audio_bytes)
         waveform = waveform.to(device)
         
         if sr != SAMPLE_RATE:

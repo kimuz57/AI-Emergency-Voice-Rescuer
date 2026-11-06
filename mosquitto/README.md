@@ -22,6 +22,20 @@ PowerShell ใช้ `${PWD}` ได้เหมือนกัน ส่วน 
 user ของ receiver ต้องตรงกับ `MQTT_USER` / `MQTT_PASSWORD` ใน `api/.env`
 และ user ของบอร์ดต้องตรงกับที่ compile ไว้ใน firmware
 
+**Windows (Docker Desktop):** ไฟล์ที่สร้างผ่าน bind mount จะเป็นของ root และ mosquitto 2.1 รันเป็น
+user `mosquitto` (uid 1883) จึงอ่านไม่ได้ — log ขึ้น `Unable to open pwfile` แล้ว container restart วน
+ให้โอนไฟล์ให้ uid 1883 หลังสร้าง (ทำซ้ำทุกครั้งที่แก้ passwd หรือสร้าง cert ใหม่):
+
+```sh
+docker run --rm -v "${PWD}/mosquitto/config:/mosquitto/config" -v "${PWD}/mosquitto/certs:/mosquitto/certs" \
+  eclipse-mosquitto:2 sh -c "chown 1883:1883 /mosquitto/config/passwd /mosquitto/certs/* && chmod 0700 /mosquitto/config/passwd && chmod 0600 /mosquitto/certs/server.key"
+docker compose restart mosquitto
+```
+
+ถ้ารหัสผ่านมีอักขระพิเศษ (`$`, `` ` ``, `"`, `\`) ให้พิมพ์ตอน `mosquitto_passwd` ถาม (แบบ `-it` ข้างบน)
+อย่าส่งผ่านตัวแปร shell ที่อ่านจาก `.env` เพราะ shell จะแปลงอักขระเหล่านั้นแล้วรหัสจะไม่ตรงกับที่ receiver ใช้
+(อาการ: receiver log `Connection failed, rc=Not authorized`)
+
 ## 2. สร้าง certificate สำหรับ WSS `certs/server.crt` + `certs/server.key`
 
 listener 8083 ต้องใช้สองไฟล์นี้ ถ้าไม่มี broker จะ start ไม่ขึ้นทั้งตัว

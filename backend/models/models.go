@@ -25,6 +25,8 @@ type DetectionLog struct {
 
 	AudioURL string `json:"audio_url"`
 	Status   string `gorm:"default:'needs_help';index" json:"status"` // SSE กรอง status = needs_help ทุก 1 วินาที
+	// ระดับเสียงดิบของแต่ละไมค์ (L, R) ช่วง 0-1 ของหน้าต่างที่แจ้งเหตุ — Python receiver คำนวณ, null = ไม่มีข้อมูล
+	MicLevels []float64 `gorm:"type:text;serializer:json" json:"mic_levels"`
 }
 
 // 5. ตารางเชื่อม Many-to-Many ระหว่าง Caregiver (User) และ Patient

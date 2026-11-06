@@ -75,6 +75,40 @@ func deviceActivationKey(mac string) string {
 	return fmt.Sprintf("device:activation:%s", normalizeMAC(mac))
 }
 
+// deviceHeardTTL นานแค่ไหนหลังระบบได้ยินเสียงจากบอร์ดล่าสุด ที่ผู้ดูแล (ไม่ใช่ admin) ยังผูกบอร์ดนั้นได้
+// receiver ถาม check-activation ของบอร์ดที่ยังไม่เปิดใช้งานทุก ~10 วิ ขณะที่บอร์ดส่งเสียง key จึงต่ออายุไปเรื่อย ๆ
+const deviceHeardTTL = 10 * time.Minute
+
+const msgDeviceNotHeard = "ระบบยังไม่ได้รับเสียงจากอุปกรณ์นี้ กรุณาเสียบปลั๊กบอร์ดและตั้งค่า Wi-Fi ให้เรียบร้อยก่อน " +
+	"แล้วลงทะเบียนภายใน 10 นาที (ถ้ายังไม่ได้ ให้ผู้ดูแลระบบผูกอุปกรณ์ให้)"
+
+func deviceHeardKey(mac string) string {
+	return fmt.Sprintf("device:heard:%s", normalizeMAC(mac))
+}
+
+// markDeviceHeard จดว่าบอร์ดนี้กำลังส่งเสียงเข้า MQTT อยู่จริง (เรียกจาก check-activation ซึ่งต้องมี X-Internal-Key
+// และ receiver เรียกเมื่อได้เสียงจากบอร์ดเท่านั้น) — ต่างจาก /api/device/checkin ที่เป็น public ใครก็ยิงได้
+func markDeviceHeard(mac string) {
+	if err := database.SetJSON(deviceHeardKey(mac), true, deviceHeardTTL); err != nil {
+		fmt.Printf("⚠️ [Redis] บันทึก device:heard ของ MAC %s ไม่สำเร็จ: %v\n", mac, err)
+	}
+}
+
+// deviceRecentlyHeard เป็นตัวแปรเพื่อให้ test แทนที่ได้โดยไม่ต้องมี Redis
+var deviceRecentlyHeard = func(mac string) (bool, error) {
+	var heard bool
+	return database.GetJSON(deviceHeardKey(mac), &heard)
+}
+
+// canClaimDevice กฎการผูกบอร์ดที่ยังว่างเข้ากับผู้ป่วย: admin ผูกได้เสมอ ผู้ดูแลผูกได้เฉพาะบอร์ดที่กำลังส่งเสียงเข้าระบบ
+// (กันการเดา/อ่าน MAC จากฉลากแล้วผูกบอร์ดของคนอื่นที่ยังไม่ได้เสียบใช้งาน) — ผูกซ้ำบอร์ดที่มีเจ้าของแล้วถูกกันแยกต่างหาก
+func canClaimDevice(user *models.User, mac string) (bool, error) {
+	if user.Role == "admin" {
+		return true, nil
+	}
+	return deviceRecentlyHeard(mac)
+}
+
 func CheckDeviceActivation(c *fiber.Ctx) error {
 	if strings.TrimSpace(c.Query("mac")) == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
@@ -89,6 +123,7 @@ func CheckDeviceActivation(c *fiber.Ctx) error {
 			"is_active": false,
 		})
 	}
+	markDeviceHeard(mac)
 
 	// ── 1. เช็ค Redis ก่อน ──
 	var cached struct {

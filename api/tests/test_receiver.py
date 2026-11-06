@@ -2,6 +2,7 @@
 
 import importlib
 import io
+import json
 import wave
 
 import numpy as np
@@ -177,12 +178,43 @@ def test_alert_after_three_windows_then_reset(receiver, monkeypatch, sent):
     assert emergencies[0][3]["event_type"] == "needs_help"
 
 
+def test_mic_levels_scale_and_weak_mic(receiver):
+    loud = np.full(8000, 10 ** (-20 / 20), dtype=np.float32)    # RMS -20 dBFS
+    quiet = np.full(8000, 10 ** (-50 / 20), dtype=np.float32)   # RMS -50 dBFS
+    result = receiver.mic_levels(loud, quiet)
+    assert result.levels == pytest.approx([40 / 60, 10 / 60], abs=1e-3)
+    assert result.loudest_dbfs == pytest.approx(-20, abs=0.01)
+    silent = receiver.mic_levels(np.zeros(8000, np.float32), np.ones(8000, np.float32))
+    assert silent.levels == [0.0, 1.0]                            # ไมค์ที่ไม่มีสัญญาณเลย = 0 ไม่ใช่ error
+
+
+def test_alert_carries_mic_levels_of_the_sent_window(receiver, monkeypatch, sent):
+    _fake_model(receiver, monkeypatch, [0.9])
+    state = receiver._new_device_state()
+    for _ in range(3):
+        receiver._process_window(_speech_window(), "AA:BB:CC:DD:EE:FF", state)
+    payload = [a for a in sent if a[0].endswith("/emergency")][0][3]
+    levels = json.loads(payload["mic_levels"])
+    assert len(levels) == 2 and all(0 < v <= 1 for v in levels)
+    assert levels[0] == pytest.approx(levels[1], abs=0.02)         # ไมค์ 2 ตัวได้เสียงเดียวกัน
+    assert -40 < payload["decibel_level"] < 0
+
+
 def test_negative_is_throttled_to_once_per_window_length(receiver, monkeypatch, sent):
     _fake_model(receiver, monkeypatch, [0.1])
     state = receiver._new_device_state()
     for _ in range(8):                                          # 8 หน้าต่าง x 0.5 วิ = 4 วิ
         receiver._process_window(_speech_window(), "AA:BB:CC:DD:EE:FF", state)
     assert len([a for a in sent if a[0].endswith("/negative")]) == 2
+
+
+def test_window_that_sounds_like_help_is_not_sent_as_negative(receiver, monkeypatch, sent):
+    _fake_model(receiver, monkeypatch, [0.9, 0.1, 0.1])   # ค่าเฉลี่ย 0.37 ไม่แจ้งเหตุ
+    state = receiver._new_device_state()
+    receiver._process_window(_speech_window(), "AA:BB:CC:DD:EE:FF", state)
+    assert sent == []                                      # p_yes 0.9 ไม่ใช่ตัวอย่างเสียงปกติ
+    receiver._process_window(_speech_window(), "AA:BB:CC:DD:EE:FF", state)
+    assert [a[0].rsplit("/", 1)[-1] for a in sent] == ["negative"]
 
 
 def test_silent_window_skips_model_and_counts_as_zero(receiver, monkeypatch, sent):

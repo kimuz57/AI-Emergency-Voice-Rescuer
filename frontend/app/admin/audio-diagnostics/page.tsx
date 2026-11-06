@@ -7,7 +7,7 @@ import { authHeaders } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
-// รูปร่างเดียวกับ models.HistoryResponse ฝั่ง Go + mic_levels ที่ยังรอเพิ่ม
+// รูปร่างเดียวกับ models.HistoryResponse ฝั่ง Go
 type DiagnosticRow = {
   id: number;
   created_at: string;
@@ -15,13 +15,17 @@ type DiagnosticRow = {
   patient_name: string;
   room_number: string;
   confidence: number;
+  // RMS ของไมค์ที่ดังที่สุด (dBFS, 0 = เต็มสเกล ค่าติดลบ) — 0 = ไม่มีข้อมูล (เหตุก่อนเปิดใช้การวัด)
   decibel_level: number;
   audio_url: string;
   status: string;
-  // ระดับสัญญาณของไมค์ 2 ตัว (0-1) — backend ยังไม่ส่งฟิลด์นี้ ต้องรอให้อุปกรณ์
-  // ส่งเสียง 2 ช่องแยกกันก่อน แล้วฝั่ง AI คำนวณระดับของแต่ละช่องส่งต่อมา
-  mic_levels?: number[];
+  // ระดับเสียงดิบของไมค์ซ้าย/ขวา (0-1) ก่อน DSP ของหน้าต่างที่แจ้งเหตุ — api/mqtt_audio_receiver.py คำนวณ
+  // 0 = -60 dBFS หรือเบากว่า, 1 = 0 dBFS; null = เหตุเก่าหรือข้อมูลตัวอย่างที่ไม่มีค่านี้
+  mic_levels?: number[] | null;
 };
+
+// ไมค์ 2 ตัวอยู่ห่างกันไม่กี่เซนติเมตร ระดับควรใกล้กัน ต่างเกินนี้ (ราว 15 dB) น่าจะมีไมค์ตัวหนึ่งเสีย/สายหลวม
+const IMBALANCE_THRESHOLD = 0.25;
 
 // ข้อมูลตัวอย่างสำหรับดูหน้าตาระหว่างพัฒนา — ปุ่มเปิดมีเฉพาะตอน development
 const MOCK_ROWS: DiagnosticRow[] = [
@@ -32,10 +36,22 @@ const MOCK_ROWS: DiagnosticRow[] = [
     patient_name: "นายสมชาย ใจดี",
     room_number: "A-301",
     confidence: 0.87,
-    decibel_level: 72.4,
+    decibel_level: -11.2,
     audio_url: "/api/audio/emergency_001.wav",
     status: "pending",
-    mic_levels: [0.82, 0.64],
+    mic_levels: [0.81, 0.78],
+  },
+  {
+    id: -3,
+    created_at: new Date(Date.now() - 120000).toISOString(),
+    device_mac: "AA:BB:CC:DD:EE:03",
+    patient_name: "นายประเสริฐ ทองดี",
+    room_number: "C-104",
+    confidence: 0.74,
+    decibel_level: -16.5,
+    audio_url: "/api/audio/emergency_003.wav",
+    status: "pending",
+    mic_levels: [0.72, 0.21],
   },
   {
     id: -2,
@@ -44,7 +60,7 @@ const MOCK_ROWS: DiagnosticRow[] = [
     patient_name: "นางสาวมานี สุขใจ",
     room_number: "B-205",
     confidence: 0.65,
-    decibel_level: 68.1,
+    decibel_level: 0,
     audio_url: "/api/audio/emergency_002.wav",
     status: "resolved",
   },
@@ -172,19 +188,19 @@ export default function AudioDiagnosticsPage() {
         </div>
       </div>
 
-      {/* ---------- ยังไม่มีข้อมูลระดับสัญญาณ ---------- */}
+      {/* ---------- เหตุการณ์ที่ไม่มีข้อมูลระดับสัญญาณ ---------- */}
       {missingLevels > 0 && (
-        <div className="mb-6 flex items-start gap-3 rounded-[var(--tb-radius-lg)] border border-[var(--tb-warning)]/30 bg-[var(--tb-warning-tint)] p-4">
-          <svg className="w-5 h-5 shrink-0 mt-0.5 text-[var(--tb-warning-text)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" />
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
+        <div className="mb-6 flex items-start gap-3 rounded-[var(--tb-radius-lg)] border border-[var(--tb-border)] bg-[var(--tb-surface-2)] p-4">
+          <svg className="w-5 h-5 shrink-0 mt-0.5 text-[var(--tb-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 16v-4" />
+            <path d="M12 8h.01" />
           </svg>
-          <div className="text-sm leading-relaxed text-[var(--tb-warning-text)]">
-            <p className="font-semibold">มี {missingLevels} เหตุการณ์ที่ยังไม่มีข้อมูลระดับสัญญาณแยกไมค์</p>
+          <div className="text-sm leading-relaxed text-[var(--tb-muted)]">
+            <p className="font-semibold text-[var(--tb-text)]">มี {missingLevels} เหตุการณ์ที่ไม่มีข้อมูลระดับสัญญาณแยกไมค์</p>
             <p className="mt-0.5">
-              ระบบจะแสดงค่านี้เมื่ออุปกรณ์ส่งเสียง 2 ช่องแยกกัน
-              และเซิร์ฟเวอร์ส่งค่า <code className="font-mono">mic_levels</code> มากับเหตุการณ์
+              ระบบวัดระดับไมค์ทุกครั้งที่ตรวจพบเหตุจากอุปกรณ์ 2 ไมค์
+              เหตุการณ์ที่เกิดก่อนเปิดใช้การวัดหรือข้อมูลตัวอย่างจึงไม่มีค่านี้
             </p>
           </div>
         </div>
@@ -219,9 +235,11 @@ export default function AudioDiagnosticsPage() {
       ) : (
         <div className="space-y-4">
           {displayRows.map((row) => {
-            const levels = hasLevels(row) ? (row.mic_levels as number[]) : null;
-            const maxLevel = levels ? Math.max(...levels.slice(0, MIC_LABELS.length)) : 0;
+            const levels = hasLevels(row) ? (row.mic_levels as number[]).slice(0, MIC_LABELS.length) : null;
+            const maxLevel = levels ? Math.max(...levels) : 0;
             const maxIndex = levels ? levels.indexOf(maxLevel) : -1;
+            const minLevel = levels ? Math.min(...levels) : 0;
+            const weakIndex = levels && maxLevel - minLevel > IMBALANCE_THRESHOLD ? levels.indexOf(minLevel) : -1;
 
             return (
               <article
@@ -242,7 +260,11 @@ export default function AudioDiagnosticsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={badgeClass}>ความมั่นใจ {Math.round((row.confidence || 0) * 100)}%</span>
-                    <span className={badgeClass}>{(row.decibel_level || 0).toFixed(1)} dB</span>
+                    {row.decibel_level ? (
+                      <span className={badgeClass} title="ระดับเสียงของไมค์ที่ดังที่สุด (0 dBFS = ดังสุดที่บันทึกได้)">
+                        {row.decibel_level.toFixed(1)} dBFS
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -256,6 +278,11 @@ export default function AudioDiagnosticsPage() {
                           {MIC_LABELS[maxIndex]} ({Math.round(maxLevel * 100)}%)
                         </span>
                       </p>
+                      {weakIndex >= 0 && (
+                        <p className="mt-2 rounded-[var(--tb-radius)] bg-[var(--tb-warning-tint)] px-3 py-2 text-sm font-medium text-[var(--tb-warning-text)]">
+                          {MIC_LABELS[weakIndex]} รับเสียงเบากว่าอีกตัวมาก ตรวจสายและตำแหน่งของไมค์ตัวนี้
+                        </p>
+                      )}
                     </>
                   ) : (
                     <p className="text-sm text-[var(--tb-muted)]">ยังไม่มีข้อมูลระดับสัญญาณของเหตุการณ์นี้</p>

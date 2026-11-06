@@ -295,6 +295,8 @@ key built by `deviceActivationKey()` with a normalised MAC),
 `alert:notify:{MAC}` (60 s SetNX throttle on LINE/Telegram pushes in
 `SaveEmergencyAudio`; fails open if Redis errors),
 `alert:throttle:{caregiverID}:{MAC}` (in `CreateAlert`, which nothing calls),
+`device:heard:{MAC}` (10 min, set by every `check-activation` call — i.e. the
+board is streaming audio over MQTT; see the binding rule below),
 `device:{id}:status` (written, never read). Redis is a hard dependency.
 
 **API Patterns:**
@@ -332,18 +334,28 @@ key built by `deviceActivationKey()` with a normalised MAC),
   `POST /api/user/telegram/connect` (arbitrary chatId) was removed.
 - `SeedAdmin` creates the first admin only from `ADMIN_EMAIL`/`ADMIN_PASSWORD`
   and never logs the password.
+- **Device binding rule** (`canClaimDevice`, used by `POST /api/patients` and
+  `POST /api/patients/register`): a board already linked in `device_patients`
+  is refused (409); an unlinked board can be bound by a caregiver only if
+  `device:heard:{MAC}` exists (the receiver heard it within 10 min), else 400
+  with `field: "boardId"`. Admins skip the "heard" check. `/api/device/checkin`
+  is public, so a check-in alone does not count. Knowing the MAC is still
+  enough while the board is streaming and unclaimed — a real claim code needs
+  a firmware change (pending for อัง).
 
 **Critical Routes:**
 - `POST /api/audio/emergency` — Receive emergency audio from the Python receiver;
   saves WAV and inserts `detection_logs` every time, pushes LINE/Telegram at
-  most once per 60 s per device
+  most once per 60 s per device. Optional fields `decibel_level` (dBFS of the
+  loudest mic) and `mic_levels` (JSON array, 0–1 per mic; `parseMicLevels`
+  clamps, ≤ 8 values, invalid → NULL) are stored on the row
 - `POST /api/audio/negative` — Receive normal audio; writes to `./negative`,
   keeps the 10 latest files, **no DB row**
 - `GET  /api/alerts/stream` — SSE stream of unresolved alerts (RequireAuth;
   `?email=` resolved through `ResolveTargetUser`)
-- `GET  /api/alerts/history` — Past detections (`models.HistoryResponse`),
-  filtered by `from`/`to`, and by `?email=` (that user's linked patients only —
-  admins included) when given
+- `GET  /api/alerts/history` — Past detections (`models.HistoryResponse`,
+  includes `mic_levels`, `null` for older rows), filtered by `from`/`to`, and
+  by `?email=` (that user's linked patients only — admins included) when given
 - `GET  /api/alerts/stats` — `?email=` and `?days=` (default 30, 1–365)
 - `POST /api/device/status` — Body `{mac, status}`; looks the device up by
   normalised MAC (sent by the Python receiver when a device goes offline)
@@ -365,7 +377,10 @@ key built by `deviceActivationKey()` with a normalised MAC),
 
 **Key Components:**
 - `app.py` — FastAPI app; `lifespan()` starts the MQTT receiver with
-  `run_kws_inference` as an in-process callback; `POST /need-help` for testing
+  `run_kws_inference` as an in-process callback; `POST /need-help` for testing.
+  WAV bytes are decoded with `scipy.io.wavfile` (`_decode_wav`), **not**
+  `torchaudio.load`: newer torchaudio needs torchcodec + shared FFmpeg, which
+  Windows usually lacks, and then every window failed inference.
 - `bcresnet.py` — `BCResNet_M` (default), `BCResNet1`, `BCResNet_Tiny`; pick one with
   `MODEL_ARCH` and the weights with `MODEL_PATH` (relative to `api/`). A wrong
   name or mismatched weights stops the server at import.
@@ -377,7 +392,10 @@ key built by `deviceActivationKey()` with a normalised MAC),
   The activation check runs in a background thread (never on the paho network
   thread) and caches "active" for 60 s, "inactive" for 10 s. A device's first
   chunks are dropped until Go answers. A failed inference (`prob_yes` is
-  `None`) is logged and the window dropped. Every call to Go sends
+  `None`) is logged and the window dropped. Each window also gets
+  `mic_levels()` (raw L/R RMS before DSP → 0–1, −60 dBFS = 0); the alert sends
+  the levels of the same window as the audio. Windows with `prob_yes` above
+  `DECISION_THRESHOLD` are never sent to `/negative`. Every call to Go sends
   `X-Internal-Key` with `allow_redirects=False`; TLS certificates are verified
   unless `TLS_INSECURE_SKIP_VERIFY=true`.
 - `models/best_m.pth` — trained `BCResNet_M` weights, tracked in git
@@ -390,6 +408,9 @@ key built by `deviceActivationKey()` with a normalised MAC),
 - `eval_offline.py` — labelled WAV folder → same windows/DSP/model/decision
   as the receiver; Accuracy/Precision/Recall/F1/FP/FN and time per window for
   each `DSP_MODE` (report section 3.7.3).
+- `tools/mqtt_record.py` (levels / record from a real board) and
+  `tools/mqtt_simulate.py` (acts as a board: streams a WAV over MQTT in the
+  firmwareV2 format, for end-to-end tests without hardware — see `api/README.md`).
 - Tests: `cd api && uv run --group dev pytest` (`tests/`, synthetic signals).
 - Dependencies live in `pyproject.toml` (there is no `requirements.txt`);
   `scipy` is used by `dsp.py`, `pandas` is listed but not imported
@@ -474,12 +495,13 @@ Mic spacing for the server-side GCC-PHAT search is `DSP_GCC_MAX_LAG`
 
 **Backend (กิต):**
 - ✅ `PUT /api/patients/:id` with ownership check
-- ⬜ `mic_levels` — **not implemented anywhere in `backend/`**, and nothing
-  computes per-mic levels (both channels now reach `api/`, so they could be
-  computed there). The frontend
-  diagnostics page is built and waiting for it. Needs a
-  `MicLevels []float64 \`json:"mic_levels"\`` on `models.DetectionLog`, populated
-  upstream and surfaced on `GET /api/alerts/history`.
+- ✅ `mic_levels` end to end: computed in `api/mqtt_audio_receiver.py`
+  (`mic_levels()`), stored in `detection_logs.mic_levels` (text, JSON
+  serializer), returned by `GET /api/alerts/history`, shown on
+  `/admin/audio-diagnostics` (warns when the mics differ by > 0.25 ≈ 15 dB).
+  The seed generates them too.
+- ✅ Device binding needs the board to be streaming (`device:heard:{MAC}`)
+  for caregivers. A claim code printed by the firmware is still open.
 
 **Frontend (นนท์):**
 - ✅ Task 1 — Dashboard alert cards with blinking status. The direction compass
@@ -546,6 +568,7 @@ flows. (Redis is already required as a cache; the queue part does not exist.)
 - WAV format is preferred for frontend playback
 - Python AI expects `multipart/form-data` with field name `sound`
 - Python → Go uses field name `audio` plus `device_mac`, `event_type`, `confidence`
+  (emergency also sends `mic_levels` and `decibel_level`)
 
 ### ESP32 Development
 - Build system: ESP-IDF **5.5.2** (`sdkconfig`), legacy `driver/i2s.h` API
@@ -574,6 +597,10 @@ flows. (Redis is already required as a cache; the queue part does not exist.)
 - Same for recorded audio: `go_backend/audio_recordings/`
 - Redis or PostgreSQL not running — `docker compose up -d postgres redis`;
   PostgreSQL default port is 5433
+
+**Mosquitto restarts in a loop with `Unable to open pwfile` (Windows):**
+- Files made through the bind mount are owned by root; mosquitto runs as uid
+  1883. `chown 1883:1883` the passwd file and certs — see `mosquitto/README.md`.
 
 **Python receiver can't reach the broker:**
 - Transport is WebSocket unless `MQTT_BROKER_PORT` is 1883/8883. TLS is on by

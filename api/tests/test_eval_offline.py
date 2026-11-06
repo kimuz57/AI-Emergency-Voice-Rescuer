@@ -55,7 +55,7 @@ def test_read_wav_resamples_to_8k(tmp_path):
 
 
 def test_runs_all_modes_with_real_model(tmp_path, monkeypatch, capsys):
-    torch = pytest.importorskip("torch")
+    pytest.importorskip("torch")
     pytest.importorskip("torchaudio")
     pytest.importorskip("nnAudio")
 
@@ -77,16 +77,6 @@ def test_runs_all_modes_with_real_model(tmp_path, monkeypatch, capsys):
                 "SAMPLE_RATE", "DSP_LOG_TIMING", "DSP_MODE", "MQTT_BROKER_HOST", "GO_SERVER_URL", "INTERNAL_API_KEY"):
         monkeypatch.delenv(key, raising=False)
     ev.configure_env(ev.parse_args([str(tmp_path)]))
-    import app
-
-    # torchaudio.load ใช้ torchcodec ซึ่งต้องมี FFmpeg แบบ shared library — ใน test อ่าน WAV เองแทน
-    def load_wav(fileobj):
-        with wave.open(fileobj) as wf:
-            data = np.frombuffer(wf.readframes(wf.getnframes()), "<i2").reshape(-1, wf.getnchannels())
-            return torch.from_numpy(data.T.astype(np.float32) / 32768), wf.getframerate()
-
-    monkeypatch.setattr(app.torchaudio, "load", load_wav)
-
     out_json = tmp_path / "summary.json"
     out_csv = tmp_path / "files.csv"
     assert ev.main([str(tmp_path), "--json", str(out_json), "--csv", str(out_csv)]) == 0

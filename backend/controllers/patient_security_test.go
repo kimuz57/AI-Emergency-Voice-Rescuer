@@ -99,6 +99,70 @@ func TestCreatePatient_RejectsAlreadyBoundDevice(t *testing.T) {
 	}
 }
 
+// ผู้ดูแลผูกบอร์ดว่างได้เฉพาะบอร์ดที่ระบบเพิ่งได้ยินเสียงผ่าน MQTT — รู้แค่ MAC ไม่พอ (admin ผูกได้เสมอ)
+func TestCanClaimDevice(t *testing.T) {
+	heard := map[string]bool{"AA:BB:CC:DD:EE:01": true}
+	orig := deviceRecentlyHeard
+	deviceRecentlyHeard = func(mac string) (bool, error) { return heard[normalizeMAC(mac)], nil }
+	t.Cleanup(func() { deviceRecentlyHeard = orig })
+
+	caregiver := &models.User{Role: "caregiver"}
+	admin := &models.User{Role: "admin"}
+	cases := []struct {
+		user *models.User
+		mac  string
+		want bool
+	}{
+		{caregiver, "AA:BB:CC:DD:EE:01", true},
+		{caregiver, "AA:BB:CC:DD:EE:02", false},
+		{admin, "AA:BB:CC:DD:EE:02", true},
+	}
+	for _, tc := range cases {
+		got, err := canClaimDevice(tc.user, tc.mac)
+		if err != nil || got != tc.want {
+			t.Errorf("canClaimDevice(%s, %s) = %v, %v; want %v", tc.user.Role, tc.mac, got, err, tc.want)
+		}
+	}
+}
+
+// บอร์ดว่างที่ยังไม่เคยส่งเสียงเข้าระบบ ผู้ดูแลผูกไม่ได้ทั้ง 2 เส้นทาง และต้องไม่มีแถวผู้ป่วย/การผูกค้าง
+func TestBindingRejectsDeviceNotHeard(t *testing.T) {
+	db := setupPatientTestDB(t)
+	orig := deviceRecentlyHeard
+	deviceRecentlyHeard = func(string) (bool, error) { return false, nil }
+	t.Cleanup(func() { deviceRecentlyHeard = orig })
+
+	user := models.User{Name: "guesser", Email: "guesser@test.local", Role: "caregiver"}
+	db.Create(&user)
+	dev := models.Device{MacAddress: "AA:BB:CC:DD:EE:FF"}
+	db.Create(&dev)
+
+	app := fiber.New()
+	app.Post("/api/patients", asUser(user.ID), CreatePatient)
+	app.Post("/api/patients/register", asUser(user.ID), RegisterPatientWithDevice)
+	bodies := map[string]string{
+		"/api/patients":          `{"name":"mine","devices":[{"mac_address":"aa:bb:cc:dd:ee:ff"}]}`,
+		"/api/patients/register": `{"patientName":"mine","roomNumber":"1","board_id":"aabbccddeeff"}`,
+	}
+	for path, body := range bodies {
+		req := httptest.NewRequest("POST", path, bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := app.Test(req, 5000)
+		if err != nil {
+			t.Fatalf("%s: app.Test: %v", path, err)
+		}
+		if resp.StatusCode != 400 {
+			t.Errorf("%s: status = %d, want 400", path, resp.StatusCode)
+		}
+	}
+	var patients, bindings int64
+	db.Model(&models.Patient{}).Count(&patients)
+	db.Model(&models.Device_patient{}).Count(&bindings)
+	if patients != 0 || bindings != 0 {
+		t.Fatalf("patients = %d, bindings = %d; want 0, 0", patients, bindings)
+	}
+}
+
 func TestIsValidTelegramLinkToken(t *testing.T) {
 	tok, err := newTelegramLinkToken()
 	if err != nil {

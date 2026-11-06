@@ -53,9 +53,9 @@ npm run test:report    # รันแล้วเขียน results/summary.md
 |---|---|
 | `tests/auth.test.js` | TC-01–TC-11, TC-08b (Google token ปลอม), VAL-01 (JSON เสีย), VAL-02 (ฟิลด์บังคับว่าง) |
 | `tests/user.test.js` | TC-12–TC-18, TC-52, VAL-03 (อัปโหลดไฟล์ที่ไม่ใช่รูป) |
-| `tests/patients.test.js` | TC-19–TC-25, VAL-04 (MAC ผิดรูปแบบ), VAL-05 (JSON เสีย) |
+| `tests/patients.test.js` | TC-19–TC-25, VAL-04 (MAC ผิดรูปแบบ), VAL-05 (JSON เสีย), VAL-13 (ผูกบอร์ดที่ระบบยังไม่เคยได้ยินเสียง) |
 | `tests/devices.test.js` | TC-26–TC-31, TC-53, TC-54, VAL-06/VAL-09 (MAC ผิดรูปแบบ), VAL-07/VAL-08 (ฟิลด์บังคับว่าง/ค่าผิด) |
-| `tests/alerts.test.js` | TC-32–TC-42, TC-55, TC-56, VAL-10 (ไฟล์ไม่ใช่ WAV), VAL-11 (ไม่มีไฟล์), VAL-12 (ไม่มี/ผิด X-Internal-Key) |
+| `tests/alerts.test.js` | TC-32–TC-42, TC-55–TC-57 (TC-57 = `mic_levels` บันทึกและส่งกลับใน history), VAL-10 (ไฟล์ไม่ใช่ WAV), VAL-11 (ไม่มีไฟล์), VAL-12 (ไม่มี/ผิด X-Internal-Key) |
 | `tests/admin.test.js` | TC-43–TC-47 |
 | `tests/security.test.js` | TC-48–TC-51 |
 | `helpers/` | config, Supertest, PostgreSQL + cleanup, Redis, ข้อมูลตั้งต้น, SSE, alert token / JWT |

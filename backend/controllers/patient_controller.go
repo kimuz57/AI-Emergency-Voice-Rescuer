@@ -97,6 +97,15 @@ func RegisterPatientWithDevice(c *fiber.Ctx) error {
 		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ระบบฐานข้อมูลขัดข้อง"})
 		}
+
+		// 2.3 ผู้ดูแลผูกได้เฉพาะบอร์ดที่กำลังส่งเสียงเข้าระบบอยู่ (admin ผูกได้เสมอ)
+		allowed, err := canClaimDevice(caregiver, normalizedBoardID)
+		if err != nil {
+			return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"error": "ตรวจสอบสถานะอุปกรณ์ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"})
+		}
+		if !allowed {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": msgDeviceNotHeard, "field": "boardId"})
+		}
 	}
 
 	// ==========================================

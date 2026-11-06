@@ -1,5 +1,7 @@
 import collections
 import io
+import json
+import math
 import os
 import sys
 import time
@@ -318,11 +320,30 @@ def _send_to_go_async(url, wav_bytes, filename, payload):
     except Exception as exc:
         print(f"⚠️ [GO Backend] ยิง API ไม่สำเร็จ: {exc}")
 
+MIC_LEVEL_FLOOR_DBFS = -60.0   # ระดับนี้หรือเบากว่า = 0 บนแถบระดับไมค์ของหน้าเว็บ, 0 dBFS = 1
+
+
+class MicLevels(NamedTuple):
+    levels: list                # ระดับของแต่ละไมค์ (L, R) ช่วง 0-1 สำหรับ mic_levels ของ Go
+    loudest_dbfs: float         # RMS ของไมค์ที่ดังที่สุด (dBFS) สำหรับ decibel_level ของ Go
+
+
+def mic_levels(left, right) -> MicLevels:
+    """ระดับเสียงดิบของแต่ละไมค์ก่อน DSP (float ช่วง -1..1) ใช้ดูว่าไมค์ตัวไหนเสีย/เบาผิดปกติ"""
+    dbfs = []
+    for channel in (left, right):
+        rms = math.sqrt(float((channel.astype("float64") ** 2).mean())) if len(channel) else 0.0
+        dbfs.append(20 * math.log10(rms) if rms > 0 else -math.inf)
+    levels = [round(min(1.0, max(0.0, (db - MIC_LEVEL_FLOOR_DBFS) / -MIC_LEVEL_FLOOR_DBFS)), 3) for db in dbfs]
+    return MicLevels(levels, max(dbfs))
+
+
 class Decision(NamedTuple):
     alert: bool
     average: float              # ค่าเฉลี่ย P(ร้องขอความช่วยเหลือ) ของหน้าต่างในประวัติ
     windows: int                # จำนวนหน้าต่างที่เฉลี่ย (ก่อนล้าง)
     audio: bytes | None = None  # WAV ของหน้าต่างที่ P สูงสุด (เฉพาะตอน alert)
+    levels: MicLevels | None = None  # ระดับไมค์ของหน้าต่างเดียวกับ audio (เฉพาะตอน alert)
 
 class DecisionSmoother:
     """เฉลี่ย P(ร้องขอความช่วยเหลือ) ของ N หน้าต่างล่าสุด แจ้งเหตุเมื่อค่าเฉลี่ย > threshold
@@ -331,17 +352,17 @@ class DecisionSmoother:
     def __init__(self, n: int = DECISION_WINDOWS, threshold: float = DECISION_THRESHOLD):
         self.n = n
         self.threshold = threshold
-        self._history = collections.deque(maxlen=n)   # (prob_yes, wav หรือ None)
+        self._history = collections.deque(maxlen=n)   # (prob_yes, wav หรือ None, MicLevels หรือ None)
 
-    def push(self, prob_yes: float, audio: bytes | None = None) -> Decision:
-        self._history.append((prob_yes, audio))
+    def push(self, prob_yes: float, audio: bytes | None = None, levels: MicLevels | None = None) -> Decision:
+        self._history.append((prob_yes, audio, levels))
         count = len(self._history)
-        average = sum(p for p, _ in self._history) / count
+        average = sum(p for p, _, _ in self._history) / count
         if count < self.n or average <= self.threshold:
             return Decision(False, average, count)
-        best_audio = max(self._history, key=lambda item: item[0])[1]
+        _, best_audio, best_levels = max(self._history, key=lambda item: item[0])
         self._history.clear()
-        return Decision(True, average, count, best_audio)
+        return Decision(True, average, count, best_audio, best_levels)
 
 def _new_device_state() -> dict:
     return {
@@ -400,7 +421,7 @@ def _process_window(pcm_bytes: bytes, device_mac: str, state: dict) -> None:
                 print(f"❌ [AI] Inference failed for {device_mac} (detected={ai_result.get('detected')!r}) -> ทิ้ง window นี้")
                 return
 
-        decision = state["decision"].push(prob_yes, wav_bytes)
+        decision = state["decision"].push(prob_yes, wav_bytes, mic_levels(left, right))
         _log_dsp(device_mac, result, infer_ms, prob_yes if result.has_speech else None, decision)
 
         go_base_url = f"{GO_SERVER_URL}/api/audio"
@@ -418,13 +439,20 @@ def _process_window(pcm_bytes: bytes, device_mac: str, state: dict) -> None:
                 'event_type': 'needs_help',
                 'confidence': round(decision.average, 4),   # ค่าเฉลี่ยของ N หน้าต่างที่ทำให้แจ้งเหตุ
             }
+            if decision.levels is not None:
+                # ระดับไมค์ L,R (0-1) ของหน้าต่างเดียวกับไฟล์เสียง สำหรับหน้า /admin/audio-diagnostics
+                payload_data['mic_levels'] = json.dumps(decision.levels.levels)
+                if math.isfinite(decision.levels.loudest_dbfs):
+                    payload_data['decibel_level'] = round(decision.levels.loudest_dbfs, 1)
             if is_local:
                 print(f"🚨 [AI] EMERGENCY (avg of {decision.windows} windows = {decision.average:.4f}) -> โยนงานยิง API เบื้องหลัง")
             threading.Thread(target=_send_to_go_async, args=(
                 f"{go_base_url}/emergency", decision.audio or wav_bytes, "emergency.wav", payload_data
             ), daemon=True).start()
 
-        elif wav_bytes is not None and state["since_negative"] >= _NEGATIVE_EVERY_WINDOWS:
+        # หน้าต่างที่โมเดลมองว่าเป็นการร้องขอความช่วยเหลือ (แต่ค่าเฉลี่ยยังไม่ถึง) ไม่ใช่ตัวอย่างเสียงปกติ ไม่ส่งไป /negative
+        elif (wav_bytes is not None and prob_yes <= DECISION_THRESHOLD
+              and state["since_negative"] >= _NEGATIVE_EVERY_WINDOWS):
             state["since_negative"] = 0
             payload_data = {
                 'device_mac': device_mac,
