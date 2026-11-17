@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Admin — จัดการข้อมูลผู้ป่วย</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Page-specific values from app/admin/patients/page.tsx (Tailwind classes noted inline). */
+  .page-head .eyebrow { line-height: 16px; }
+  .page-head .h1 { margin-top: 4px; line-height: 32px; }            /* mt-1 text-2xl font-bold */
+  .page-head .sub { margin-top: 4px; line-height: 20px; }           /* mt-1 text-sm font-medium */
+
+  .ap-table table { font-size: 14px; line-height: 20px; }           /* text-sm */
+  .ap-table th { line-height: 16px; white-space: nowrap; }          /* px-5 py-3 text-xs font-semibold */
+  .ap-table td { padding: 16px 20px; }                              /* px-5 py-4 align-middle */
+  .ap-table .avatar { font-size: 12px; font-weight: 700; }          /* w-9 h-9 text-xs font-bold */
+  .ap-table .name { font-weight: 600; color: var(--text); }
+  .ap-table .badge { padding: 2px 10px; line-height: 16px; gap: 0; } /* px-2.5 py-0.5 text-xs */
+  .ap-table .dev { font-size: 12px; line-height: 16px; word-break: break-all; } /* font-mono text-xs break-all */
+  .ap-table .empty { font-size: 12px; line-height: 16px; font-style: italic; color: var(--muted); }
+  .ap-table .empty.sans { font-family: "Inter", "Noto Sans Thai", system-ui, sans-serif; }
+  .ap-table .cell-actions { display: flex; justify-content: flex-end; gap: 8px; white-space: nowrap; }
+  .ap-table .empty-row td { padding: 48px 20px; text-align: center; }
+  .ap-table .empty-row p { font-size: 16px; line-height: 24px; font-weight: 600; color: var(--text); }
+
+  /* btnSecondary: h-9 px-3 gap-1.5, border --tb-border, no shadow */
+  .tb-btn-sec {
+    height: 36px; padding: 0 12px; gap: 6px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+    font-size: 14px; font-weight: 600; box-shadow: none;
+  }
+  .tb-btn-sec.danger { color: var(--danger-text); }
+
+  /* loading state (isLoading): max-w-5xl mx-auto px-4 py-20, centered spinner */
+  .loading { padding: 80px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .loading .spin { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--primary); }
+  .loading p { font-size: 14px; line-height: 20px; color: var(--muted); }
+
+  /* Popups: fixed inset-0 bg-black/40 backdrop-blur-sm px-4 */
+  .overlay { backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); padding: 0 16px; }
+  .dialog { border: 1px solid var(--border); }
+
+  /* Edit popup: max-w-md (448px) */
+  .dialog.edit { width: 448px; }
+  .dialog.edit .dialog-head { padding: 16px 24px; }                 /* px-6 py-4 border-b */
+  .dialog.edit .dialog-head .t { font-size: 18px; font-weight: 700; line-height: 28px; }
+  .dialog.edit .dialog-body { padding: 20px 24px; gap: 16px; }     /* px-6 py-5 gap-4 */
+  .dialog.edit .field label { font-size: 14px; font-weight: 500; line-height: 20px; color: var(--text); }
+  .dialog.edit .input { font-size: 14px; }
+  .dialog.edit .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .dialog.edit .dialog-foot { padding: 16px 24px; gap: 12px; background: var(--surface-2); } /* bg-[--tb-surface-2] */
+  .dialog.edit .dialog-foot .btn { flex: 1; height: 40px; }
+  .dialog.edit .dialog-foot .tb-btn-sec { padding: 0 12px; }
+
+  /* caregiver picker */
+  .cg-box { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; display: flex; flex-direction: column; }
+  .cg-search { padding: 8px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+  .cg-search .input { height: 36px; padding: 0 12px 0 10px; gap: 6px; box-shadow: none; } /* h-9 pl-8 pr-3, icon at left-2.5 */
+  .cg-list { max-height: 160px; overflow: hidden; padding: 6px; display: flex; flex-direction: column; gap: 2px; } /* max-h-40 p-1.5 gap-0.5 */
+  .cg-item { display: flex; align-items: center; gap: 12px; padding: 6px 8px; border-radius: 8px; flex: none; }
+  .cg-item.on { background: var(--primary-tint); }
+  .cg-item .meta { display: flex; flex-direction: column; min-width: 0; }
+  .cg-item .n { font-size: 14px; line-height: 20px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cg-item .e { font-size: 12px; line-height: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* checkbox w-4 h-4 accent-[--tb-primary], drawn by hand so the importer gets real shapes */
+  .cb { width: 16px; height: 16px; border-radius: 3px; flex: none; border: 1px solid #767676; background: #fff; display: flex; align-items: center; justify-content: center; }
+  .cb.on { background: var(--primary); border-color: var(--primary); }
+
+  /* Delete popup: max-w-sm (384px) p-6 text-center */
+  .dialog.del { width: 384px; padding: 24px; text-align: center; }
+  .dialog.del .ic { width: 48px; height: 48px; margin: 0 auto 16px; }
+  .dialog.del .t { font-size: 18px; line-height: 28px; font-weight: 700; margin-bottom: 4px; }
+  .dialog.del .s { font-size: 14px; line-height: 20px; color: var(--muted); margin-bottom: 24px; }
+  .dialog.del .row { gap: 12px; }
+  .dialog.del .btn { flex: 1; height: 40px; }
+  .dialog.del .btn-danger { box-shadow: none; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="admin-patients" data-role="admin"></aside>
+  <div class="main">
+    <div class="content">
+      <div class="page-head">
+        <div><div class="eyebrow">ผู้ดูแลระบบ</div><div class="h1">จัดการข้อมูลผู้ป่วย</div><div class="sub">แอดมินสามารถแก้ไขประวัติผู้ป่วยและลบข้อมูลออกจากระบบได้</div></div>
+      </div>
+      <div class="card table ap-table">
+        <table>
+          <tr><th>ผู้ป่วย</th><th>อายุ</th><th>ห้องพัก</th><th>โรคประจำตัว</th><th>ผู้ดูแล</th><th>Device ID</th><th class="right">การดำเนินการ</th></tr>
+          <!-- ROWS -->
+        </table>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script>
+  // States: (none) = table · ?modal=edit = edit popup for the first row ·
+  // ?modal=delete = delete confirmation · ?state=empty = no patients · ?state=loading = spinner.
+  const q = new URLSearchParams(location.search);
+  const modal = q.get('modal');
+  const state = q.get('state');
+
+  const EDIT_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+  const DEL_SVG = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#b42323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>';
+
+  // Admin sees every patient in the system (GET /api/admin/patients), so one unbound
+  // patient with no caregiver and no device shows the empty-cell states.
+  const PATIENTS = [
+    ['ส', 'นายสมชาย ใจดี', 78, 'A-301', 'ความดันโลหิตสูง', ['คุณดวงใจ รักษ์ดี', 'ปกรณ์ ใจกว้าง'], 'AA:BB:CC:DD:EE:01'],
+    ['ม', 'นางสาวมานี สุขใจ', 72, 'B-205', 'เบาหวาน', ['คุณดวงใจ รักษ์ดี'], 'AA:BB:CC:DD:EE:02'],
+    ['ส', 'นางสมศรี ทองดี', 81, 'A-105', 'โรคหัวใจ', ['คุณดวงใจ รักษ์ดี', 'อนันต์ พากเพียร'], 'AA:BB:CC:DD:EE:03'],
+    ['ส', 'นายสุรชัย พึ่งบุญ', 74, 'B-110', '', ['คุณดวงใจ รักษ์ดี'], 'AA:BB:CC:DD:EE:04'],
+    ['ว', 'นายวิชัย ศรีสุข', 69, 'C-102', 'อัมพฤกษ์ซีกซ้าย', ['คุณดวงใจ รักษ์ดี', 'ศิริพร มีสุข'], 'AA:BB:CC:DD:EE:05'],
+    ['บ', 'นางบุญมี แก้วใส', 85, 'C-108', 'ความจำเสื่อม', ['คุณดวงใจ รักษ์ดี'], 'AA:BB:CC:DD:EE:06'],
+    ['ป', 'นางประนอม มั่นคง', 88, 'D-201', 'ข้อเข่าเสื่อม', [], ''],
+  ];
+
+  if (state === 'loading') {
+    // isLoading returns early: only the spinner inside the app shell.
+    document.title = 'Admin — จัดการข้อมูลผู้ป่วย (loading)';
+    document.querySelector('.content').innerHTML = '<div class="loading"><div class="spin"></div><p>กำลังโหลดข้อมูล...</p></div>';
+  } else {
+    const rows = state === 'empty'
+      ? '<tr class="empty-row"><td colspan="7"><p>ยังไม่มีข้อมูลผู้ป่วยในระบบ</p></td></tr>'
+      : PATIENTS.map(([ini, name, age, room, cond, cgs, mac], i) => `
+          <tr><td><div class="cell-user"><span class="avatar av${(i % 5) + 1}">${ini}</span><span class="name">${name}</span></div></td><td style="white-space:nowrap">${age} ปี</td><td><span class="badge b-primary">${room}</span></td><td class="muted">${cond}</td><td>${cgs.length ? cgs.join(', ') : '<span class="empty">ยังไม่มีผู้ดูแล</span>'}</td><td>${mac ? `<span class="mono dev">${mac}</span>` : '<span class="empty sans">ไม่มีอุปกรณ์</span>'}</td><td><div class="cell-actions"><span class="btn tb-btn-sec">${EDIT_SVG}แก้ไข</span><span class="btn tb-btn-sec danger">${DEL_SVG}ลบ</span></div></td></tr>`).join('');
+    if (state === 'empty') document.title = 'Admin — จัดการข้อมูลผู้ป่วย (empty)';
+    document.querySelector('.ap-table table').insertAdjacentHTML('beforeend', rows);
+  }
+
+  // ?modal=edit: popup opened for the first row. Caregiver list = users with role
+  // caregiver or admin (same users as admin-users.html); checked = already linked.
+  if (modal === 'edit') {
+    document.title = 'Admin — แก้ไขข้อมูลผู้ป่วย (modal)';
+    const CHECK = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    const CGS = [
+      ['ผู้ดูแลระบบ', 'admin@example.com', false],
+      ['คุณดวงใจ รักษ์ดี', 'duangjai@example.com', true],
+      ['ปกรณ์ ใจกว้าง', 'pakorn@example.com', true],
+      ['ศิริพร มีสุข', 'siriporn@example.com', false],
+      ['อนันต์ พากเพียร', 'anan@example.com', false],
+    ];
+    const items = CGS.map(([n, e, on]) => `<div class="cg-item${on ? ' on' : ''}"><span class="cb${on ? ' on' : ''}">${on ? CHECK : ''}</span><span class="meta"><span class="n">${n}</span><span class="e">${e}</span></span></div>`).join('');
+    document.querySelector('.screen').insertAdjacentHTML('beforeend', `
+    <div class="overlay"><div class="dialog edit">
+      <div class="dialog-head"><div class="t">แก้ไขข้อมูลผู้ป่วย</div></div>
+      <div class="dialog-body">
+        <div class="field"><label>ชื่อ-นามสกุลผู้ป่วย</label><div class="input filled"><span class="grow">นายสมชาย ใจดี</span></div></div>
+        <div class="two">
+          <div class="field"><label>อายุ (ปี)</label><div class="input filled"><span class="grow">78</span></div></div>
+          <div class="field"><label>ห้องพัก</label><div class="input filled"><span class="grow">A-301</span></div></div>
+        </div>
+        <div class="field"><label>โรคประจำตัว / อาการ</label><div class="input filled"><span class="grow">ความดันโลหิตสูง</span></div></div>
+        <div class="field"><label>ผู้ดูแล (เลือกได้มากกว่า 1 คน)</label>
+          <div class="cg-box">
+            <div class="cg-search"><div class="input"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><span class="grow">ค้นหาชื่อ หรือ อีเมล...</span></div></div>
+            <div class="cg-list">${items}</div>
+          </div>
+        </div>
+      </div>
+      <div class="dialog-foot"><span class="btn tb-btn-sec">ยกเลิก</span><span class="btn btn-primary">บันทึกข้อมูล</span></div>
+    </div></div>`);
+  }
+
+  // ?modal=delete: confirmation popup (setDeleteConfirm on the ลบ button).
+  if (modal === 'delete') {
+    document.title = 'Admin — ยืนยันการลบผู้ป่วย (modal)';
+    document.querySelector('.screen').insertAdjacentHTML('beforeend', `
+    <div class="overlay"><div class="dialog del">
+      <div class="circle-icon t-danger ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b42323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></div>
+      <div class="t">ยืนยันการลบผู้ป่วย</div>
+      <div class="s">ข้อมูลผู้ป่วยและอุปกรณ์ที่เชื่อมโยงจะถูกลบออกจากระบบ</div>
+      <div class="row"><span class="btn tb-btn-sec">ยกเลิก</span><span class="btn btn-danger">ยืนยันลบ</span></div>
+    </div></div>`);
+  }
+</script>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

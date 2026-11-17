@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Help — ช่วยเหลือ / คำถามที่พบบ่อย</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* app: max-w-3xl mx-auto w-full px-8 py-8 -> 704px content centred in the 1184px main column */
+  .content.hp { padding: 32px 0; align-items: center; gap: 0; }
+  .content.hp > * { width: 704px; }
+  .hp .head { margin-bottom: 24px; }
+  .hp .eyebrow { line-height: 16px; }
+  .hp .h1 { margin-top: 4px; line-height: 32px; }
+  .hp .sub { margin-top: 4px; line-height: 20px; }
+
+  /* accordion: rounded-lg card, divide-y, overflow-hidden */
+  .faq { overflow: hidden; }
+  .faq > .item + .item { border-top: 1px solid var(--border); }
+  .faq .q {
+    padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  }
+  .faq .item.open .q, .faq .item.open .a { background: var(--surface-2); }
+  .faq .q-left { display: flex; align-items: flex-start; gap: 12px; font-size: 14px; font-weight: 600; line-height: 20px; color: var(--text); }
+  .faq .q-badge {
+    width: 24px; height: 24px; flex: none; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--primary-tint); color: var(--primary-text); font-size: 12px; font-weight: 700; line-height: 16px;
+  }
+  .faq .q-text { padding-top: 2px; }
+  .faq .q svg { flex: none; }
+  /* answer: pt-1 pb-5 pr-5 pl-14 text-sm leading-relaxed muted */
+  .faq .a { padding: 4px 20px 20px 56px; font-size: 14px; line-height: 22.75px; color: var(--muted); }
+
+  /* contact card: mt-6 p-5 flex row items-center gap-4 justify-between */
+  .contact { margin-top: 24px; padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .contact .left { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+  .contact .ttl { font-size: 14px; font-weight: 600; line-height: 20px; }
+  .contact .det { margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--muted); }
+  /* button: h-10 px-4 border --tb-border surface text-sm semibold shadow-xs */
+  .contact .btn-secondary { border-color: var(--border); flex: none; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="help" data-role="caregiver"></aside>
+  <div class="main">
+    <div class="content hp">
+      <div class="head">
+        <div class="eyebrow">ช่วยเหลือ</div>
+        <div class="h1">ช่วยเหลือ / คำถามที่พบบ่อย</div>
+        <div class="sub">รวมคำถามที่ผู้ดูแลถามบ่อยเกี่ยวกับการใช้งานระบบแจ้งเตือนเหตุฉุกเฉิน</div>
+      </div>
+
+      <section class="card faq">
+        <div class="item open">
+          <div class="q">
+            <span class="q-left"><span class="q-badge">Q</span><span class="q-text">ระบบตรวจจับเสียงขอความช่วยเหลือได้อย่างไร</span></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 15 12 9 18 15"/></svg>
+          </div>
+          <div class="a">บอร์ด ESP32 ที่ติดตั้งไว้ในห้องผู้ป่วยจะบันทึกเสียงตลอดเวลาและส่งเข้าเซิร์ฟเวอร์ AI ผ่าน MQTT เมื่อโมเดลตัดสินว่าเป็นเสียงขอความช่วยเหลือ ระบบจะบันทึกเหตุการณ์และแจ้งเตือนขึ้นหน้าแดชบอร์ดทันที พร้อมส่งแจ้งเตือนเข้า LINE และ Telegram ตามช่องทางที่เปิดไว้</div>
+        </div>
+        <div class="item">
+          <div class="q">
+            <span class="q-left"><span class="q-badge">Q</span><span class="q-text">ทำไมแดชบอร์ดขึ้นว่ายังไม่มีผู้ป่วย ทั้งที่ลงทะเบียนไปแล้ว</span></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="item">
+          <div class="q">
+            <span class="q-left"><span class="q-badge">Q</span><span class="q-text">ลงทะเบียนบอร์ดใหม่ต้องทำอย่างไร</span></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="item">
+          <div class="q">
+            <span class="q-left"><span class="q-badge">Q</span><span class="q-text">บอร์ดขึ้นสถานะออฟไลน์ ต้องแก้อย่างไร</span></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="item">
+          <div class="q">
+            <span class="q-left"><span class="q-badge">Q</span><span class="q-text">กดฟังเสียงแล้วขึ้นว่าโหลดไฟล์เสียงไม่สำเร็จ</span></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="item">
+          <div class="q">
+            <span class="q-left"><span class="q-badge">Q</span><span class="q-text">จะเปิด-ปิดการแจ้งเตือน LINE หรือ Telegram ได้ที่ไหน</span></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="item">
+          <div class="q">
+            <span class="q-left"><span class="q-badge">Q</span><span class="q-text">กดรับทราบเหตุการณ์ไปแล้ว ข้อมูลหายไปไหน</span></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+        <div class="item">
+          <div class="q">
+            <span class="q-left"><span class="q-badge">Q</span><span class="q-text">ลืมรหัสผ่านต้องทำอย่างไร</span></span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <section class="card contact">
+        <div class="left">
+          <span class="chip-icon t-primary"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+          <div class="fill">
+            <div class="ttl">ยังไม่เจอคำตอบที่ต้องการ?</div>
+            <div class="det">ติดต่อผู้ดูแลระบบของหน่วยงาน พร้อมแจ้งเวลาที่เกิดปัญหาและหมายเลขห้อง</div>
+          </div>
+        </div>
+        <span class="btn btn-secondary">กลับหน้าแดชบอร์ด</span>
+      </section>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

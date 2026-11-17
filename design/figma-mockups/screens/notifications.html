@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Settings — ตั้งค่าการแจ้งเตือน</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* app: max-w-5xl mx-auto px-8 py-8 space-y-6 -> 960px content centred in the 1184px main column */
+  .content.nt { padding: 32px 0; align-items: center; gap: 24px; }
+  .content.nt > * { width: 960px; }
+  .nt .eyebrow { line-height: 16px; }
+  .nt .h1 { margin-top: 4px; line-height: 32px; }
+  .nt .sub { margin-top: 4px; line-height: 20px; }
+  /* btnSecondary: h-10 px-4 border --tb-border, icon w-4 h-4 */
+  .nt .btn-secondary { border-color: var(--border); }
+  .sec-head { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 16px; font-weight: 600; line-height: 24px; }
+  .rows > div + div { border-top: 1px solid var(--border); }
+  .acc { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .acc .left { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+  .ch-icon { width: 40px; height: 40px; border-radius: 8px; flex: none; display: flex; align-items: center; justify-content: center; background: var(--primary-tint); color: var(--primary-text); }
+  .ttl { font-size: 14px; font-weight: 600; line-height: 20px; }
+  .det { margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--muted); }
+  .need { margin-top: 4px; font-size: 12px; font-weight: 500; line-height: 16px; color: var(--primary-text); }
+  .ok-badge { display: inline-flex; align-items: center; gap: 6px; flex: none; white-space: nowrap; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 600; line-height: 16px; background: var(--success-tint); color: var(--success-text); }
+  .opt { padding: 16px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .opt .txt { min-width: 0; }
+  .opt .txt.dim { opacity: .6; }
+  /* role="switch": h-6 w-11 rounded-full border; knob h-5 w-5, translate-x 1px / 21px */
+  .sw { position: relative; width: 44px; height: 24px; flex: none; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface-3); display: flex; align-items: center; }
+  .sw i { display: block; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(24, 36, 51, 0.3); margin-left: 1px; }
+  .sw.on { border-color: transparent; background: var(--primary); }
+  .sw.on i { margin-left: 21px; }
+  .sw.disabled { opacity: .5; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="notifications" data-role="caregiver"></aside>
+  <div class="main">
+    <div class="content nt">
+      <div class="page-head">
+        <div class="fill">
+          <div class="eyebrow">ตั้งค่า</div>
+          <div class="h1">ตั้งค่าการแจ้งเตือน</div>
+          <div class="sub">เลือกช่องทางที่จะรับสัญญาณเมื่อ AI ตรวจพบเสียงร้องขอความช่วยเหลือ</div>
+        </div>
+        <span class="btn btn-secondary"><i data-icon="arrow-left" data-size="16"></i>กลับหน้าข้อมูลส่วนตัว</span>
+      </div>
+
+      <section class="card">
+        <div class="sec-head">การเชื่อมต่อบัญชี</div>
+        <div class="rows">
+          <div class="acc">
+            <div class="left">
+              <span class="ch-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+              <div class="fill">
+                <div class="ttl">LINE</div>
+                <div class="det">ส่งข้อความเตือนภัยและตำแหน่งห้องเข้า LINE ทันทีเมื่อเกิดเหตุ</div>
+              </div>
+            </div>
+            <span class="ok-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>เชื่อมต่อแล้ว</span>
+          </div>
+          <div class="acc">
+            <div class="left">
+              <span class="ch-icon"><i data-icon="send" data-size="20"></i></span>
+              <div class="fill">
+                <div class="ttl">Telegram</div>
+                <div class="det">ส่งข้อความเตือนภัยและไฟล์เสียงเข้า Telegram ทันทีเมื่อเกิดเหตุ</div>
+              </div>
+            </div>
+            <span class="btn btn-secondary">เชื่อมต่อ Telegram</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="sec-head">ช่องทางรับสัญญาณ</div>
+        <div class="rows">
+          <div class="opt">
+            <div class="txt">
+              <div class="ttl">เปิดระบบเสียงเตือนภัยบนเว็บไซต์</div>
+              <div class="det">ส่งเสียงไซเรนและหน้าต่าง Pop-up บนเบราว์เซอร์นี้แบบทันทีทันใด</div>
+            </div>
+            <span class="sw on"><i></i></span>
+          </div>
+          <div class="opt">
+            <div class="txt">
+              <div class="ttl">ส่งการแจ้งเตือนไปยังแอปพลิเคชัน LINE</div>
+              <div class="det">อนุญาตให้บอร์ด IoT ส่งสัญญาณพุชข้อความเข้าไลน์กลุ่ม/ส่วนตัว</div>
+            </div>
+            <span class="sw on"><i></i></span>
+          </div>
+          <div class="opt">
+            <div class="txt dim">
+              <div class="ttl">ส่งการแจ้งเตือนไปยังแอปพลิเคชัน Telegram</div>
+              <div class="det">อนุญาตให้ระบบส่งข้อความแจ้งเหตุร้ายเข้าแชท Telegram ของเจ้าหน้าที่</div>
+              <div class="need">ต้องเชื่อมบัญชีก่อนถึงจะเปิดได้</div>
+            </div>
+            <span class="sw disabled"><i></i></span>
+          </div>
+        </div>
+      </section>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

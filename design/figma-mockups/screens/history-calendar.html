@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>History — ปฏิทิน</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* page container: max-w-7xl px-8 py-8 */
+  .content { padding: 32px; gap: 24px; }
+  .page-head .h1 { margin-top: 4px; line-height: 32px; }
+  .page-head .sub { margin-top: 4px; }
+
+  /* view switch (tabBtn / tabActive / tabIdle in history/page.tsx) */
+  .tabs { display: inline-flex; flex: none; gap: 4px; padding: 4px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); }
+  .tab { height: 36px; padding: 0 16px; border-radius: 6px; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .tab.on { background: var(--surface); color: var(--text); border-color: var(--border); box-shadow: var(--shadow-xs); }
+
+  /* calendar card */
+  .cal-card { overflow: hidden; }
+  .cal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .lg { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 2px 10px; font-size: 12px; line-height: 16px; font-weight: 600; }
+  .lg .dot { width: 8px; height: 8px; }
+  .jump { display: flex; align-items: center; gap: 8px; }
+  .jump label { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .date-input { height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); box-shadow: var(--shadow-xs); display: flex; align-items: center; gap: 28px; font-size: 14px; color: var(--text); white-space: nowrap; }
+
+  /* FullCalendar dayGridMonth, as styled by globals.css + the page's inline <style> */
+  .cal-body { padding: 20px; }
+  .fc { font-size: 16px; line-height: 1.5; color: var(--text); }
+  .fc-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .fc-chunk { display: flex; align-items: center; }
+  .fc-group { display: inline-flex; gap: 6px; }
+  .fc-group .fbtn + .fbtn { margin-left: -1px; }
+  .fbtn { display: inline-flex; align-items: center; justify-content: center; padding: 6.4px 10.4px; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-xs); white-space: nowrap; }
+  .fbtn svg { display: block; }
+  .fbtn.active { background: var(--primary-tint); border-color: rgba(6, 111, 209, 0.35); color: var(--primary-text); box-shadow: none; }
+  /* "วันนี้" is disabled while the current month is shown: muted text at
+     60% opacity; FullCalendar's own disabled rule keeps its #2c3e50 border */
+  .fbtn.disabled { color: var(--muted); border-color: #2c3e50; opacity: 0.6; box-shadow: none; }
+  .fc-title { font-size: 18px; line-height: 27px; font-weight: 700; color: var(--text); }
+
+  .sg { border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
+  .hband { background: var(--surface-2); padding: 8px 0; border-right: 1px solid var(--border); }
+  .hrow, .brow { display: grid; grid-template-columns: repeat(7, 1fr); }
+  .hcell { padding: 8px 0; text-align: center; font-size: 13px; font-weight: 600; color: var(--muted); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .hcell:last-child { border-right: none; }
+  .hcell span { display: inline-block; padding: 2px 4px; }
+  .body { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .day { background: var(--surface); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); min-width: 0; }
+  .day:last-child { border-right: none; }
+  .brow:last-child .day { border-bottom: none; }
+  .day .top { display: flex; flex-direction: row-reverse; }
+  .day .num { padding: 4px; font-size: 16px; line-height: 24px; }
+  .day.other .top { opacity: 0.3; }
+  .day.today { background: var(--primary-tint); }
+  .day.today .num { width: 28px; height: 28px; margin: 4px; border-radius: 50%; background: var(--primary); color: #fff; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+  .evs { margin-top: 1px; min-height: 32px; margin-bottom: 16px; }
+  .ev { display: flex; align-items: center; margin: 1px 2px 0; padding: 2px 4px; border-radius: 6px; font-size: 12px; line-height: 18px; color: var(--text); white-space: nowrap; }
+  .ev .d { width: 8px; height: 8px; margin: 0 4px; border-radius: 50%; flex: none; }
+  .ev .d.red { background: var(--danger); } .ev .d.green { background: var(--success); }
+  .ev .t { margin-right: 3px; flex: none; }
+  .ev .ti { flex: 1 1 auto; min-width: 0; overflow: hidden; font-weight: 700; white-space: normal; line-height: 1.2; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="history"></aside>
+  <div class="main">
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">ประวัติ</div>
+          <div class="h1">ประวัติและสถิติเหตุการณ์</div>
+          <div class="sub">ดูประวัติการขอความช่วยเหลือย้อนหลังและวิเคราะห์แนวโน้ม</div>
+        </div>
+        <div class="tabs">
+          <span class="tab on"><i data-icon="calendar" data-size="16"></i>ปฏิทิน (Calendar)</span>
+          <span class="tab"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>สถิติ (Analytics)</span>
+        </div>
+      </div>
+
+      <div class="card cal-card">
+        <div class="cal-head">
+          <div class="legend">
+            <span class="lg b-danger"><span class="dot danger"></span>ยังไม่ช่วยเหลือ</span>
+            <span class="lg b-success"><span class="dot success"></span>ช่วยเหลือแล้ว</span>
+          </div>
+          <div class="jump">
+            <label><i data-icon="calendar" data-size="16"></i>ค้นหาวันที่:</label>
+            <div class="date-input"><span>mm/dd/yyyy</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg></div>
+          </div>
+        </div>
+
+        <div class="cal-body">
+          <div class="fc">
+            <div class="fc-toolbar">
+              <div class="fc-chunk">
+                <div class="fc-group">
+                  <span class="fbtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m14.5 17-5-5 5-5"/></svg></span>
+                  <span class="fbtn"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9.5 17 5-5-5-5"/></svg></span>
+                </div>
+                <span class="fbtn disabled" style="margin-left:12px">วันนี้</span>
+              </div>
+              <div class="fc-chunk"><div class="fc-title">พฤศจิกายน 2569</div></div>
+              <div class="fc-chunk">
+                <div class="fc-group">
+                  <span class="fbtn active">เดือน</span>
+                  <span class="fbtn">สัปดาห์</span>
+                  <span class="fbtn">วัน</span>
+                  <span class="fbtn">รายการ</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="sg">
+              <div class="hband">
+                <div class="hrow">
+                  <div class="hcell"><span>อา.</span></div><div class="hcell"><span>จ.</span></div><div class="hcell"><span>อ.</span></div><div class="hcell"><span>พ.</span></div><div class="hcell"><span>พฤ.</span></div><div class="hcell"><span>ศ.</span></div><div class="hcell"><span>ส.</span></div>
+                </div>
+              </div>
+              <div class="body" id="month"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script>
+  // dayGridMonth with fixedWeekCount (6 rows), week starts Sunday (the "th"
+  // locale file is not loaded, so FullCalendar keeps the en week).
+  // November 2026 starts on a Sunday: 1 Nov - 12 Dec.
+  // Timed events render as FullCalendar "dot" events: dot + time + title.
+  const EV = {
+    3: [['21:47', 'นางสมศรี ทองดี (A-105)', 'green']],
+    7: [['6:12', 'นายวิชัย ศรีสุข (C-102)', 'green']],
+    11: [['3:25', 'นายสุรชัย พึ่งบุญ (B-110)', 'green']],
+    14: [['19:08', 'นางบุญมี แก้วใส (C-108)', 'green']],
+    16: [['14:27', 'นางสาวมานี สุขใจ (B-205)', 'red'], ['14:32', 'นายสมชาย ใจดี (A-301)', 'red']],
+  };
+  let html = '';
+  for (let w = 0; w < 6; w++) {
+    html += '<div class="brow">';
+    for (let d = 0; d < 7; d++) {
+      const day = w * 7 + d + 1, inMonth = day <= 30, n = inMonth ? day : day - 30;
+      const cls = 'day' + (inMonth ? '' : ' other') + (inMonth && day === 16 ? ' today' : '');
+      const evs = (inMonth && EV[day] || []).map(([t, title, c]) =>
+        `<div class="ev"><span class="d ${c}"></span><span class="t">${t}</span><span class="ti">${title}</span></div>`).join('');
+      html += `<div class="${cls}"><div class="top"><span class="num">${n}</span></div><div class="evs">${evs}</div></div>`;
+    }
+    html += '</div>';
+  }
+  document.getElementById('month').innerHTML = html;
+</script>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

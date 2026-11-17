@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Admin — จัดการอุปกรณ์ (QR)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* app/admin/register-device/page.tsx: max-w-5xl mx-auto px-8 py-8 */
+  .rd-page { flex: 1; width: 1024px; margin: 0 auto; padding: 32px; display: flex; flex-direction: column; }
+  .rd-head { margin-bottom: 24px; }
+  .rd-head .h1 { margin-top: 4px; line-height: 32px; }
+  .rd-head .sub { margin-top: 4px; line-height: 20px; }
+
+  /* tabs: w-fit p-1 gap-1, flex-1 buttons (equal width) */
+  .rd-tabs { margin-bottom: 24px; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; width: fit-content;
+    border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+  .rd-tab { height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid transparent;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 14px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .rd-tab.on { background: var(--surface); color: var(--primary-text); border-color: var(--border); box-shadow: var(--shadow-xs); }
+
+  .rd-stack { display: flex; flex-direction: column; gap: 24px; }
+  .rd-card-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .rd-card-head h2 { font-size: 16px; font-weight: 600; line-height: 24px; }
+  .rd-chip { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .rd-body { padding: 20px; }
+  .rd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .rd-label { display: block; margin-bottom: 6px; font-size: 14px; font-weight: 600; line-height: 20px; color: var(--text); }
+  .rd-label .req { color: var(--danger-text); }
+  .rd-input { height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+    box-shadow: var(--shadow-xs); display: flex; align-items: center; font-size: 14px; color: var(--text); white-space: nowrap; overflow: hidden; }
+  .rd-input.ok { border-color: var(--success); }
+  .rd-input.mac { letter-spacing: 0.05em; text-transform: uppercase; }
+  .rd-hint { margin-top: 6px; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; line-height: 16px; color: var(--success-text); }
+  .rd-actions { display: flex; justify-content: flex-end; margin-top: 20px; }
+  .rd-btn { height: 40px; padding: 0 16px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-size: 14px; font-weight: 600; white-space: nowrap; box-shadow: var(--shadow-xs); border: 1px solid transparent; }
+  .rd-btn.primary { background: var(--primary); color: #fff; }
+  .rd-btn.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+
+  .rd-preview { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 24px; }
+  .rd-qr { padding: 16px; background: #fff; border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-xs); }
+  .rd-qr svg { display: block; width: 256px; height: 256px; }
+  .rd-meta { width: 100%; text-align: center; }
+  .rd-mac { font-size: 20px; line-height: 28px; font-weight: 700; letter-spacing: 0.1em; color: var(--text); }
+  .rd-devlabel { margin-top: 4px; font-size: 14px; line-height: 20px; color: var(--muted); }
+  .rd-url { margin: 8px auto 0; max-width: 320px; font-size: 12px; line-height: 16px; color: var(--muted); word-break: break-all; }
+  .rd-btns { display: flex; gap: 12px; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="admin-device" data-role="admin"></aside>
+  <div class="main">
+    <div class="rd-page">
+      <div class="rd-head">
+        <div class="eyebrow">ผู้ดูแลระบบ</div>
+        <div class="h1">จัดการอุปกรณ์</div>
+        <div class="sub">สร้าง QR Code หรือลงทะเบียนบอร์ด ESP32 ใหม่เข้าระบบ</div>
+      </div>
+
+      <div class="rd-tabs">
+        <span class="rd-tab on">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><path d="M15 15h2v2h-2z"/><path d="M21 15v.01"/><path d="M15 21h.01"/><path d="M18 18h3v3h-3"/><path d="M12 3v3"/><path d="M12 9v3h3"/><path d="M3 12h6"/></svg>
+          สร้าง QR Code
+        </span>
+        <span class="rd-tab">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg>
+          ลงทะเบียนบอร์ด
+        </span>
+      </div>
+
+      <div class="rd-stack">
+        <!-- ข้อมูลอุปกรณ์ -->
+        <section class="card">
+          <div class="rd-card-head">
+            <span class="rd-chip" style="background:var(--primary-tint)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><path d="M15 15h2v2h-2z"/><path d="M21 15v.01"/><path d="M15 21h.01"/><path d="M18 18h3v3h-3"/><path d="M12 3v3"/><path d="M12 9v3h3"/><path d="M3 12h6"/></svg>
+            </span>
+            <h2>ข้อมูลอุปกรณ์</h2>
+          </div>
+          <div class="rd-body">
+            <div class="rd-grid">
+              <div>
+                <label class="rd-label">MAC Address <span class="req">*</span></label>
+                <div class="rd-input ok mac mono">AA:BB:CC:DD:EE:07</div>
+                <p class="rd-hint">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                  รูปแบบถูกต้อง
+                </p>
+              </div>
+              <div>
+                <label class="rd-label">ชื่อ / Label อุปกรณ์ (ไม่บังคับ)</label>
+                <div class="rd-input">ห้อง C-110, ไมค์หัวเตียง</div>
+              </div>
+            </div>
+            <div class="rd-actions">
+              <span class="rd-btn primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="6" height="6" rx="1"/><rect x="15" y="3" width="6" height="6" rx="1"/><rect x="3" y="15" width="6" height="6" rx="1"/><path d="M15 15h2v2h-2z"/><path d="M21 15v.01"/><path d="M15 21h.01"/><path d="M18 18h3v3h-3"/><path d="M12 3v3"/><path d="M12 9v3h3"/><path d="M3 12h6"/></svg>
+                สร้าง QR Code
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <!-- ตัวอย่าง QR Code -->
+        <section class="card">
+          <div class="rd-card-head">
+            <span class="rd-chip" style="background:var(--success-tint)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+            <h2>ตัวอย่าง QR Code</h2>
+          </div>
+          <div class="rd-preview">
+            <div class="rd-qr"><svg width="256" height="256" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 49 49" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h49v49H0z"/><path stroke="#1e293b" d="M2 2.5h7m4 0h1m1 0h1m1 0h1m2 0h3m2 0h1m1 0h2m2 0h2m2 0h1m2 0h1m1 0h7M2 3.5h1m5 0h1m3 0h3m1 0h1m4 0h1m1 0h2m1 0h2m1 0h2m2 0h2m2 0h1m2 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m1 0h1m1 0h1m3 0h4m2 0h1m1 0h3m1 0h2m1 0h1m1 0h2m2 0h1m2 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m1 0h1m1 0h1m1 0h2m3 0h2m1 0h1m4 0h1m1 0h2m2 0h1m1 0h1m1 0h2m1 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m2 0h3m1 0h3m1 0h2m1 0h5m1 0h1m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m2 0h1m1 0h1m1 0h2m1 0h2m1 0h2m3 0h1m2 0h3m8 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M11 9.5h4m1 0h1m1 0h1m1 0h3m3 0h3m2 0h1m1 0h1m1 0h4M5 10.5h2m1 0h2m1 0h1m6 0h9m1 0h6m9 0h2M2 11.5h3m1 0h1m4 0h6m2 0h2m2 0h2m2 0h1m2 0h5m1 0h3m1 0h4m1 0h1M2 12.5h1m2 0h5m1 0h1m3 0h1m4 0h1m1 0h3m1 0h1m1 0h3m2 0h1m1 0h2m2 0h2m1 0h5M3 13.5h4m2 0h3m1 0h1m3 0h4m1 0h2m4 0h1m2 0h2m1 0h1m1 0h1m8 0h1M2 14.5h1m1 0h2m1 0h4m3 0h3m1 0h4m2 0h4m1 0h1m1 0h6m2 0h2m1 0h1m2 0h2M3 15.5h1m1 0h3m2 0h3m2 0h1m3 0h1m2 0h2m2 0h5m2 0h1m1 0h1m1 0h2m1 0h2m3 0h1M3 16.5h3m1 0h2m2 0h1m1 0h1m1 0h1m2 0h6m2 0h1m1 0h1m1 0h1m1 0h2m1 0h1m1 0h2m1 0h1m1 0h1m1 0h1M2 17.5h1m1 0h1m1 0h2m1 0h4m2 0h3m1 0h1m4 0h3m1 0h2m2 0h1m3 0h1m3 0h1m2 0h3M2 18.5h1m1 0h1m1 0h3m1 0h1m1 0h2m1 0h1m1 0h3m2 0h4m1 0h1m1 0h4m1 0h1m1 0h1m2 0h2m4 0h1M2 19.5h1m1 0h2m3 0h1m2 0h4m3 0h1m6 0h1m2 0h1m1 0h6m1 0h2m3 0h2m1 0h1M2 20.5h1m2 0h2m1 0h3m3 0h1m6 0h1m5 0h1m1 0h4m1 0h1m3 0h2m1 0h2m1 0h1m1 0h1M3 21.5h5m1 0h3m1 0h1m2 0h3m3 0h1m5 0h1m1 0h2m3 0h2m1 0h1m1 0h1m1 0h3M2 22.5h2m2 0h5m2 0h1m1 0h1m1 0h2m1 0h1m1 0h5m2 0h1m6 0h1m1 0h6M2 23.5h1m3 0h1m3 0h2m1 0h1m2 0h1m1 0h1m1 0h1m1 0h1m3 0h2m1 0h1m1 0h1m1 0h1m1 0h4m3 0h2M2 24.5h2m1 0h2m1 0h1m1 0h1m1 0h2m2 0h3m1 0h1m1 0h1m1 0h1m1 0h4m1 0h8m1 0h1m1 0h1m1 0h3M4 25.5h3m3 0h2m4 0h2m1 0h1m1 0h2m3 0h1m2 0h1m2 0h1m1 0h1m2 0h2m3 0h4M2 26.5h1m1 0h8m4 0h1m2 0h2m1 0h6m1 0h3m3 0h1m1 0h7m1 0h2M5 27.5h3m1 0h2m1 0h3m5 0h2m1 0h3m3 0h2m1 0h1m1 0h1m1 0h3m1 0h2m1 0h4M3 28.5h2m2 0h2m4 0h2m1 0h1m1 0h2m3 0h2m1 0h1m1 0h1m1 0h1m1 0h1m1 0h2m1 0h1m3 0h2m1 0h1m1 0h1M5 29.5h2m3 0h1m2 0h1m1 0h3m3 0h1m1 0h4m1 0h2m1 0h3m1 0h1m2 0h1m2 0h6M6 30.5h1m1 0h1m1 0h2m3 0h3m1 0h1m2 0h1m1 0h2m2 0h1m1 0h1m3 0h1m1 0h1m1 0h2m2 0h2M3 31.5h2m2 0h1m1 0h1m3 0h1m2 0h2m1 0h1m1 0h3m3 0h3m3 0h5m2 0h4m2 0h1M6 32.5h3m1 0h1m2 0h1m1 0h1m1 0h1m2 0h1m1 0h3m3 0h1m2 0h1m1 0h3m4 0h5m1 0h1M3 33.5h2m1 0h2m1 0h1m3 0h2m1 0h1m2 0h2m1 0h2m2 0h1m1 0h1m1 0h2m3 0h4m2 0h1m1 0h1m1 0h2M2 34.5h1m3 0h7m1 0h1m1 0h2m2 0h1m2 0h2m2 0h1m1 0h3m6 0h1m2 0h1m3 0h1M3 35.5h1m8 0h1m1 0h4m2 0h3m3 0h3m1 0h1m2 0h4m3 0h5M6 36.5h1m1 0h2m1 0h3m1 0h1m1 0h1m1 0h2m3 0h2m1 0h1m2 0h12m1 0h4M3 37.5h4m2 0h2m2 0h1m2 0h1m7 0h1m3 0h1m2 0h2m1 0h3m2 0h2m3 0h3M2 38.5h1m2 0h2m1 0h3m3 0h1m1 0h1m1 0h2m2 0h5m1 0h1m2 0h2m1 0h9m2 0h2M10 39.5h2m3 0h4m2 0h2m3 0h2m1 0h1m1 0h1m1 0h1m1 0h1m1 0h2m3 0h3M2 40.5h7m1 0h1m8 0h1m1 0h2m1 0h1m1 0h5m1 0h1m1 0h2m1 0h2m1 0h1m1 0h1m1 0h1M2 41.5h1m5 0h1m5 0h3m4 0h2m3 0h4m3 0h1m2 0h3m3 0h3M2 42.5h1m1 0h3m1 0h1m1 0h1m2 0h1m4 0h2m1 0h6m1 0h7m2 0h6m2 0h1M2 43.5h1m1 0h3m1 0h1m1 0h2m2 0h2m2 0h1m1 0h1m1 0h4m2 0h1m1 0h1m2 0h5m7 0h2M2 44.5h1m1 0h3m1 0h1m2 0h3m1 0h1m5 0h1m7 0h1m2 0h2m1 0h1m2 0h1m3 0h1m2 0h2M2 45.5h1m5 0h1m2 0h2m1 0h1m1 0h1m2 0h1m1 0h2m1 0h2m5 0h2m6 0h3m1 0h4M2 46.5h7m4 0h2m1 0h2m3 0h1m2 0h2m4 0h4m2 0h2m2 0h2m1 0h1"/></svg></div>
+            <div class="rd-meta">
+              <p class="rd-mac mono">AA:BB:CC:DD:EE:07</p>
+              <p class="rd-devlabel">ห้อง C-110, ไมค์หัวเตียง</p>
+              <p class="rd-url">https://kws.wattanapong.com/register-patient?mac=AA:BB:CC:DD:EE:07</p>
+            </div>
+            <div class="rd-btns">
+              <span class="rd-btn primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+                ดาวน์โหลด PNG
+              </span>
+              <span class="rd-btn secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 9V3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>
+                พิมพ์ QR Code
+              </span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

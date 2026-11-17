@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Login — เข้าสู่ระบบ</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Page-only values taken from frontend/app/login/page.tsx (Tailwind v4 colours as hex). */
+  .lg-screen { padding: 32px; font-size: 16px; line-height: 24px; }
+  /* .neu-card: 12px radius, 1px border, card shadow; md:min-h-[600px] */
+  .lg-card {
+    position: relative; width: 900px; height: 600px; display: flex;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow-card); overflow: hidden;
+  }
+  /* sign-in form: left half, px-12 py-8, centred vertically */
+  .lg-form { width: 449px; height: 100%; padding: 32px 48px; display: flex; flex-direction: column; justify-content: center; }
+  .lg-head { text-align: center; margin-bottom: 24px; }
+  .lg-title { font-size: 24px; line-height: 32px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .lg-grad { background: linear-gradient(90deg, #155dfc, #9810fa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lg-sub { font-size: 30px; line-height: 36px; font-weight: 800; }
+  .lg-fields { display: flex; flex-direction: column; gap: 16px; }
+  .lg-label { display: block; margin-left: 4px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); }
+  .lg-input {
+    position: relative; height: 46px; margin-top: 4px; padding: 12px 16px;
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow-xs);
+    font-size: 14px; line-height: 20px; color: var(--placeholder);
+  }
+  .lg-input.pw { padding-right: 48px; }
+  .lg-toggle { position: absolute; right: 8px; top: 4px; width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+  .lg-forgot { display: flex; justify-content: flex-end; margin-top: 8px; font-size: 12px; line-height: 16px; color: #2b7fff; }
+  .lg-btn {
+    margin-top: 8px; height: 48px; border-radius: 12px; background: linear-gradient(90deg, #155dfc, #9810fa);
+    display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; line-height: 24px; font-weight: 700;
+  }
+  .lg-or { display: flex; align-items: center; margin: 20px 0; }
+  .lg-or i { flex: 1; height: 1px; background: #e2e8f0; display: block; }
+  .lg-or span { padding: 0 12px; font-size: 12px; line-height: 16px; color: var(--muted); }
+  /* .neu-card-sm: 8px radius, 1px border, xs shadow; py-3 gap-3 font-semibold text-sm */
+  .lg-google {
+    height: 46px; display: flex; align-items: center; justify-content: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow-xs);
+    font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text);
+  }
+  /* overlay: right half shows the second half of from-blue-600 via-indigo-600 to-purple-600 */
+  .lg-panel {
+    width: 449px; height: 100%; padding: 0 48px; color: #fff; text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(90deg, #4f39f6, #9810fa);
+  }
+  .lg-panel h2 { font-size: 36px; line-height: 40px; font-weight: 800; margin-bottom: 16px; text-shadow: 0 3px 3px rgba(0, 0, 0, 0.12); }
+  .lg-panel p { font-size: 16px; line-height: 24px; color: #e0e7ff; margin-bottom: 32px; }
+  .lg-panel-btn {
+    height: 52px; padding: 0 40px; border-radius: 999px; border: 2px solid rgba(255, 255, 255, 0.5);
+    display: flex; align-items: center; font-size: 16px; line-height: 24px; font-weight: 700; letter-spacing: 0.025em; color: #fff;
+  }
+  /* FloatingThemeToggle (fixed bottom-6 right-6, light theme = moon) */
+  .lg-theme {
+    position: absolute; right: 24px; bottom: 24px; width: 42px; height: 42px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--border); color: var(--primary-text);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 12px 3px rgba(99, 102, 241, 0.5), 0 0 28px 6px rgba(99, 102, 241, 0.2), 0 9px 7px rgba(0, 0, 0, 0.1);
+  }
+  .lg-theme .ping { position: absolute; inset: 0; border-radius: 50%; background: rgba(99, 102, 241, 0.2); }
+  .lg-theme svg { position: relative; }
+</style>
+</head>
+<body>
+<div class="screen centered lg-screen">
+  <div class="lg-card">
+    <!-- IN FORM -->
+    <div class="lg-form">
+      <div class="lg-head">
+        <div class="lg-title">Emergency Voice Rescuer</div>
+        <div class="lg-sub lg-grad">เข้าสู่ระบบ</div>
+      </div>
+
+      <div class="lg-fields">
+        <div>
+          <!-- inline label in the source: its line box takes the parent's 24px strut -->
+          <label class="lg-label" style="line-height:24px">อีเมล</label>
+          <div class="lg-input">Email</div>
+        </div>
+
+        <div>
+          <label class="lg-label" style="margin-bottom:4px">รหัสผ่าน</label>
+          <div class="lg-input pw" style="margin-top:0">Password
+            <span class="lg-toggle">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>
+            </span>
+          </div>
+          <div class="lg-forgot">ลืมรหัสผ่านใช่ไหม?</div>
+        </div>
+
+        <div class="lg-btn">เข้าสู่ระบบ</div>
+      </div>
+
+      <div class="lg-or"><i></i><span>หรือ</span><i></i></div>
+
+      <div class="lg-google">
+        <svg width="20" height="20" viewBox="-0.5 0 48 48"><path fill="#FBBC05" d="M9.82727273,24 C9.82727273,22.4757333 10.0804318,21.0144 10.5322727,19.6437333 L2.62345455,13.6042667 C1.08206818,16.7338667 0.213636364,20.2602667 0.213636364,24 C0.213636364,27.7365333 1.081,31.2608 2.62025,34.3882667 L10.5247955,28.3370667 C10.0772273,26.9728 9.82727273,25.5168 9.82727273,24"/><path fill="#EB4335" d="M23.7136364,10.1333333 C27.025,10.1333333 30.0159091,11.3066667 32.3659091,13.2266667 L39.2022727,6.4 C35.0363636,2.77333333 29.6954545,0.533333333 23.7136364,0.533333333 C14.4268636,0.533333333 6.44540909,5.84426667 2.62345455,13.6042667 L10.5322727,19.6437333 C12.3545909,14.112 17.5491591,10.1333333 23.7136364,10.1333333"/><path fill="#34A853" d="M23.7136364,37.8666667 C17.5491591,37.8666667 12.3545909,33.888 10.5322727,28.3562667 L2.62345455,34.3946667 C6.44540909,42.1557333 14.4268636,47.4666667 23.7136364,47.4666667 C29.4455,47.4666667 34.9177955,45.4314667 39.0249545,41.6181333 L31.5177727,35.8144 C29.3995682,37.1488 26.7323182,37.8666667 23.7136364,37.8666667"/><path fill="#4285F4" d="M46.1454545,24 C46.1454545,22.6133333 45.9318182,21.12 45.6113636,19.7333333 L23.7136364,19.7333333 L23.7136364,28.8 L36.3181818,28.8 C35.6879545,31.8912 33.9724545,34.2677333 31.5177727,35.8144 L39.0249545,41.6181333 C43.3393409,37.6138667 46.1454545,31.6490667 46.1454545,24"/></svg>
+        ดำเนินการต่อด้วย Google
+      </div>
+    </div>
+
+    <!-- OVERLAY (right half while isLogin) -->
+    <div class="lg-panel">
+      <h2>Hello, Guardian!</h2>
+      <p>เพิ่งเคยเข้ามาครั้งแรกหรือเปล่า? <br>สมัครสมาชิกเพื่อเริ่มใช้งาน Emergency Voice Rescuer</p>
+      <span class="lg-panel-btn">สมัครสมาชิก</span>
+    </div>
+  </div>
+
+  <div class="lg-theme">
+    <span class="ping"></span>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

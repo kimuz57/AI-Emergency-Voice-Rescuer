@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>ปฏิทินเหตุการณ์</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* app/calendar/page.tsx: max-w-5xl (1024px) mx-auto px-8 py-8 -> 960px of content, centred */
+  .cal-wrap { width: 960px; margin: 0 auto; padding: 32px 0; display: flex; flex-direction: column; gap: 24px; }
+  .cal-grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+  .btn-list { border-color: var(--border); }
+  .month-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .sq-btn { width: 40px; height: 40px; flex: none; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-xs); display: flex; align-items: center; justify-content: center; color: var(--text); }
+  .month-name { font-size: 18px; line-height: 28px; font-weight: 700; text-align: center; }
+  .month-count { font-size: 12px; line-height: 16px; font-weight: 500; color: var(--muted); text-align: center; margin-top: 2px; }
+  .cal-body { padding: 16px; }
+  .wd { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-bottom: 4px; }
+  .wd div { text-align: center; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); padding: 6px 0; }
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+  .d {
+    aspect-ratio: 1 / 1; border-radius: 8px; border: 1px solid transparent;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums; color: var(--text);
+  }
+  .d .ev { width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+  .d.sel { border-color: var(--primary); background: var(--primary); color: #fff; font-weight: 700; }
+  .d.sel .ev { background: #fff; }
+  .d.today span:first-child { text-decoration: underline; text-underline-offset: 4px; }
+  .side-head { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .side-title { margin-top: 2px; font-size: 16px; line-height: 24px; font-weight: 600; }
+  .ev-list li { list-style: none; padding: 12px 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px solid var(--border); }
+  .ev-list li:last-child { border-bottom: none; }
+  .ev-name { font-size: 14px; line-height: 20px; font-weight: 600; }
+  .ev-room { margin-left: 8px; font-size: 12px; font-weight: 500; color: var(--muted); }
+  .ev-time { font-size: 12px; line-height: 16px; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .ev-badge { padding: 2px 10px; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="calendar" data-role="caregiver"></aside>
+  <div class="main">
+    <div style="flex:1">
+      <div class="cal-wrap">
+        <!-- page head -->
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">ประวัติ</div>
+            <div class="h1" style="margin-top:4px">ปฏิทินเหตุการณ์</div>
+            <div class="sub" style="margin-top:4px">ดูว่าเดือนไหนวันไหนมีการแจ้งเตือนบ้าง กดที่วันเพื่อดูรายการของวันนั้น</div>
+          </div>
+          <span class="btn btn-secondary btn-list">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            ดูแบบรายการ
+          </span>
+        </div>
+
+        <div class="cal-grid">
+          <!-- month grid -->
+          <div class="card">
+            <div class="month-bar">
+              <span class="sq-btn"><i data-icon="chevron-left" data-size="20"></i></span>
+              <div>
+                <div class="month-name">พฤศจิกายน 2569</div>
+                <div class="month-count">6 เหตุการณ์ในเดือนนี้</div>
+              </div>
+              <span class="sq-btn"><i data-icon="chevron-right" data-size="20"></i></span>
+            </div>
+            <div class="cal-body">
+              <div class="wd"><div>อา</div><div>จ</div><div>อ</div><div>พ</div><div>พฤ</div><div>ศ</div><div>ส</div></div>
+              <div class="days" id="days"></div>
+            </div>
+          </div>
+
+          <!-- selected day -->
+          <div class="card">
+            <div class="side-head">
+              <div class="eyebrow">วันที่เลือก</div>
+              <div class="side-title">เหตุการณ์วันที่ 16/11/2026</div>
+            </div>
+            <ul class="ev-list">
+              <!-- /api/alerts/history is ORDER BY created_at DESC; same two alerts as dashboard.html -->
+              <li>
+                <div>
+                  <div class="ev-name">นายสมชาย ใจดี<span class="ev-room">ห้อง A-301</span></div>
+                  <div class="ev-time">14:32 น.</div>
+                </div>
+                <span class="badge b-danger ev-badge">ยังไม่รับทราบ</span>
+              </li>
+              <li>
+                <div>
+                  <div class="ev-name">นางสาวมานี สุขใจ<span class="ev-room">ห้อง B-205</span></div>
+                  <div class="ev-time">14:27 น.</div>
+                </div>
+                <span class="badge b-danger ev-badge">ยังไม่รับทราบ</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script>
+  // November 2026 starts on a Sunday (no leading pads); 30 days + 5 trailing pads = 35 cells.
+  // Event counts per day (sum = 6, the "เหตุการณ์ในเดือนนี้" figure); same events as
+  // history-calendar.html / history-analytics.html. 16 = today = selected.
+  const COUNT = { 3: 1, 7: 1, 11: 1, 14: 1, 16: 2 };
+  const TODAY = 16, SELECTED = 16;
+  let html = '';
+  for (let day = 1; day <= 30; day++) {
+    const cls = 'd' + (day === SELECTED ? ' sel' : '') + (day === TODAY ? ' today' : '');
+    html += `<div class="${cls}"><span>${day}</span>${COUNT[day] ? '<span class="ev"></span>' : ''}</div>`;
+  }
+  for (let i = 0; i < 5; i++) html += '<div></div>';
+  document.getElementById('days').innerHTML = html;
+</script>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

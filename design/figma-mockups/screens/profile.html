@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Profile — ข้อมูลส่วนตัว</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* page container: max-w-5xl mx-auto px-8 py-8 inside the 1184px main column */
+  .pf-wrap { flex: 1; width: 1024px; margin: 0 auto; padding: 32px; }
+  .pf-head { margin-bottom: 24px; }
+  .pf-head .h1 { margin-top: 4px; line-height: 32px; }
+  .pf-head .sub { margin-top: 4px; line-height: 20px; }
+  /* grid lg:grid-cols-3 gap-6 -> 304px | 632px */
+  .pf-grid { display: flex; gap: 24px; align-items: flex-start; }
+  .pf-left { width: 304px; flex: none; }
+  .pf-right { width: 632px; flex: none; display: flex; flex-direction: column; gap: 24px; }
+
+  /* left card: p-6, centred column */
+  .pf-card-id { padding: 24px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .pf-avatar-wrap { position: relative; width: 112px; height: 112px; }
+  .pf-avatar {
+    width: 112px; height: 112px; border-radius: 50%;
+    background: var(--primary-tint); color: var(--primary-text);
+    border: 4px solid var(--surface); box-shadow: 0 0 0 1px var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px; line-height: 40px; font-weight: 700;
+  }
+  .pf-avatar-btn {
+    position: absolute; right: -4px; bottom: -4px; width: 44px; height: 44px; border-radius: 50%;
+    background: var(--primary); border: 4px solid var(--surface); box-shadow: var(--shadow-xs);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .pf-name { margin-top: 16px; font-size: 18px; line-height: 28px; font-weight: 700; }
+  .pf-email { font-size: 14px; line-height: 20px; color: var(--muted); }
+  .pf-role {
+    margin-top: 12px; display: inline-flex; align-items: center; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; line-height: 16px; font-weight: 600;
+    letter-spacing: 0.025em; text-transform: uppercase;
+    background: var(--primary-tint); color: var(--primary-text);
+  }
+
+  /* details section */
+  .pf-sec-head {
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .pf-sec-head h3 { font-size: 16px; line-height: 24px; font-weight: 600; }
+  .pf-btn-secondary {
+    height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface); box-shadow: var(--shadow-xs);
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text); white-space: nowrap;
+  }
+  .pf-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 20px; }
+  .pf-label { display: block; font-size: 14px; line-height: 20px; font-weight: 600; margin-bottom: 6px; }
+  .pf-input {
+    height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong);
+    background: var(--surface-2); color: var(--muted);
+    display: flex; align-items: center; font-size: 14px; line-height: 20px;
+    white-space: nowrap; overflow: hidden;
+  }
+
+  /* link card to /settings/notifications */
+  .pf-link { padding: 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .pf-link-l { display: flex; align-items: flex-start; gap: 12px; min-width: 0; }
+  .pf-link-chip {
+    width: 40px; height: 40px; border-radius: 8px; flex: none;
+    background: var(--primary-tint); display: flex; align-items: center; justify-content: center;
+  }
+  .pf-link h3 { font-size: 16px; line-height: 24px; font-weight: 600; }
+  .pf-link p { margin-top: 2px; font-size: 14px; line-height: 20px; color: var(--muted); }
+
+  .pf-note {
+    display: flex; align-items: center; justify-content: flex-end; gap: 6px;
+    font-size: 14px; line-height: 20px; color: var(--muted);
+  }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="profile" data-role="caregiver"></aside>
+  <div class="main">
+    <div class="pf-wrap">
+      <!-- หัวหน้า -->
+      <div class="pf-head">
+        <div class="eyebrow">บัญชี</div>
+        <div class="h1">ข้อมูลส่วนตัว</div>
+        <div class="sub">จัดการข้อมูลบัญชีผู้ดูแลระบบและการแจ้งเตือนเหตุฉุกเฉิน</div>
+      </div>
+
+      <div class="pf-grid">
+        <!-- คอลัมน์ซ้าย: รูปโปรไฟล์ -->
+        <div class="pf-left">
+          <div class="card pf-card-id">
+            <div class="pf-avatar-wrap">
+              <!-- no profile image: name.substring(0, 2).toUpperCase() -->
+              <div class="pf-avatar">คุ</div>
+              <span class="pf-avatar-btn" title="เปลี่ยนรูปโปรไฟล์">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              </span>
+            </div>
+            <div class="pf-name">คุณดวงใจ รักษ์ดี</div>
+            <div class="pf-email">duangjai@example.com</div>
+            <span class="pf-role">caregiver</span>
+          </div>
+        </div>
+
+        <!-- คอลัมน์ขวา -->
+        <div class="pf-right">
+          <section class="card">
+            <div class="pf-sec-head">
+              <h3>รายละเอียดผู้ดูแล</h3>
+              <span class="pf-btn-secondary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                แก้ไขข้อมูล
+              </span>
+            </div>
+            <div class="pf-fields">
+              <div>
+                <label class="pf-label">ชื่อผู้ใช้งาน</label>
+                <div class="pf-input">คุณดวงใจ รักษ์ดี</div>
+              </div>
+              <div>
+                <label class="pf-label">เบอร์โทรศัพท์รับเหตุฉุกเฉิน</label>
+                <div class="pf-input mono">081-234-5678</div>
+              </div>
+            </div>
+          </section>
+
+          <a class="card pf-link">
+            <div class="pf-link-l">
+              <span class="pf-link-chip">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+              </span>
+              <div style="min-width:0">
+                <h3>ช่องทางการรับสัญญาณเตือนภัย</h3>
+                <p>เชื่อมต่อ LINE / Telegram และเปิด-ปิดการแจ้งเตือนแต่ละช่องทาง</p>
+              </div>
+            </div>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><polyline points="9 18 15 12 9 6"/></svg>
+          </a>
+
+          <p class="pf-note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            หากต้องการลบบัญชี กรุณาติดต่อผู้ดูแลระบบ
+          </p>
+        </div>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

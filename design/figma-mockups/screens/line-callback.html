@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>LINE callback — เชื่อมต่อ LINE สำเร็จ</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* frontend/app/line-callback/page.tsx, phase "done" (outside the app shell) */
+  .lc-card { width: 448px; padding: 32px; text-align: center; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-card); }
+  .lc-eyebrow { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); }
+  .lc-icon { width: 48px; height: 48px; margin: 20px auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--success-tint); }
+  .lc-h2 { font-size: 20px; line-height: 28px; font-weight: 700; color: var(--text); }
+  .lc-p { margin-top: 8px; font-size: 14px; line-height: 1.625; color: var(--muted); }
+  .lc-btn { margin-top: 24px; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-xs); font-size: 14px; font-weight: 600; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="screen centered">
+  <div class="lc-card">
+    <p class="lc-eyebrow">เชื่อมต่อ LINE</p>
+    <div class="lc-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+    <h2 class="lc-h2">เชื่อมต่อ LINE สำเร็จ</h2>
+    <p class="lc-p">ผูกบัญชี LINE สำเร็จ! กำลังพากลับหน้าตั้งค่าการแจ้งเตือน...</p>
+    <span class="lc-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>กลับไปหน้าตั้งค่าการแจ้งเตือน</span>
+  </div>
+  <span class="theme-fab"></span>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

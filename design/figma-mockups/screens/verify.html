@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Verify email — ยืนยันอีเมล</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* AuthSplitCard (frontend/components/AuthSplitCard.tsx), md+ layout.
+     Colours are the Tailwind v4 palette: blue-600 #155dfc, indigo-600 #4f39f6,
+     purple-600 #9810fa, indigo-100 #e0e7ff, indigo-700 #432dd7. */
+  .fp-wrap { padding: 32px; }
+  /* neu-card: white, 1px border, card shadow, radius 12px; max-w-[900px] md:min-h-[540px] grid-cols-2 */
+  .fp-card {
+    width: 900px; min-height: 540px; display: grid; grid-template-columns: 1fr 1fr;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow-card); overflow: hidden;
+  }
+  /* form column: px-12 py-10, centered vertically */
+  .fp-form { padding: 40px 48px; display: flex; flex-direction: column; justify-content: center; font-size: 16px; }
+  .fp-head { text-align: center; margin-bottom: 24px; }
+  .fp-h1 { font-size: 24px; line-height: 32px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .fp-h2 {
+    font-size: 30px; line-height: 36px; font-weight: 800;
+    background: linear-gradient(90deg, #155dfc, #9810fa);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .fp-sub { margin-top: 12px; font-size: 14px; line-height: 1.625; color: var(--muted); }
+  .fp-fields { display: flex; flex-direction: column; gap: 16px; }
+  .fp-label { display: block; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); margin: 0 0 4px 4px; }
+  .fp-input {
+    height: 46px; padding: 0 16px; display: flex; align-items: center;
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px;
+    box-shadow: var(--shadow-xs); font-size: 14px; line-height: 20px; color: var(--placeholder);
+  }
+  .fp-submit {
+    height: 52px; margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: linear-gradient(90deg, #155dfc, #9810fa); color: #fff;
+    border-radius: 12px; font-size: 16px; line-height: 24px; font-weight: 700;
+  }
+  /* gradient panel: px-12 py-10, centered, text-center */
+  .fp-panel {
+    padding: 40px 48px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; color: #fff; font-size: 16px; line-height: 24px;
+    background: linear-gradient(90deg, #155dfc, #4f39f6, #9810fa);
+  }
+  .fp-key {
+    width: 64px; height: 64px; margin-bottom: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,.15); box-shadow: 0 0 0 1px rgba(255,255,255,.3);
+  }
+  .fp-ptitle { font-size: 36px; line-height: 40px; font-weight: 800; margin-bottom: 16px; text-shadow: 0 3px 3px rgba(0,0,0,.12); }
+  .fp-ptext { margin-bottom: 32px; color: #e0e7ff; line-height: 1.625; }
+  .fp-steps { width: 100%; max-width: 320px; margin-bottom: 40px; display: flex; flex-direction: column; gap: 12px; text-align: left; list-style: none; }
+  .fp-step { display: flex; align-items: center; gap: 12px; }
+  .fp-step b {
+    width: 32px; height: 32px; flex: none; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 14px; line-height: 20px; font-weight: 700;
+  }
+  .fp-step span { font-size: 14px; line-height: 20px; color: #e0e7ff; }
+  .fp-step.now b { background: #fff; color: #432dd7; }
+  .fp-step.now span { font-weight: 700; color: #fff; }
+  .fp-step.todo b { box-shadow: 0 0 0 1px rgba(255,255,255,.5); color: rgba(255,255,255,.8); }
+  .fp-login {
+    padding: 12px 40px; border-radius: 999px; border: 2px solid rgba(255,255,255,.5);
+    font-weight: 700; letter-spacing: .025em; line-height: 24px;
+  }
+  /* FloatingThemeToggle (light): fixed bottom-6 right-6, neu-icon-btn p-2.5 with indigo glow */
+  .fp-theme {
+    position: absolute; right: 24px; bottom: 24px; width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface); border: 1px solid var(--border);
+    box-shadow: 0 0 12px 3px rgba(99,102,241,.5), 0 0 28px 6px rgba(99,102,241,.2);
+  }
+
+  .fp-step.done b { background: rgba(255,255,255,.3); color: #fff; }
+  .vf-status { text-align: center; }
+  .vf-icon { width: 64px; height: 64px; margin: 0 auto 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--success-tint); }
+  .vf-h3 { font-size: 18px; line-height: 28px; font-weight: 700; color: var(--success-text); margin-bottom: 4px; }
+  .vf-msg { font-size: 14px; line-height: 1.625; color: var(--muted); margin-bottom: 24px; }
+</style>
+</head>
+<body>
+<div class="screen centered fp-wrap">
+  <div class="fp-card">
+    <div class="fp-form">
+      <div class="fp-head">
+        <div class="fp-h1">Emergency Voice Rescuer</div>
+        <div class="fp-h2">ยืนยันอีเมล</div>
+        <p class="fp-sub">ตรวจสอบลิงก์ยืนยันที่ส่งไปทางอีเมล เพื่อเปิดใช้งานบัญชีของคุณ</p>
+      </div>
+      <div class="vf-status">
+        <div class="vf-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <div class="vf-h3">สำเร็จ!</div>
+        <p class="vf-msg">ยืนยันอีเมลสำเร็จ! บัญชีของคุณพร้อมใช้งานแล้ว</p>
+        <span class="fp-submit">เข้าสู่ระบบ</span>
+      </div>
+    </div>
+    <div class="fp-panel">
+      <span class="fp-key">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg>
+      </span>
+      <div class="fp-ptitle">ยินดีต้อนรับ</div>
+      <p class="fp-ptext">ยืนยันอีเมลแล้วเข้าสู่ระบบ เพื่อเริ่มเฝ้าระวังคนที่คุณรักได้เลย</p>
+      <ol class="fp-steps">
+        <li class="fp-step done"><b><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></b><span>สมัครสมาชิก</span></li>
+        <li class="fp-step done"><b><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13l4 4L19 7"/></svg></b><span>เปิดลิงก์ยืนยันในอีเมล</span></li>
+        <li class="fp-step now"><b>3</b><span>เข้าสู่ระบบ</span></li>
+      </ol>
+      <span class="fp-login">เข้าสู่ระบบ</span>
+    </div>
+  </div>
+  <span class="fp-theme">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </span>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

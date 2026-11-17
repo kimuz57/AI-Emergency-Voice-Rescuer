@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>History — สถิติ</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* history/page.tsx: py-8 (32px) top and bottom */
+  .content { padding-bottom: 32px; }
+  .page-head .h1 { margin-top: 4px; line-height: 32px; }
+  .page-head .sub { margin-top: 4px; line-height: 20px; }
+  /* tab switcher: p-1 gap-1, radius 8px; buttons h-9 px-4, radius 6px, 14px semibold */
+  .tabs { display: inline-flex; gap: 4px; padding: 4px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-2); flex: none; }
+  .tabs span { height: 36px; padding: 0 16px; border-radius: 6px; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .tabs span.on { background: var(--surface); color: var(--text); border-color: var(--border); box-shadow: var(--shadow-xs); }
+  /* summary cards: p-5, items-start, value mt-1 text-3xl leading-tight */
+  .stat { align-items: flex-start; }
+  .stat .label { line-height: 20px; }
+  .stat .value { margin-top: 4px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+  /* charts row: lg:grid-cols-2 gap-6 */
+  .charts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  .chart-card { min-width: 0; }
+  .chart-card h3 { padding: 16px 20px; border-bottom: 1px solid var(--border); font-size: 16px; line-height: 24px; font-weight: 600; }
+  .chart-body { height: 288px; padding: 20px; }
+  .chart-body svg { display: block; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="history"></aside>
+  <div class="main">
+    <div class="content">
+      <div class="page-head">
+        <div><div class="eyebrow">ประวัติ</div><div class="h1">ประวัติและสถิติเหตุการณ์</div><div class="sub">ดูประวัติการขอความช่วยเหลือย้อนหลังและวิเคราะห์แนวโน้ม</div></div>
+        <div class="tabs"><span><i data-icon="calendar" data-size="16"></i>ปฏิทิน (Calendar)</span><span class="on"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>สถิติ (Analytics)</span></div>
+      </div>
+      <div class="grid-3">
+        <div class="card stat"><div><div class="label">วันนี้</div><div class="value">2</div></div><div class="chip-icon t-warning"><svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#a3470a" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg></div></div>
+        <div class="card stat"><div><div class="label">สัปดาห์นี้</div><div class="value">4</div></div><div class="chip-icon t-primary"><svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#0559a8" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg></div></div>
+        <div class="card stat"><div><div class="label">รวมทั้งหมด</div><div class="value">37</div></div><div class="chip-icon t-success"><svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#1b7a2e" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div></div>
+      </div>
+      <div class="charts">
+        <section class="card chart-card"><h3>จำนวนเหตุการณ์รายวัน (30 วันล่าสุด)</h3><div class="chart-body" id="bars"></div></section>
+        <section class="card chart-card"><h3>ช่วงเวลาที่เกิดเหตุบ่อย (รูปแบบรายชั่วโมง)</h3><div class="chart-body" id="area"></div></section>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script>
+  // Static copy of the two Recharts charts at 1440px: each ResponsiveContainer
+  // is 506 x 248. margin {top 5, right 10, left -20, bottom 5} + YAxis width 60
+  // + XAxis height 30 -> plot area x 40..496, y 5..213.
+  // /api/alerts/stats groups by day / hour, so only days and hours that have
+  // events appear (no zero-filled slots).
+  const W = 506, H = 248, L = 40, R = 496, T = 5, B = 213;
+  const MUTED = '#5b6776', GRID = '#dce1e7', PRIMARY = '#066fd1', DANGER = '#d63939';
+  const text = (x, y, s, anchor) => `<text x="${x}" y="${y}" font-size="12" fill="${MUTED}" text-anchor="${anchor}">${s}</text>`;
+  // CartesianGrid (3 3 dashes, horizontal only) + YAxis ticks (x = 40 - 6 - 2, anchor end)
+  const yAxis = (ticks) => {
+    const max = ticks[ticks.length - 1];
+    return ticks.map((v) => {
+      const y = B - (v / max) * (B - T);
+      return `<line x1="${L}" x2="${R}" y1="${y}" y2="${y}" stroke="${GRID}" stroke-dasharray="3 3"/>` + text(L - 8, (y + 4.3).toFixed(1), v, 'end');
+    }).join('');
+  };
+  const xLabelY = B + 8 + 8.5; // tickSize 6 + tickMargin 2, dy 0.71em
+  const wrap = (body) => `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="Inter, Noto Sans Thai">${body}</svg>`;
+
+  // ---- daily bar chart: label YYYY-MM-DD shown as MM/DD, max 4 -> ticks 0..4
+  // November days match history-calendar.html (3, 7, 11, 14 resolved; 16 x2 unresolved).
+  const daily = [['10/19', 2], ['10/22', 2], ['10/25', 3], ['10/28', 2], ['10/31', 4], ['11/03', 1], ['11/07', 1], ['11/11', 1], ['11/14', 1], ['11/16', 2]];
+  const yMaxD = 4, band = (R - L) / daily.length, bw = band * 0.8;
+  let bars = yAxis([0, 1, 2, 3, 4]);
+  daily.forEach(([lab, v], i) => {
+    const x = L + i * band + band * 0.1, h = (v / yMaxD) * (B - T), r = 4;
+    bars += `<path d="M${x.toFixed(2)} ${B} V${(B - h + r).toFixed(2)} Q${x.toFixed(2)} ${(B - h).toFixed(2)} ${(x + r).toFixed(2)} ${(B - h).toFixed(2)} H${(x + bw - r).toFixed(2)} Q${(x + bw).toFixed(2)} ${(B - h).toFixed(2)} ${(x + bw).toFixed(2)} ${(B - h + r).toFixed(2)} V${B} Z" fill="${PRIMARY}"/>`;
+    bars += text((L + i * band + band / 2).toFixed(2), xLabelY, lab, 'middle');
+  });
+  document.getElementById('bars').innerHTML = wrap(bars);
+
+  // ---- hourly area chart: label HH (all-time, sums to total 37), max 6 -> ticks 0..8
+  // includes the calendar events: 03:25, 06:12, 14:27 + 14:32, 19:08, 21:47
+  const hourly = [['00', 1], ['02', 2], ['03', 3], ['05', 2], ['06', 1], ['07', 3], ['09', 2], ['10', 3], ['13', 1], ['14', 2], ['15', 2], ['17', 2], ['18', 4], ['19', 6], ['21', 2], ['22', 1]];
+  const yMaxH = 8, step = (R - L) / (hourly.length - 1); // point scale
+  const pts = hourly.map(([, v], i) => [L + i * step, B - (v / yMaxH) * (B - T)]);
+  // d3 curveMonotoneX (Recharts type="monotone")
+  const sgn = (x) => (x < 0 ? -1 : 1);
+  const slope3 = (p0, p1, p2) => {
+    const h0 = p1[0] - p0[0], h1 = p2[0] - p1[0];
+    const s0 = (p1[1] - p0[1]) / h0, s1 = (p2[1] - p1[1]) / h1, p = (s0 * h1 + s1 * h0) / (h0 + h1);
+    return (sgn(s0) + sgn(s1)) * Math.min(Math.abs(s0), Math.abs(s1), 0.5 * Math.abs(p)) || 0;
+  };
+  const slope2 = (p0, p1, t) => (3 * (p1[1] - p0[1]) / (p1[0] - p0[0]) - t) / 2;
+  const seg = (p0, p1, t0, t1) => {
+    const dx = (p1[0] - p0[0]) / 3;
+    return ` C${(p0[0] + dx).toFixed(2)} ${(p0[1] + dx * t0).toFixed(2)} ${(p1[0] - dx).toFixed(2)} ${(p1[1] - dx * t1).toFixed(2)} ${p1[0].toFixed(2)} ${p1[1].toFixed(2)}`;
+  };
+  const tan = pts.map((p, i) => (i === 0 || i === pts.length - 1 ? null : slope3(pts[i - 1], p, pts[i + 1])));
+  tan[0] = slope2(pts[0], pts[1], tan[1]);
+  tan[pts.length - 1] = slope2(pts[pts.length - 2], pts[pts.length - 1], tan[pts.length - 2]);
+  let curve = `M${pts[0][0]} ${pts[0][1].toFixed(2)}`;
+  for (let i = 0; i < pts.length - 1; i++) curve += seg(pts[i], pts[i + 1], tan[i], tan[i + 1]);
+  let area = `<defs><linearGradient id="colorHourly" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stop-color="${DANGER}" stop-opacity="0.3"/><stop offset="95%" stop-color="${DANGER}" stop-opacity="0"/></linearGradient></defs>`;
+  area += yAxis([0, 2, 4, 6, 8]);
+  area += `<path d="${curve} L${R} ${B} L${L} ${B} Z" fill="url(#colorHourly)"/>`;
+  area += `<path d="${curve}" fill="none" stroke="${DANGER}" stroke-width="2"/>`;
+  // interval={3}: every 4th tick
+  hourly.forEach(([lab], i) => { if (i % 4 === 0) area += text((L + i * step).toFixed(2), xLabelY, lab, 'middle'); });
+  document.getElementById('area').innerHTML = wrap(area);
+</script>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

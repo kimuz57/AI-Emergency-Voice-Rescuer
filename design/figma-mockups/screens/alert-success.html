@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Alert (mobile) — รับทราบแล้ว</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* app/alert/page.tsx, status === "acknowledged". The page wrapper is an opaque
+     bg-[var(--tb-surface-2)] that covers the body photo; min-h-[100dvh] flex
+     items-center justify-center px-4 py-8. */
+  .screen.mobile { background: var(--surface-2); align-items: center; justify-content: center; padding: 32px 16px; }
+  /* w-full max-w-md rounded-lg border border-t-4 border-t-success bg-surface shadow-card p-6 text-center */
+  .ok {
+    width: 100%; max-width: 448px;
+    background: var(--surface);
+    border: 1px solid var(--border); border-top: 4px solid var(--success);
+    border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 24px; text-align: center;
+  }
+  /* w-20 h-20 rounded-full mx-auto mb-6 success tint */
+  .ok-icon {
+    width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 24px;
+    background: var(--success-tint); display: flex; align-items: center; justify-content: center;
+  }
+  /* text-3xl font-bold text-success-text mb-2 */
+  .ok-title { font-size: 30px; line-height: 36px; font-weight: 700; color: var(--success-text); margin-bottom: 8px; }
+  /* text-base text-muted mb-6 */
+  .ok-sub { font-size: 16px; line-height: 24px; color: var(--muted); margin-bottom: 24px; }
+  /* mb-4 rounded border bg-surface-2 px-4 py-3 text-lg font-semibold */
+  .ok-patient {
+    margin-bottom: 16px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface-2); padding: 12px 16px;
+    font-size: 18px; line-height: 28px; font-weight: 600; color: var(--text); overflow-wrap: break-word;
+  }
+  /* text-sm text-muted */
+  .ok-count { font-size: 14px; line-height: 20px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="screen mobile">
+  <div class="ok">
+    <div class="ok-icon">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <h1 class="ok-title">รับทราบแล้ว</h1>
+    <p class="ok-sub">ผู้ป่วยกำลังได้รับการช่วยเหลือ</p>
+    <p class="ok-patient">นายสมชาย ใจดี (ห้อง A-301)</p>
+    <p class="ok-count">ปิดหน้าต่างนี้ได้ใน 5 วินาที...</p>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

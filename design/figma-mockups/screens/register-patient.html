@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Register patient — ลงทะเบียนผู้ป่วย</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* page wrapper: max-w-3xl mx-auto px-8 py-8 (768px box, 704px content, centred in main) */
+  .rp-content { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .rp-wrap { width: 768px; padding: 32px; }
+  /* header: mb-6; eyebrow text-xs; h1 mt-1 text-2xl/32px bold; sub mt-1 text-sm/20px medium */
+  .rp-head { margin-bottom: 24px; }
+  .rp-head .eyebrow { line-height: 16px; }
+  .rp-head .h1 { margin-top: 4px; line-height: 32px; }
+  .rp-head .sub { margin-top: 4px; line-height: 20px; }
+  .rp-form { display: flex; flex-direction: column; gap: 24px; }
+  /* section header: flex gap-3 px-5 py-4 border-b */
+  .rp-sec-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .rp-sec-head .chip-icon { width: 36px; height: 36px; }
+  .rp-sec-head .card-title { line-height: 24px; }
+  /* body: grid md:grid-cols-2 gap-5 p-5 */
+  .rp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 20px; }
+  .rp-grid .span-2 { grid-column: span 2; }
+  .rp-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+  /* label: block mb-1.5 text-sm font-semibold */
+  .rp-field { min-width: 0; }
+  .rp-field label { display: block; margin-bottom: 6px; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text); }
+  /* input: h-10 px-3 rounded border --tb-border text-sm shadow-xs */
+  .rp-input { height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-xs); display: flex; align-items: center; gap: 8px; font-size: 14px; line-height: 20px; color: var(--placeholder); }
+  .rp-input.filled { color: var(--text); }
+  .rp-input .grow { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; }
+  .rp-input svg { color: var(--muted); flex: none; }
+  .rp-mac { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; letter-spacing: 0.05em; text-transform: uppercase; }
+  /* submit: h-11 px-5 text-base font-semibold */
+  .rp-actions { display: flex; justify-content: flex-end; }
+  .rp-submit { height: 44px; padding: 0 20px; border-radius: 8px; background: var(--primary); color: #fff; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 16px; line-height: 24px; font-weight: 600; box-shadow: var(--shadow-xs); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="register-patient" data-role="caregiver"></aside>
+  <div class="main">
+    <div class="rp-content">
+      <div class="rp-wrap">
+        <div class="rp-head">
+          <div class="eyebrow">ผู้ป่วย</div>
+          <div class="h1">ลงทะเบียนผู้ป่วย</div>
+          <div class="sub">สร้าง QR Code สำหรับบอร์ด หรือลงทะเบียนผู้ป่วยพร้อมผูกอุปกรณ์</div>
+        </div>
+
+        <div class="rp-form">
+          <!-- ส่วนที่ 1: ข้อมูลผู้ป่วย -->
+          <section class="card">
+            <div class="rp-sec-head">
+              <div class="chip-icon t-primary"><i data-icon="user" data-size="20"></i></div>
+              <span class="card-title">ข้อมูลผู้ป่วย</span>
+            </div>
+            <div class="rp-grid">
+              <div class="rp-field">
+                <label>ชื่อ-นามสกุล</label>
+                <div class="rp-input"><span class="grow"></span></div>
+              </div>
+              <div class="rp-pair">
+                <div class="rp-field">
+                  <label>อายุ (ปี)</label>
+                  <div class="rp-input"><span class="grow"></span></div>
+                </div>
+                <div class="rp-field">
+                  <label>เพศ</label>
+                  <div class="rp-input filled"><span class="grow">ชาย</span><i data-icon="chevron-down" data-size="16"></i></div>
+                </div>
+              </div>
+              <div class="rp-field">
+                <label>หมายเลขห้อง</label>
+                <div class="rp-input"><span class="grow">เช่น 101A</span></div>
+              </div>
+              <div></div>
+              <div class="rp-field span-2">
+                <label>โรคประจำตัว (ถ้ามี)</label>
+                <div class="rp-input"><span class="grow">เช่น ความดัน, เบาหวาน</span></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- ส่วนที่ 2: ผูกอุปกรณ์ (boardId มาจาก ?mac= ในลิงก์ที่บอร์ดพิมพ์ออกมา) -->
+          <section class="card">
+            <div class="rp-sec-head">
+              <div class="chip-icon t-success">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/></svg>
+              </div>
+              <span class="card-title">ผูกอุปกรณ์ EVR Sensor</span>
+            </div>
+            <div class="rp-grid">
+              <div class="rp-field">
+                <label>รหัสบอร์ด (MAC Address)</label>
+                <div class="rp-input filled"><span class="grow rp-mac">AA:BB:CC:DD:EE:07</span></div>
+              </div>
+              <div class="rp-field">
+                <label>จุดติดตั้งอุปกรณ์</label>
+                <div class="rp-input filled"><span class="grow">ไมค์หัวเตียง</span></div>
+              </div>
+            </div>
+          </section>
+
+          <div class="rp-actions">
+            <span class="rp-submit">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+              บันทึกข้อมูลเข้าระบบ
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Landing — หน้าแรก</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* frontend/app/page.tsx at 1440px (sm/md/lg breakpoints all active).
+     Colours are the Tailwind v4 palette the app compiles to (not v3):
+     blue-600 #155dfc, blue-700 #1447e6, indigo-500 #615fff, indigo-600 #4f39f6,
+     purple-500 #ad46ff, purple-600 #9810fa. */
+  .screen { flex-direction: column; align-items: stretch; }
+
+  /* nav: fixed top-0 w-full bg-white/60 backdrop-blur-xl border-b border-white/50 px-12 py-3 shadow-sm */
+  .lnav {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 50;
+    padding: 12px 48px; display: flex; justify-content: space-between; align-items: center;
+    background: rgba(255, 255, 255, 0.6);
+    -webkit-backdrop-filter: blur(24px); backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+  }
+  .logo { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .bars { display: flex; align-items: flex-end; gap: 4px; height: 24px; flex: none; }
+  .bars span { width: 6px; border-radius: 999px; display: block; }
+  .logo-text {
+    font-size: 20px; line-height: 28px; font-weight: 800; white-space: nowrap;
+    background: linear-gradient(to right, #1447e6, #4f39f6, #9810fa);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .nav-right { display: flex; align-items: center; gap: 16px; flex: none; }
+  .vsep { width: 1px; height: 24px; background: #e2e8f0; }
+  .signin { padding: 8px 12px; font-size: 16px; line-height: 24px; font-weight: 700; color: var(--muted); }
+  .get-started {
+    padding: 8px 24px; display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    background: linear-gradient(to right, #155dfc, #9810fa); color: #fff; border-radius: 999px;
+    font-size: 16px; line-height: 24px; font-weight: 700;
+  }
+  .get-started svg { display: block; }
+
+  /* hero: main pt-32 pb-20 px-6, items-center text-center */
+  .hero { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 128px 24px 80px; }
+  .hero h1 {
+    font-size: 72px; line-height: 1.25; font-weight: 800; letter-spacing: -0.025em;
+    color: var(--text); margin-bottom: 24px;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(to right, #155dfc, #615fff, #9810fa);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.15));
+  }
+  .hero p {
+    max-width: 672px; padding: 0 16px; margin: 0 auto 40px;
+    font-size: 20px; line-height: 1.625; color: var(--muted);
+  }
+  .cta {
+    position: relative; overflow: hidden; padding: 16px 32px; border-radius: 999px;
+    background: linear-gradient(to right, #155dfc, #9810fa); color: #fff;
+    font-size: 18px; line-height: 28px; font-weight: 700;
+    box-shadow: 0 4px 6px -1px rgba(97, 95, 255, 0.2), 0 2px 4px -2px rgba(97, 95, 255, 0.2);
+  }
+  .cta span { display: flex; align-items: center; gap: 8px; }
+
+  /* features: section py-20 px-6; max-w-6xl grid lg:grid-cols-4 gap-6 */
+  .features-wrap { position: relative; z-index: 10; padding: 80px 24px; }
+  .features { max-width: 1152px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  .feature {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: var(--shadow-card); padding: 32px;
+  }
+  .tile { width: 56px; height: 56px; border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 24px; }
+  .tile svg { display: block; }
+  .feature h3 { font-size: 18px; line-height: 28px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+  .feature p { font-size: 14px; line-height: 1.625; color: var(--muted); }
+
+  /* FloatingThemeToggle (root layout, every page except /alert): fixed bottom-6 right-6, light state */
+  .theme-float { position: absolute; right: 24px; bottom: 24px; z-index: 40; filter: drop-shadow(0 9px 7px rgba(0, 0, 0, 0.1)); }
+  .theme-btn {
+    position: relative; padding: 10px; border-radius: 999px; display: flex;
+    background: var(--surface); border: 1px solid var(--border); color: var(--primary-text);
+    box-shadow: 0 0 12px 3px rgba(99, 102, 241, 0.5), 0 0 28px 6px rgba(99, 102, 241, 0.2);
+  }
+  .theme-btn .ring { position: absolute; inset: 0; border-radius: 999px; background: #6366f1; opacity: 0.2; }
+  .theme-btn svg { position: relative; z-index: 10; display: block; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <!-- 2. Navbar -->
+  <nav class="lnav">
+    <a class="logo" href="#">
+      <div class="bars">
+        <span style="height:12px;background:#155dfc"></span>
+        <span style="height:24px;background:#615fff"></span>
+        <span style="height:16px;background:#ad46ff"></span>
+      </div>
+      <span class="logo-text">Emergency Voice Rescuer</span>
+    </a>
+    <div class="nav-right">
+      <div class="vsep"></div>
+      <a class="signin" href="#">Sign In</a>
+      <a class="get-started" href="#">Get Started
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffd236" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="M5 3v4"/><path d="M7 5H3"/><path d="M19 17v4"/><path d="M21 19h-4"/></svg>
+      </a>
+    </div>
+  </nav>
+
+  <!-- 3. Hero -->
+  <main class="hero">
+    <h1>ฟังทุกเสียงร้องขอ<br><span class="grad">ปกป้องด้วย AI อัจฉริยะ</span></h1>
+    <p>ยกระดับความปลอดภัยให้ผู้สูงอายุและผู้ป่วย ด้วยเทคโนโลยีจำแนกเสียงที่ทำงานตลอด 24 ชั่วโมง พร้อมระบบแจ้งเตือนความหน่วงต่ำ</p>
+    <a class="cta" href="#">
+      <span>Start Monitoring
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      </span>
+    </a>
+  </main>
+
+  <!-- 4. Key features -->
+  <section class="features-wrap">
+    <div class="features">
+      <div class="feature">
+        <div class="tile" style="background:linear-gradient(to bottom right,#dbeafe,#eff6ff)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f6339a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/><path d="M15 13a4.5 4.5 0 0 1-3-4 4.5 4.5 0 0 1-3 4"/><path d="M17.599 6.5a3 3 0 0 0 .399-1.375"/><path d="M6.003 5.125A3 3 0 0 0 6.401 6.5"/><path d="M3.477 10.896a4 4 0 0 1 .585-.396"/><path d="M19.938 10.5a4 4 0 0 1 .585.396"/><path d="M6 18a4 4 0 0 1-1.967-.516"/><path d="M19.967 17.484A4 4 0 0 1 18 18"/></svg>
+        </div>
+        <h3>BCResNet Engine</h3>
+        <p>แพลตฟอร์มตรวจจับเสียงร้องขอความช่วยเหลือแบบเรียลไทม์ เพื่อความปลอดภัยของผู้สูงอายุและผู้ป่วยในสถานพยาบาล ขับเคลื่อนด้วยโมเดล BCResNet</p>
+      </div>
+
+      <div class="feature">
+        <div class="tile" style="background:linear-gradient(to bottom right,#e0e7ff,#eef2ff)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff6900" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+        </div>
+        <h3>Low-Latency Alert</h3>
+        <p>รับเสียงจากอุปกรณ์ผ่าน MQTT และส่งการแจ้งเตือนขึ้นแดชบอร์ดผู้ดูแลแบบเรียลไทม์ ด้วย Server-Sent Events (SSE)</p>
+      </div>
+
+      <div class="feature">
+        <div class="tile" style="background:linear-gradient(to bottom right,#f3e8ff,#faf5ff)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2b7fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2-1 4-2 7-2 2.5 0 4.5 1 6 2a1 1 0 0 1 1 1v7z"/><path d="m9 12 2 2 4-4"/></svg>
+        </div>
+        <h3>Access Control</h3>
+        <p>รองรับการลงทะเบียนและยืนยันตัวตนผู้ดูแลผ่าน JWT Token และ OAuth Google ควบคุมสิทธิ์การเข้าถึงข้อมูลผู้ป่วยแต่ละรายอย่างปลอดภัย</p>
+      </div>
+
+      <div class="feature">
+        <div class="tile" style="background:linear-gradient(to bottom right,#dff2fe,#f0f9ff)">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#615fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+        </div>
+        <h3>Voice Archive</h3>
+        <p>บันทึกและจัดเก็บไฟล์เสียง .wav ทุกเหตุการณ์ที่ตรวจพบในฐานข้อมูล สามารถเรียกฟังย้อนหลังและตรวจสอบผลการวิเคราะห์ AI ได้ทุกเวลา</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FloatingThemeToggle (light mode: moon) -->
+  <div class="theme-float">
+    <div class="theme-btn">
+      <span class="ring"></span>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </div>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Devices — WiFi Setup QR</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* Values follow frontend/app/device/page.tsx (Tailwind classes noted). */
+  p { margin: 0; }
+  .h1 { gap: 12px; margin-top: 4px; }                         /* mt-1 gap-3 */
+  .page-head .sub { margin-top: 4px; }
+  .live-lg { width: 10px; height: 10px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 4px rgba(47,179,68,.22); flex: none; }
+  .btn-secondary.tb { border-color: var(--border); }          /* btnSecondary uses --tb-border */
+
+  .stat-tile { padding: 20px; }                                /* p-5 */
+  .stat-tile .l { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .stat-tile .v { margin-top: 4px; font-size: 30px; line-height: 1.25; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .banner { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border-radius: 12px; border: 1px solid rgba(214,57,57,.25); background: var(--danger-tint); color: var(--danger-text); font-size: 14px; line-height: 1.625; }
+  .banner svg { flex: none; margin-top: 2px; }
+
+  .filter-card { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+  .search { height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); box-shadow: var(--shadow-xs); display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--placeholder); }
+  .search svg { flex: none; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--muted); }
+  .chip.on { border-color: rgba(6,111,209,.4); background: var(--primary-tint); color: var(--primary-text); }
+  .chip .n { opacity: .8; font-variant-numeric: tabular-nums; }
+
+  .groups { display: flex; flex-direction: column; gap: 32px; }  /* gap-8 */
+  .ghead { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; line-height: 24px; }
+  .gdot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .gcount { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted); font-size: 12px; line-height: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .ghint { margin-top: 4px; margin-left: 18px; font-size: 12px; line-height: 16px; color: var(--muted); }
+  .dev-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }  /* xl:grid-cols-4 md:gap-6 */
+
+  .dev { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-card); }
+  .dev.alarm { border-color: rgba(214,57,57,.5); box-shadow: 0 0 0 1px rgba(214,57,57,.3), var(--shadow-card); }
+  .dev-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+  .flags { display: flex; align-items: center; gap: 6px; flex: none; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; border-radius: 999px; padding: 2px 10px; font-size: 12px; line-height: 16px; font-weight: 600; }
+  .pill svg { flex: none; }
+  .p-success { background: var(--success-tint); color: var(--success-text); }
+  .p-danger { background: var(--danger-tint); color: var(--danger-text); }
+  .p-neutral { background: var(--surface-2); color: var(--muted); }
+  .p-primary { background: var(--primary-tint); color: var(--primary-text); }
+  .p-warning { background: var(--warning-tint); color: var(--warning-text); }
+  .pdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .live { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 0 3px rgba(47,179,68,.22); flex: none; }
+  .dev-body { flex: 1; padding: 16px; display: flex; flex-direction: column; align-items: flex-start; }
+  .flabel { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+  .dname { font-weight: 600; margin-bottom: 12px; }
+  .unnamed { font-weight: 500; color: var(--muted); }
+  .mac { font-size: 14px; line-height: 20px; font-weight: 600; }
+  .qr-btn { height: 36px; padding: 0 12px; margin-top: 16px; border-color: var(--border); }  /* h-9 px-3 mt-4 */
+  .dev-foot { padding: 12px 16px; border-top: 1px solid var(--border); background: var(--surface-2); border-radius: 0 0 12px 12px; }
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .pav { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; background: var(--primary-tint); color: var(--primary-text); font-size: 12px; font-weight: 700; }
+  .pname { font-size: 14px; line-height: 20px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .unbound { display: flex; align-items: center; gap: 8px; border-radius: 8px; background: var(--warning-tint); padding: 8px 12px; font-size: 12px; line-height: 16px; font-weight: 600; color: var(--warning-text); }
+  .unbound svg { flex: none; }
+
+  /* ---- WiFi Setup QR modal (page.tsx lines 661-743) ----
+     Frame is one 1440x1024 viewport: the overlay is `fixed inset-0`, so it
+     covers what is on screen; the device list below the fold is clipped. */
+  .screen { height: 1024px; }
+  .qr-overlay { z-index: 100; padding: 16px; background: rgba(0,0,0,.4);
+    -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }   /* bg-black/40 backdrop-blur-sm p-4 */
+  .qr-dialog { position: relative; width: 448px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; box-shadow: var(--shadow-pop); overflow: hidden; }   /* max-w-md rounded-lg */
+  .qr-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .qr-title { display: flex; align-items: center; gap: 8px; font-size: 18px; line-height: 28px; font-weight: 700; color: var(--text); }
+  .qr-chip { width: 32px; height: 32px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--primary-tint); flex: none; }
+  .qr-close { width: 36px; height: 36px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .qr-body { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 24px; }   /* gap-5 sm:p-6 */
+  .qr-frame { padding: 12px; background: #fff; border: 1px solid var(--border); border-radius: 8px; }  /* p-3 */
+  .qr-frame svg { display: block; width: 256px; height: 256px; }   /* md:w-64 md:h-64 */
+  .qr-meta { width: 100%; text-align: center; }
+  .qr-mac { font-size: 18px; line-height: 28px; font-weight: 700; letter-spacing: 0.1em; color: var(--text); word-break: break-all; }  /* text-lg tracking-widest */
+  .qr-ssid { margin-top: 8px; font-size: 14px; line-height: 20px; color: var(--muted); }
+  .qr-ssid span { font-weight: 600; color: var(--primary-text); }
+  .qr-btns { display: flex; gap: 12px; width: 100%; }
+  .qr-btns .btn { flex: 1; }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="device" data-role="admin"></aside>
+  <div class="main">
+    <div class="content">
+      <div class="page-head">
+        <div>
+          <div class="eyebrow">อุปกรณ์</div>
+          <h1 class="h1">จัดการอุปกรณ์รับเสียง<span class="live-lg"></span></h1>
+          <p class="sub">สถานะอัปเดตอัตโนมัติเมื่อบอร์ดมีการเปลี่ยนแปลง</p>
+        </div>
+        <span class="btn btn-secondary tb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>รีเฟรชข้อมูล</span>
+      </div>
+
+      <div class="grid-4">
+        <div class="card stat-tile"><p class="l">ทั้งหมด</p><p class="v">8</p></div>
+        <div class="card stat-tile"><p class="l">ออนไลน์</p><p class="v" style="color:var(--success-text)">4</p></div>
+        <div class="card stat-tile"><p class="l">ออฟไลน์</p><p class="v" style="color:var(--danger-text)">2</p></div>
+        <div class="card stat-tile"><p class="l">ยังไม่เปิดใช้งาน</p><p class="v" style="color:var(--warning-text)">2</p></div>
+      </div>
+
+      <div class="banner">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b42323" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+        <div><p style="font-weight:600">มี 2 บอร์ดที่เปิดใช้งานแล้วแต่ติดต่อไม่ได้</p><p style="margin-top:2px">ผู้ป่วยที่ผูกกับบอร์ดเหล่านี้จะไม่ได้รับการเฝ้าระวัง กรุณาตรวจสอบไฟเลี้ยงและสัญญาณ WiFi</p></div>
+      </div>
+
+      <div class="card filter-card">
+        <div class="search"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7a8595" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>ค้นหาจาก MAC Address, ชื่อจุดติดตั้ง หรือชื่อผู้ป่วย</span></div>
+        <div class="chips">
+          <span class="chip on">ทั้งหมด<span class="n">(8)</span></span>
+          <span class="chip">ออนไลน์<span class="n">(4)</span></span>
+          <span class="chip">ออฟไลน์<span class="n">(2)</span></span>
+          <span class="chip">ยังไม่เปิดใช้งาน<span class="n">(2)</span></span>
+          <span class="chip">ยังไม่ผูกผู้ป่วย<span class="n">(2)</span></span>
+        </div>
+      </div>
+
+      <div class="groups">
+        <section>
+          <h2 class="ghead"><span class="gdot" style="background:var(--danger)"></span>ต้องตรวจสอบ — เปิดใช้งานแล้วแต่ออฟไลน์<span class="gcount">2</span></h2>
+          <p class="ghint">ผู้ป่วยที่ผูกกับบอร์ดเหล่านี้ไม่มีระบบเฝ้าอยู่ในขณะนี้</p>
+          <div class="dev-grid">
+          <article class="dev alarm">
+            <div class="dev-top"><span class="pill p-danger"><span class="pdot" style="background:var(--danger)"></span>ออฟไลน์</span><div class="flags"><span class="pill p-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>ยืนยันแล้ว</span><span class="pill p-primary">เปิดใช้งาน</span></div></div>
+            <div class="dev-body">
+              <p class="flabel">จุดติดตั้ง</p><p class="dname">ไมค์หัวเตียง ห้อง C-102</p>
+              <p class="flabel">MAC Address</p><p class="mac mono">AA:BB:CC:DD:EE:05</p>
+              <span class="btn btn-secondary qr-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v.01"/><path d="M14 20h.01"/><path d="M17 20h4v-3"/></svg>QR ตั้งค่า WiFi</span>
+            </div>
+            <div class="dev-foot"><p class="flabel" style="margin-bottom:8px">ผู้ป่วยที่ผูกกับบอร์ดนี้</p><div class="who"><span class="pav">ว</span><p class="pname">นายวิชัย ศรีสุข</p></div></div>
+          </article>
+          <article class="dev alarm">
+            <div class="dev-top"><span class="pill p-danger"><span class="pdot" style="background:var(--danger)"></span>ออฟไลน์</span><div class="flags"><span class="pill p-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>ยืนยันแล้ว</span><span class="pill p-primary">เปิดใช้งาน</span></div></div>
+            <div class="dev-body">
+              <p class="flabel">จุดติดตั้ง</p><p class="dname">ไมค์หัวเตียง ห้อง C-108</p>
+              <p class="flabel">MAC Address</p><p class="mac mono">AA:BB:CC:DD:EE:06</p>
+              <span class="btn btn-secondary qr-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v.01"/><path d="M14 20h.01"/><path d="M17 20h4v-3"/></svg>QR ตั้งค่า WiFi</span>
+            </div>
+            <div class="dev-foot"><p class="flabel" style="margin-bottom:8px">ผู้ป่วยที่ผูกกับบอร์ดนี้</p><div class="who"><span class="pav">บ</span><p class="pname">นางบุญมี แก้วใส</p></div></div>
+          </article>
+          </div>
+        </section>
+        <section>
+          <h2 class="ghead"><span class="gdot" style="background:var(--success)"></span>ทำงานปกติ<span class="gcount">4</span></h2>
+          
+          <div class="dev-grid">
+          <article class="dev">
+            <div class="dev-top"><span class="pill p-success"><span class="live"></span>ออนไลน์</span><div class="flags"><span class="pill p-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>ยืนยันแล้ว</span><span class="pill p-primary">เปิดใช้งาน</span></div></div>
+            <div class="dev-body">
+              <p class="flabel">จุดติดตั้ง</p><p class="dname">ไมค์หัวเตียง ห้อง A-301</p>
+              <p class="flabel">MAC Address</p><p class="mac mono">AA:BB:CC:DD:EE:01</p>
+              <span class="btn btn-secondary qr-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v.01"/><path d="M14 20h.01"/><path d="M17 20h4v-3"/></svg>QR ตั้งค่า WiFi</span>
+            </div>
+            <div class="dev-foot"><p class="flabel" style="margin-bottom:8px">ผู้ป่วยที่ผูกกับบอร์ดนี้</p><div class="who"><span class="pav">ส</span><p class="pname">นายสมชาย ใจดี</p></div></div>
+          </article>
+          <article class="dev">
+            <div class="dev-top"><span class="pill p-success"><span class="live"></span>ออนไลน์</span><div class="flags"><span class="pill p-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>ยืนยันแล้ว</span><span class="pill p-primary">เปิดใช้งาน</span></div></div>
+            <div class="dev-body">
+              <p class="flabel">จุดติดตั้ง</p><p class="dname">ไมค์หัวเตียง ห้อง B-205</p>
+              <p class="flabel">MAC Address</p><p class="mac mono">AA:BB:CC:DD:EE:02</p>
+              <span class="btn btn-secondary qr-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v.01"/><path d="M14 20h.01"/><path d="M17 20h4v-3"/></svg>QR ตั้งค่า WiFi</span>
+            </div>
+            <div class="dev-foot"><p class="flabel" style="margin-bottom:8px">ผู้ป่วยที่ผูกกับบอร์ดนี้</p><div class="who"><span class="pav">ม</span><p class="pname">นางสาวมานี สุขใจ</p></div></div>
+          </article>
+          <article class="dev">
+            <div class="dev-top"><span class="pill p-success"><span class="live"></span>ออนไลน์</span><div class="flags"><span class="pill p-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>ยืนยันแล้ว</span><span class="pill p-primary">เปิดใช้งาน</span></div></div>
+            <div class="dev-body">
+              <p class="flabel">จุดติดตั้ง</p><p class="dname">ไมค์ห้องน้ำ ห้อง A-105</p>
+              <p class="flabel">MAC Address</p><p class="mac mono">AA:BB:CC:DD:EE:03</p>
+              <span class="btn btn-secondary qr-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v.01"/><path d="M14 20h.01"/><path d="M17 20h4v-3"/></svg>QR ตั้งค่า WiFi</span>
+            </div>
+            <div class="dev-foot"><p class="flabel" style="margin-bottom:8px">ผู้ป่วยที่ผูกกับบอร์ดนี้</p><div class="who"><span class="pav">ส</span><p class="pname">นางสมศรี ทองดี</p></div></div>
+          </article>
+          <article class="dev">
+            <div class="dev-top"><span class="pill p-success"><span class="live"></span>ออนไลน์</span><div class="flags"><span class="pill p-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>ยืนยันแล้ว</span><span class="pill p-primary">เปิดใช้งาน</span></div></div>
+            <div class="dev-body">
+              <p class="flabel">จุดติดตั้ง</p><p class="dname">ไมค์หัวเตียง ห้อง B-110</p>
+              <p class="flabel">MAC Address</p><p class="mac mono">AA:BB:CC:DD:EE:04</p>
+              <span class="btn btn-secondary qr-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v.01"/><path d="M14 20h.01"/><path d="M17 20h4v-3"/></svg>QR ตั้งค่า WiFi</span>
+            </div>
+            <div class="dev-foot"><p class="flabel" style="margin-bottom:8px">ผู้ป่วยที่ผูกกับบอร์ดนี้</p><div class="who"><span class="pav">ส</span><p class="pname">นายสุรชัย พึ่งบุญ</p></div></div>
+          </article>
+          </div>
+        </section>
+        <section>
+          <h2 class="ghead"><span class="gdot" style="background:var(--warning)"></span>ยังไม่เปิดใช้งาน<span class="gcount">2</span></h2>
+          <p class="ghint">บอร์ดที่ลงทะเบียนไว้แล้วแต่ยังไม่ได้เริ่มใช้งาน</p>
+          <div class="dev-grid">
+          <article class="dev">
+            <div class="dev-top"><span class="pill p-success"><span class="live"></span>ออนไลน์</span><div class="flags"><span class="pill p-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>ยืนยันแล้ว</span><span class="pill p-warning">ยังไม่เปิด</span></div></div>
+            <div class="dev-body">
+              <p class="flabel">จุดติดตั้ง</p><p class="dname"><span class="unnamed">ยังไม่ได้ตั้งชื่อ</span></p>
+              <p class="flabel">MAC Address</p><p class="mac mono">AA:BB:CC:DD:EE:07</p>
+              <span class="btn btn-secondary qr-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v.01"/><path d="M14 20h.01"/><path d="M17 20h4v-3"/></svg>QR ตั้งค่า WiFi</span>
+            </div>
+            <div class="dev-foot"><p class="flabel" style="margin-bottom:8px">ผู้ป่วยที่ผูกกับบอร์ดนี้</p><div class="unbound"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3470a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span>ยังไม่ได้ผูกกับผู้ป่วย</span></div></div>
+          </article>
+          <article class="dev">
+            <div class="dev-top"><span class="pill p-neutral"><span class="pdot" style="background:var(--border-strong)"></span>ออฟไลน์</span><div class="flags"><span class="pill p-success"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1b7a2e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>ยืนยันแล้ว</span><span class="pill p-warning">ยังไม่เปิด</span></div></div>
+            <div class="dev-body">
+              <p class="flabel">จุดติดตั้ง</p><p class="dname"><span class="unnamed">ยังไม่ได้ตั้งชื่อ</span></p>
+              <p class="flabel">MAC Address</p><p class="mac mono">AA:BB:CC:DD:EE:08</p>
+              <span class="btn btn-secondary qr-btn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3z"/><path d="M20 14v.01"/><path d="M14 20h.01"/><path d="M17 20h4v-3"/></svg>QR ตั้งค่า WiFi</span>
+            </div>
+            <div class="dev-foot"><p class="flabel" style="margin-bottom:8px">ผู้ป่วยที่ผูกกับบอร์ดนี้</p><div class="unbound"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a3470a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span>ยังไม่ได้ผูกกับผู้ป่วย</span></div></div>
+          </article>
+          </div>
+        </section>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+  <!-- WiFi Setup QR modal: page.tsx lines 661-743 (wifiModalDevice = AA:BB:CC:DD:EE:01) -->
+  <div class="overlay qr-overlay">
+    <div class="qr-dialog" role="dialog" aria-modal="true" aria-labelledby="wifi-qr-title">
+      <div class="qr-head">
+        <h2 id="wifi-qr-title" class="qr-title">
+          <span class="qr-chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0559a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg></span>
+          WiFi Setup QR Code
+        </h2>
+        <span class="qr-close" aria-label="ปิด"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></span>
+      </div>
+      <div class="qr-body">
+        <!-- Real QR for WIFI:T:WPA;S:Smartvoice-DDEE01;P:SV_AABBCC;; (qrcode lib, margin 2, #1e293b on white) -->
+        <div class="qr-frame"><svg width="256" height="256" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" shape-rendering="crispEdges"><path fill="#ffffff" d="M0 0h33v33H0z"/><path stroke="#1e293b" d="M2 2.5h7m1 0h2m2 0h2m5 0h1m2 0h7M2 3.5h1m5 0h1m2 0h1m2 0h2m6 0h1m1 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m3 0h1m4 0h1m1 0h1m1 0h1m2 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m1 0h1m4 0h1m1 0h1m1 0h2m1 0h1m1 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m1 0h3m2 0h2m3 0h2m2 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m1 0h1m4 0h1m5 0h2m1 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M10 9.5h1m2 0h1m3 0h1m1 0h1m1 0h2M2 10.5h1m3 0h1m1 0h4m4 0h1m1 0h1m2 0h1m1 0h5m2 0h1M5 11.5h1m1 0h1m2 0h2m1 0h1m1 0h4m1 0h1m1 0h3m1 0h1m1 0h3M2 12.5h2m1 0h5m1 0h2m3 0h1m2 0h2m3 0h1m3 0h1M3 13.5h1m3 0h1m2 0h1m2 0h1m3 0h1m1 0h1m1 0h3m3 0h1M2 14.5h1m1 0h1m3 0h1m1 0h1m2 0h2m1 0h1m4 0h1m1 0h2m5 0h1M2 15.5h6m1 0h1m4 0h2m1 0h2m2 0h3m6 0h1M5 16.5h1m2 0h2m2 0h1m3 0h2m1 0h3m2 0h1m1 0h1m1 0h1m1 0h1M2 17.5h1m3 0h1m3 0h2m1 0h1m3 0h1m1 0h1m1 0h3m1 0h1m1 0h2m1 0h1M3 18.5h2m1 0h3m1 0h1m3 0h1m1 0h1m1 0h1m2 0h1m3 0h1m1 0h1m1 0h1M2 19.5h1m2 0h1m4 0h3m1 0h2m1 0h1m5 0h1m2 0h1m1 0h1m1 0h1M4 20.5h2m1 0h9m1 0h1m3 0h1m2 0h1m4 0h2M4 21.5h1m6 0h1m2 0h4m1 0h4m4 0h1M2 22.5h2m2 0h4m1 0h2m3 0h1m3 0h8m2 0h1M10 23.5h1m3 0h2m1 0h1m2 0h3m3 0h1m2 0h1M2 24.5h7m1 0h2m3 0h1m5 0h2m1 0h1m1 0h3m1 0h1M2 25.5h1m5 0h1m2 0h1m3 0h2m1 0h5m3 0h2m2 0h1M2 26.5h1m1 0h3m1 0h1m1 0h4m2 0h1m3 0h10M2 27.5h1m1 0h3m1 0h1m3 0h2m1 0h1m9 0h1m1 0h2M2 28.5h1m1 0h3m1 0h1m2 0h2m3 0h2m3 0h1m1 0h1m1 0h2m1 0h3M2 29.5h1m5 0h1m2 0h7m2 0h1m3 0h1m1 0h1m2 0h1M2 30.5h7m1 0h1m1 0h1m1 0h1m3 0h3m1 0h3m1 0h2"/></svg></div>
+        <div class="qr-meta">
+          <p class="qr-mac mono">AA:BB:CC:DD:EE:01</p>
+          <p class="qr-ssid">SSID: <span>Smartvoice-DDEE01</span></p>
+        </div>
+        <div class="qr-btns">
+          <span class="btn btn-primary"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>ดาวน์โหลด PNG</span>
+          <span class="btn btn-secondary tb"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#182433" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>พิมพ์ QR Code</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

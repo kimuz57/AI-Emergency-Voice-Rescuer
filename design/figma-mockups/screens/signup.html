@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Sign up — สมัครสมาชิก</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+/* /login with isLogin = false at >= md (1440px wide).
+   Card: .neu-card max-w-[900px] md:min-h-[600px]; both halves are absolute,
+   so the card is exactly 600px tall. Values below are Tailwind v4 / globals.css. */
+.su-card {
+  position: relative; width: 900px; height: 600px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: var(--shadow-card);
+}
+/* gradient overlay, slid to the left half: the visible part is the first half
+   of from-blue-600 via-indigo-600 to-purple-600 across 900px */
+.su-panel {
+  position: absolute; top: 0; left: 0; width: 50%; height: 100%;
+  background: linear-gradient(90deg, #155dfc, #4f39f6);
+  color: #fff; padding: 0 48px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.su-panel h2 {
+  font-size: 36px; line-height: 40px; font-weight: 800; margin-bottom: 16px;
+  filter: drop-shadow(0 3px 3px rgba(0, 0, 0, 0.12));
+}
+.su-panel p { font-size: 16px; line-height: 24px; color: #e0e7ff; margin-bottom: 32px; }
+.su-panel .ghost {
+  display: inline-flex; padding: 12px 40px; border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  font-size: 16px; line-height: 24px; font-weight: 700; letter-spacing: 0.025em; color: #fff;
+}
+/* sign-up form: right half, px-12 py-8, flex-col justify-center */
+.su-form {
+  position: absolute; top: 0; left: 50%; width: 50%; height: 100%;
+  padding: 32px 48px; overflow: hidden;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.su-head { text-align: center; margin-bottom: 16px; }
+.su-head h1 { font-size: 24px; line-height: 32px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.su-head h2 {
+  font-size: 30px; line-height: 36px; font-weight: 800;
+  background: linear-gradient(90deg, #155dfc, #9810fa);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.su-fields { display: flex; flex-direction: column; gap: 12px; }
+/* the label is inline inside a 16px/24px block, so its row is 24px tall */
+.su-field { font-size: 16px; line-height: 24px; }
+.su-field label { font-size: 12px; line-height: 16px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+.su-input {
+  position: relative; margin-top: 4px; height: 46px; padding: 0 16px;
+  display: flex; align-items: center;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 8px;
+  box-shadow: var(--shadow-xs); font-size: 14px; line-height: 20px; color: var(--placeholder);
+}
+.su-input.pw { padding-right: 48px; }
+.su-eye {
+  position: absolute; right: 8px; top: 4px; width: 36px; height: 36px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+}
+.su-submit {
+  margin-top: 8px; height: 48px; border-radius: 12px;
+  background: linear-gradient(90deg, #155dfc, #9810fa);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 16px; line-height: 24px; font-weight: 700;
+}
+.su-or { display: flex; align-items: center; margin: 16px 0; }
+.su-or i { flex: 1; height: 0; border-top: 1px solid #e2e8f0; display: block; }
+.su-or span { padding: 0 12px; font-size: 12px; line-height: 16px; color: var(--muted); }
+.su-google {
+  height: 46px; display: flex; align-items: center; justify-content: center; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  box-shadow: var(--shadow-xs); font-size: 14px; line-height: 20px; font-weight: 600; color: var(--text);
+}
+</style>
+</head>
+<body>
+<div class="screen centered">
+  <div class="su-card">
+    <div class="su-panel">
+      <h2>Welcome Back!</h2>
+      <p>มีบัญชีอยู่แล้วใช่ไหม? <br>เข้าสู่ระบบเพื่อเฝ้าระวังคนที่คุณรักต่อได้เลย</p>
+      <span class="ghost">เข้าสู่ระบบ</span>
+    </div>
+
+    <div class="su-form">
+      <div class="su-head">
+        <h1>Emergency Voice Rescuer</h1>
+        <h2>สร้างบัญชีใหม่</h2>
+      </div>
+
+      <div class="su-fields">
+        <div class="su-field">
+          <label>ชื่อผู้ใช้งาน</label>
+          <div class="su-input">กรอกชื่อของคุณ</div>
+        </div>
+        <div class="su-field">
+          <label>อีเมล</label>
+          <div class="su-input">Email</div>
+        </div>
+        <div class="su-field">
+          <label>รหัสผ่าน</label>
+          <div class="su-input pw">Password
+            <span class="su-eye"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></span>
+          </div>
+        </div>
+        <div class="su-field">
+          <label>ยืนยันรหัสผ่าน</label>
+          <div class="su-input pw">Confirm Password
+            <span class="su-eye"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5b6776" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg></span>
+          </div>
+        </div>
+        <div class="su-submit">สมัครสมาชิก</div>
+      </div>
+
+      <div class="su-or"><i></i><span>หรือ</span><i></i></div>
+
+      <div class="su-google">
+        <svg width="20" height="20" viewBox="-0.5 0 48 48"><g fill="none" fill-rule="evenodd"><path fill="#FBBC05" d="M9.827 24c0-1.524.253-2.986.705-4.356l-7.909-6.04A23.4 23.4 0 0 0 .214 24c0 3.737.867 7.261 2.406 10.388l7.905-6.051A14.1 14.1 0 0 1 9.827 24"/><path fill="#EB4335" d="M23.714 10.133c3.311 0 6.302 1.174 8.652 3.094L39.202 6.4C35.036 2.773 29.695.533 23.714.533 14.427.533 6.445 5.844 2.623 13.604l7.909 6.04c1.823-5.532 7.017-9.511 13.182-9.511"/><path fill="#34A853" d="M23.714 37.867c-6.165 0-11.36-3.979-13.182-9.51l-7.909 6.038c3.822 7.761 11.804 13.072 21.091 13.072 5.732 0 11.204-2.035 15.311-5.849l-7.507-5.804c-2.118 1.335-4.786 2.053-7.804 2.053"/><path fill="#4285F4" d="M46.145 24c0-1.387-.213-2.88-.534-4.267H23.714V28.8h12.604c-.63 3.091-2.346 5.468-4.8 7.014l7.507 5.804c4.314-4.004 7.12-9.969 7.12-17.618"/></g></svg>
+        ดำเนินการต่อด้วย Google
+      </div>
+    </div>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>

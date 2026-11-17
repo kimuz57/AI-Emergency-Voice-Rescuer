@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<title>Dashboard — สถานการณ์ปกติ</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/style.css">
+<style>
+  /* page wrapper: py-8 px-8 (no extra bottom padding) */
+  .content { padding: 32px; }
+  .page-head .h1, .page-head .sub { margin-top: 4px; }
+  /* StatCard: label + value beside the icon chip, sub line below the row */
+  .stat { display: block; }
+  .stat .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .stat .value { margin-top: 4px; line-height: 1.25; font-variant-numeric: tabular-nums; }
+  .stat .note { margin-top: 4px; font-size: 14px; }
+  .stat .chip-icon svg, .empty .circle-icon svg { stroke-width: 1.75; }
+  /* EmptyCard: px-6 py-16, icon 56 + mb-4, title text-lg, desc mt-1.5 max-w-md */
+  .empty { padding: 64px 24px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+  .empty .circle-icon { width: 56px; height: 56px; margin-bottom: 16px; }
+  .empty .title { font-size: 18px; font-weight: 600; line-height: 1.55; }
+  .empty .desc { margin-top: 6px; max-width: 448px; font-size: 14px; line-height: 1.625; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="screen">
+  <aside class="sidebar" data-active="dashboard" data-role="caregiver"></aside>
+  <div class="main">
+    <div class="content">
+      <div class="page-head">
+        <div><div class="eyebrow">ภาพรวม</div><div class="h1">บอร์ดแจ้งเตือนผู้ป่วยวิกฤต</div><div class="sub">ข้อมูลอัปเดตเรียลไทม์จากระบบ AI Sensor</div></div>
+      </div>
+      <div class="grid-4">
+        <div class="card stat">
+          <div class="top"><div><div class="label">แจ้งเตือนรอรับทราบ</div><div class="value">0</div></div><div class="chip-icon t-success"><i data-icon="bell"></i></div></div>
+          <div class="note" style="color:var(--success-text)">ไม่มีเหตุฉุกเฉิน</div>
+        </div>
+        <div class="card stat">
+          <div class="top"><div><div class="label">ผู้ป่วยในความดูแล</div><div class="value">6</div></div><div class="chip-icon t-primary"><i data-icon="users"></i></div></div>
+          <div class="note muted">เฝ้าระวังด้วย AI Sensor</div>
+        </div>
+        <div class="card stat">
+          <div class="top"><div><div class="label">แจ้งเตือนล่าสุด</div><div class="value">–</div></div><div class="chip-icon t-neutral"><i data-icon="clock"></i></div></div>
+          <div class="note muted">ยังไม่มีการแจ้งเตือน</div>
+        </div>
+        <div class="card stat">
+          <div class="top"><div><div class="label">แหล่งข้อมูล</div><div class="value">เรียลไทม์</div></div><div class="chip-icon t-success"><i data-icon="activity"></i></div></div>
+          <div class="note" style="color:var(--success-text)">รับข้อมูลสดผ่าน SSE</div>
+        </div>
+      </div>
+      <div class="card empty">
+        <div class="circle-icon t-success"><i data-icon="check-circle" data-size="28"></i></div>
+        <div class="title">สถานการณ์ปกติ ปลอดภัยดี</div>
+        <div class="desc">ไม่มีผู้ป่วยต้องการความช่วยเหลือในขณะนี้ ระบบ AI กำลังเฝ้าระวัง...</div>
+      </div>
+    </div>
+    <footer class="footer"></footer>
+  </div>
+</div>
+<script src="../assets/shell.js"></script>
+</body>
+</html>
