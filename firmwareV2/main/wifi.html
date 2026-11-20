@@ -3,135 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ตั้งค่า Wi-Fi สำหรับ ESP32</title>
+    <title>ตั้งค่า EVR Sensor</title>
+    <!-- หน้านี้เปิดตอนมือถือยังไม่มีอินเทอร์เน็ต: ทุกอย่าง (ฟอนต์ระบบ ไอคอน SVG) ต้องอยู่ในไฟล์นี้ ห้ามโหลดจากภายนอก
+         สี/ขอบ/เงาเป็นชุดเดียวกับ --tb-* ใน frontend/app/globals.css -->
     <style>
+        :root {
+            --bg: #f6f8fb; --surface: #ffffff; --surface-2: #f6f8fb; --border: #dce1e7; --border-strong: #b9c2cf;
+            --text: #182433; --muted: #5b6776; --placeholder: #7a8595;
+            --primary: #066fd1; --primary-hover: #0560b5; --primary-text: #0559a8;
+            --primary-tint: rgba(6, 111, 209, 0.08); --primary-ring: rgba(6, 111, 209, 0.25);
+            --success: #2fb344; --success-text: #1b7a2e; --success-tint: rgba(47, 179, 68, 0.1);
+            --danger: #d63939; --danger-text: #b42323; --danger-tint: rgba(214, 57, 57, 0.08);
+            --shadow-card: 0 1px 2px rgba(24, 36, 51, 0.04), 0 2px 6px rgba(24, 36, 51, 0.04);
+            --radius: 8px; --radius-lg: 12px;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #151f2c; --surface: #182433; --surface-2: #151f2c; --border: #263447; --border-strong: #3a4a60;
+                --text: #e6ebf1; --muted: #a3b0c2; --placeholder: #7d8ba0;
+                --primary: #1c7ed6; --primary-hover: #3b8fe0; --primary-text: #74b4f5;
+                --primary-tint: rgba(116, 180, 245, 0.12); --primary-ring: rgba(116, 180, 245, 0.35);
+                --success-text: #6fd784; --success-tint: rgba(47, 179, 68, 0.16);
+                --danger-text: #f28b8b; --danger-tint: rgba(214, 57, 57, 0.16);
+                --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 2px 6px rgba(0, 0, 0, 0.2);
+            }
+        }
+        * { box-sizing: border-box; }
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f7f6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
+            margin: 0; min-height: 100vh; padding: 24px 16px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: var(--bg); color: var(--text);
+            font-family: -apple-system, "Segoe UI", "Noto Sans Thai", "Leelawadee UI", Tahoma, Roboto, sans-serif;
+            font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased;
         }
-        .container {
-            background-color: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            text-align: center;
-            width: 100%;
-            max-width: 350px;
-            box-sizing: border-box;
+        .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+        .brand svg { width: 40px; height: 40px; flex-shrink: 0; }
+        .brand-name { font-size: 16px; font-weight: 700; line-height: 1.2; }
+        .brand-sub { font-size: 13px; color: var(--muted); }
+        .card {
+            width: 100%; max-width: 400px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-card);
         }
+        .card-body { padding: 24px; }
+        .steps { display: flex; border-bottom: 1px solid var(--border); }
+        .step { flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px 16px; font-size: 13px; color: var(--muted); font-weight: 600; }
+        .step + .step { border-left: 1px solid var(--border); }
+        .step-num {
+            width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
+        }
+        .step.active { color: var(--primary-text); }
+        .step.active .step-num { background: var(--primary); border-color: var(--primary); color: #fff; }
+        .step.done { color: var(--success-text); }
+        .step.done .step-num { background: var(--success); border-color: var(--success); color: #fff; }
+        h1 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+        .lead { color: var(--muted); font-size: 14px; margin: 0 0 20px; }
+        label { display: block; font-size: 14px; font-weight: 600; margin: 0 0 6px; }
+        .field { margin-bottom: 16px; }
+        .row { display: flex; gap: 8px; }
         select, input {
-            width: 90%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 16px;
-            box-sizing: border-box;
+            width: 100%; height: 44px; padding: 0 12px; font: inherit; color: var(--text);
+            background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius);
+            outline: none; transition: border-color .15s, box-shadow .15s;
         }
-        select {
-            cursor: pointer;
-            background-color: #fff;
+        select:focus, input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px var(--primary-ring); }
+        input::placeholder { color: var(--placeholder); }
+        select:disabled { opacity: .7; }
+        .pw { position: relative; }
+        .pw input { padding-right: 44px; }
+        .icon-btn {
+            flex-shrink: 0; width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--muted); cursor: pointer;
         }
-        button {
-            width: 95%;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            padding: 12px;
-            font-size: 16px;
-            border-radius: 5px;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: background 0.3s;
+        .icon-btn:hover { background: var(--surface-2); color: var(--text); }
+        .pw .icon-btn { position: absolute; right: 0; top: 0; border: 0; background: transparent; }
+        .icon-btn svg, .btn svg { width: 18px; height: 18px; }
+        .btn {
+            width: 100%; height: 44px; margin-top: 8px; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+            font: inherit; font-weight: 600; border-radius: var(--radius); cursor: pointer; transition: background .15s;
+            background: var(--primary); color: #fff; border: 1px solid var(--primary);
         }
-        button:hover { background-color: #218838; }
-        button:disabled { background-color: #6c757d; cursor: not-allowed; }
-        #statusMessage { margin-top: 15px; font-weight: bold; color: #007bff; font-size: 14px;}
-        .refresh-btn {
-            background-color: transparent;
-            color: #007bff;
-            border: 1px solid #007bff;
-            width: auto;
-            padding: 6px 12px;
-            font-size: 14px;
-            margin: 0 0 10px 0;
-        }
-        .refresh-btn:hover { background-color: #e6f2ff; }
-        .hidden { display: none; }
-        .spinner {
-            width: 36px; height: 36px; margin: 10px auto;
-            border: 4px solid #e3e3e3; border-top-color: #007bff; border-radius: 50%;
-            animation: spin 0.9s linear infinite;
-        }
+        .btn:hover { background: var(--primary-hover); }
+        .btn:disabled { opacity: .55; cursor: not-allowed; }
+        .btn-outline { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+        .btn-outline:hover { background: var(--surface-2); }
+        button:focus-visible, select:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--primary-ring); }
+        .alert { margin-top: 14px; padding: 10px 12px; border-radius: var(--radius); font-size: 14px; font-weight: 500; }
+        .alert:empty { display: none; }
+        .alert.info { background: var(--primary-tint); color: var(--primary-text); }
+        .alert.error { background: var(--danger-tint); color: var(--danger-text); }
+        .center { text-align: center; }
+        .badge-icon { width: 56px; height: 56px; margin: 4px auto 14px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .badge-icon svg { width: 28px; height: 28px; }
+        .badge-icon.ok { background: var(--success-tint); color: var(--success-text); }
+        .badge-icon.err { background: var(--danger-tint); color: var(--danger-text); }
+        .spinner { width: 40px; height: 40px; margin: 8px auto 16px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .9s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .ok-title { color: #28a745; margin-top: 0; }
-        .err-title { color: #dc3545; margin-top: 0; }
         .link-box {
-            background: #e9ecef; padding: 12px; border-radius: 8px; border: 2px dashed #007bff;
-            word-break: break-all; font-size: 15px; font-weight: bold; color: #007bff;
-            user-select: all; -webkit-user-select: all; margin: 10px 0;
+            padding: 12px; margin: 4px 0 8px; border-radius: var(--radius); border: 1px dashed var(--primary);
+            background: var(--primary-tint); color: var(--primary-text); font-size: 14px; font-weight: 600;
+            word-break: break-all; user-select: all; -webkit-user-select: all; text-align: left;
         }
-        .secondary { background-color: #fff; color: #007bff; border: 1px solid #007bff; }
-        .secondary:hover { background-color: #e6f2ff; }
-        .hint { font-size: 13px; color: #666; line-height: 1.6; text-align: left; margin-top: 15px; }
+        .note { margin-top: 16px; padding: 12px; border-radius: var(--radius); background: var(--surface-2); border: 1px solid var(--border); font-size: 13px; color: var(--muted); text-align: left; }
+        .note b { color: var(--text); }
+        .status { margin: 10px 0 0; font-size: 14px; font-weight: 600; color: var(--primary-text); }
+        .status.error { color: var(--danger-text); }
+        .footer { margin-top: 16px; font-size: 12px; color: var(--muted); }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <!-- ขั้นที่ 1: เลือก Wi-Fi + รหัส -->
-        <div id="formView">
-            <h2>เชื่อมต่อเครือข่าย Wi-Fi</h2>
-
-            <button class="refresh-btn" type="button" onclick="scanWifi()">🔄 สแกนหา Wi-Fi</button>
-
-            <form id="wifiForm">
-                <select id="ssid" required>
-                    <option value="">-- กำลังค้นหา Wi-Fi ⏳ --</option>
-                </select>
-
-                <input type="password" id="password" maxlength="64" placeholder="รหัสผ่าน Wi-Fi (เว้นว่างได้ถ้าไม่มี)">
-                <button type="submit" id="submitBtn" disabled>เชื่อมต่อ Wi-Fi</button>
-            </form>
-
-            <p id="statusMessage"></p>
-        </div>
-
-        <!-- ขั้นที่ 2: รอบอร์ดต่อ Wi-Fi บ้าน -->
-        <div id="connectingView" class="hidden">
-            <h2>กำลังเชื่อมต่อ Wi-Fi</h2>
-            <div class="spinner"></div>
-            <p id="connectingText">บอร์ดกำลังเชื่อมต่อ <b id="connectingSsid"></b> อาจใช้เวลาสักครู่</p>
-            <p class="hint">ระหว่างนี้มือถืออาจหลุดจาก Wi-Fi ของบอร์ดชั่วครู่ ไม่ต้องปิดหน้านี้</p>
-        </div>
-
-        <!-- ขั้นที่ 3: สำเร็จ -->
-        <div id="successView" class="hidden">
-            <h2 class="ok-title">เชื่อมต่อ Wi-Fi สำเร็จ</h2>
-            <p>ขั้นต่อไป: ลงทะเบียนผู้ป่วยและผูกบอร์ดนี้บนเว็บไซต์</p>
-            <div class="link-box" id="registerLink"></div>
-            <button type="button" id="goBtn">ไปหน้าลงทะเบียนผู้ป่วย</button>
-            <button type="button" id="copyBtn" class="secondary">คัดลอกลิงก์</button>
-            <p id="goStatus" style="font-weight:bold; color:#007bff; font-size:14px;"></p>
-            <div class="hint">
-                กด "ไปหน้าลงทะเบียนผู้ป่วย" แล้วบอร์ดจะปิด Wi-Fi ตั้งค่า มือถือจะกลับไปใช้อินเทอร์เน็ตปกติและเปิดหน้าเว็บให้เอง<br>
-                ถ้าหน้านี้ปิดไปก่อน (เช่นในหน้าต่างเข้าสู่ระบบ Wi-Fi ของ iPhone/Android) ให้เปิด Chrome หรือ Safari แล้ววางลิงก์ด้านบน
-                หรือสแกน QR บนสติกเกอร์ของบอร์ด
-            </div>
-        </div>
-
-        <!-- ต่อไม่สำเร็จ -->
-        <div id="failedView" class="hidden">
-            <h2 class="err-title">เชื่อมต่อ Wi-Fi ไม่สำเร็จ</h2>
-            <p id="failedText">ตรวจชื่อ Wi-Fi และรหัสผ่านอีกครั้ง แล้วลองใหม่</p>
-            <button type="button" id="retryBtn">ลองใหม่</button>
+    <div class="brand">
+        <svg viewBox="0 0 512 512" aria-hidden="true">
+            <rect width="512" height="512" rx="112" fill="#066fd1"/>
+            <rect x="110" y="240" width="70" height="140" rx="35" fill="#fff" opacity=".75"/>
+            <rect x="221" y="120" width="70" height="260" rx="35" fill="#fff"/>
+            <rect x="332" y="180" width="70" height="200" rx="35" fill="#fff" opacity=".88"/>
+        </svg>
+        <div>
+            <div class="brand-name">Emergency Voice Rescuer</div>
+            <div class="brand-sub">ตั้งค่าอุปกรณ์ EVR Sensor</div>
         </div>
     </div>
+
+    <div class="card">
+        <div class="steps">
+            <div class="step active" id="step1"><span class="step-num">1</span>เชื่อมต่อ Wi-Fi</div>
+            <div class="step" id="step2"><span class="step-num">2</span>ลงทะเบียนผู้ป่วย</div>
+        </div>
+
+        <div class="card-body">
+            <!-- ขั้นที่ 1: เลือก Wi-Fi + รหัส -->
+            <div id="formView">
+                <h1>เชื่อมต่อ Wi-Fi</h1>
+                <p class="lead">เลือก Wi-Fi ที่บ้านหรือที่ติดตั้งบอร์ด เพื่อให้บอร์ดส่งเสียงเข้าระบบได้</p>
+
+                <form id="wifiForm">
+                    <div class="field">
+                        <label for="ssid">เครือข่าย Wi-Fi</label>
+                        <div class="row">
+                            <select id="ssid" required>
+                                <option value="">กำลังค้นหา Wi-Fi...</option>
+                            </select>
+                            <button class="icon-btn" type="button" onclick="scanWifi()" aria-label="สแกนหา Wi-Fi อีกครั้ง" title="สแกนอีกครั้ง">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="password">รหัสผ่าน Wi-Fi</label>
+                        <div class="pw">
+                            <input type="password" id="password" maxlength="64" placeholder="เว้นว่างได้ถ้า Wi-Fi ไม่มีรหัส" autocomplete="off">
+                            <button class="icon-btn" type="button" id="pwToggle" aria-label="แสดงรหัสผ่าน">
+                                <svg id="eyeOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+                                <svg id="eyeOff" class="hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.5 13.5 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn" id="submitBtn" disabled>เชื่อมต่อ Wi-Fi</button>
+                </form>
+
+                <p id="statusMessage" class="alert info"></p>
+            </div>
+
+            <!-- ขั้นที่ 1 (ต่อ): รอบอร์ดต่อ Wi-Fi บ้าน -->
+            <div id="connectingView" class="hidden center">
+                <div class="spinner" aria-hidden="true"></div>
+                <h1>กำลังเชื่อมต่อ</h1>
+                <p class="lead" id="connectingText">บอร์ดกำลังเชื่อมต่อ <b id="connectingSsid"></b> อาจใช้เวลาสักครู่</p>
+                <div class="note">ระหว่างนี้มือถืออาจหลุดจาก Wi-Fi ของบอร์ดชั่วครู่ ไม่ต้องปิดหน้านี้</div>
+            </div>
+
+            <!-- ขั้นที่ 2: สำเร็จ -->
+            <div id="successView" class="hidden center">
+                <div class="badge-icon ok" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <h1>เชื่อมต่อ Wi-Fi สำเร็จ</h1>
+                <p class="lead">ขั้นต่อไป ลงทะเบียนผู้ป่วยและผูกบอร์ดนี้บนเว็บไซต์</p>
+                <div class="link-box" id="registerLink"></div>
+                <button type="button" class="btn" id="goBtn">
+                    ไปหน้าลงทะเบียนผู้ป่วย
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </button>
+                <button type="button" class="btn btn-outline" id="copyBtn">คัดลอกลิงก์</button>
+                <p id="goStatus" class="status"></p>
+                <div class="note">
+                    กด <b>ไปหน้าลงทะเบียนผู้ป่วย</b> แล้วบอร์ดจะปิด Wi-Fi ตั้งค่า มือถือจะกลับไปใช้อินเทอร์เน็ตปกติและเปิดหน้าเว็บให้เอง<br><br>
+                    ถ้าหน้านี้ปิดไปก่อน (เช่นหน้าต่างเข้าสู่ระบบ Wi-Fi ของ iPhone/Android) ให้เปิด Chrome หรือ Safari แล้ววางลิงก์ด้านบน
+                    หรือสแกน QR บนสติกเกอร์ของบอร์ด
+                </div>
+            </div>
+
+            <!-- ต่อไม่สำเร็จ -->
+            <div id="failedView" class="hidden center">
+                <div class="badge-icon err" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+                <h1>เชื่อมต่อไม่สำเร็จ</h1>
+                <p class="lead" id="failedText">ตรวจชื่อ Wi-Fi และรหัสผ่านอีกครั้ง แล้วลองใหม่</p>
+                <button type="button" class="btn" id="retryBtn">ลองใหม่</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">หน้านี้อยู่ในบอร์ด ใช้ได้แม้ยังไม่มีอินเทอร์เน็ต</div>
 
     <script>
         const ssidSelect = document.getElementById('ssid');
@@ -141,7 +220,26 @@
 
         function show(id) {
             views.forEach(v => document.getElementById(v).classList.toggle('hidden', v !== id));
+            // แถบขั้นตอน: สำเร็จแล้วขึ้นขั้นที่ 2
+            const done = id === 'successView';
+            document.getElementById('step1').className = 'step ' + (done ? 'done' : 'active');
+            document.getElementById('step2').className = 'step' + (done ? ' active' : '');
         }
+
+        function setStatus(text, isError) {
+            statusText.className = 'alert ' + (isError ? 'error' : 'info');
+            statusText.textContent = text;
+        }
+
+        // แสดง/ซ่อนรหัสผ่าน
+        document.getElementById('pwToggle').addEventListener('click', function() {
+            const input = document.getElementById('password');
+            const showing = input.type === 'text';
+            input.type = showing ? 'password' : 'text';
+            document.getElementById('eyeOpen').classList.toggle('hidden', !showing);
+            document.getElementById('eyeOff').classList.toggle('hidden', showing);
+            this.setAttribute('aria-label', showing ? 'แสดงรหัสผ่าน' : 'ซ่อนรหัสผ่าน');
+        });
 
         // fetch ที่มีเวลาจำกัด — ตอนฮอตสปอตย้ายช่องสัญญาณ request อาจค้างโดยไม่มีคำตอบ
         function fetchWithTimeout(url, options, ms) {
@@ -153,7 +251,7 @@
 
         // ฟังก์ชันไปดึงข้อมูลจาก ESP32
         async function scanWifi() {
-            ssidSelect.innerHTML = '<option value="">-- กำลังค้นหา Wi-Fi ⏳ --</option>';
+            ssidSelect.innerHTML = '<option value="">กำลังค้นหา Wi-Fi...</option>';
             ssidSelect.disabled = true;
             submitBtn.disabled = true;
 
@@ -164,10 +262,10 @@
                 // ตัดชื่อซ้ำออก
                 const uniqueNetworks = [...new Set(networks)];
 
-                ssidSelect.innerHTML = '<option value="">-- กรุณาเลือก Wi-Fi --</option>';
+                ssidSelect.innerHTML = '<option value="">เลือก Wi-Fi</option>';
 
                 if (uniqueNetworks.length === 0) {
-                    ssidSelect.innerHTML = '<option value="">ไม่พบ Wi-Fi บริเวณนี้</option>';
+                    ssidSelect.innerHTML = '<option value="">ไม่พบ Wi-Fi บริเวณนี้ กดสแกนอีกครั้ง</option>';
                 } else {
                     uniqueNetworks.forEach(ssid => {
                         const option = document.createElement('option');
@@ -180,7 +278,7 @@
                 }
             } catch (error) {
                 console.error('Error:', error);
-                ssidSelect.innerHTML = '<option value="">❌ สแกนล้มเหลว กรุณาลองใหม่</option>';
+                ssidSelect.innerHTML = '<option value="">สแกนไม่สำเร็จ กดสแกนอีกครั้ง</option>';
                 ssidSelect.disabled = false;
             }
         }
@@ -197,8 +295,11 @@
             var ssid = document.getElementById('ssid').value;
             var password = document.getElementById('password').value;
 
-            statusText.style.color = "#007bff";
-            statusText.textContent = "กำลังส่งข้อมูลไปยังบอร์ด...";
+            if (!ssid) {
+                setStatus('กรุณาเลือก Wi-Fi ก่อน', true);
+                return;
+            }
+            setStatus('กำลังส่งข้อมูลไปยังบอร์ด...', false);
             submitBtn.disabled = true;
 
             fetchWithTimeout('/connect', {
@@ -209,9 +310,8 @@
             .then(response => response.text().then(data => ({ ok: response.ok, data: data })))
             .then(({ ok, data }) => {
                 if (!ok) {
-                    // ❌ บอร์ดปฏิเสธ (เช่น SSID/รหัสยาวเกิน) แสดงเป็นข้อความธรรมดา
-                    statusText.style.color = "red";
-                    statusText.textContent = "❌ " + data;
+                    // บอร์ดปฏิเสธ (เช่น SSID/รหัสยาวเกิน) แสดงเป็นข้อความธรรมดา
+                    setStatus(data, true);
                     submitBtn.disabled = false;
                     return;
                 }
@@ -220,8 +320,7 @@
                 pollStatus();
             })
             .catch(() => {
-                statusText.style.color = "red";
-                statusText.textContent = "❌ ไม่สามารถส่งคำสั่งเชื่อมต่อได้ ตรวจว่ามือถือยังต่อ Wi-Fi ของบอร์ดอยู่";
+                setStatus('ส่งคำสั่งไปยังบอร์ดไม่สำเร็จ ตรวจว่ามือถือยังต่อ Wi-Fi ของบอร์ดอยู่', true);
                 submitBtn.disabled = false;
             });
         });
@@ -319,8 +418,8 @@
         async function waitForInternetThenOpen() {
             const goStatus = document.getElementById('goStatus');
             if (!registerUrl) return;
-            show('successView');
-            document.getElementById('registerLink').textContent = registerUrl;
+            showSuccess();
+            goStatus.className = 'status';
             goStatus.textContent = 'กำลังรอมือถือกลับมาใช้อินเทอร์เน็ต...';
             let origin;
             try { origin = new URL(registerUrl).origin; } catch (e) { return; }
@@ -338,7 +437,7 @@
                     // ยังไม่มีเน็ต ลองใหม่
                 }
             }
-            goStatus.style.color = '#dc3545';
+            goStatus.className = 'status error';
             goStatus.textContent = 'ยังเปิดเว็บไม่ได้ กรุณาเปิด Chrome หรือ Safari แล้ววางลิงก์ด้านบนเอง';
         }
     </script>
