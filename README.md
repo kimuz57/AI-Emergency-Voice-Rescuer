@@ -1,287 +1,209 @@
-# AI — Emergency Voice Detection System
+# Emergency Voice Rescuer — ระบบตรวจจับเสียงขอความช่วยเหลือด้วย AI
 
-ระบบตรวจจับเสียงฉุกเฉินด้วย AI สำหรับผู้ดูแลผู้สูงอายุและผู้ป่วย  
-ESP32 บันทึกเสียง → MQTT → MQTT Audio Receiver → Python AI Server → Go Backend → Next.js Frontend
+ระบบเฝ้าระวังผู้สูงอายุและผู้ป่วย: บอร์ด ESP32 ไมค์ 2 ตัวฟังเสียงในห้องตลอดเวลา เซิร์ฟเวอร์ AI ตรวจจับเสียงร้องขอความช่วยเหลือ
+แล้วแจ้งผู้ดูแลทันทีผ่านแดชบอร์ดเว็บ (เรียลไทม์), LINE และ Telegram พร้อมไฟล์เสียงให้ฟังย้อนหลัง
 
-**Team:**
-- นนท์ (Product Lead / Frontend)
-- กิต (Backend Lead / Go + Redis + DevOps)
-- อัง (Hardware & AI - ESP32 + INMP441 x4, DSP Pipeline, BCResNet)
+โปรเจคจบ มหาวิทยาลัยพะเยา
 
----
-
-## 📊 Project Status (Phase 3)
-
-### ✅ Completed
-- **Phase 3 Task 1:** Alert System with Coordinates Display
-  - BlinkingAlert component (red pulsing border)
-  - DirectionCompass component (rotating needle + distance + confidence)
-  - Dashboard integration with real-time SSE updates
-  - Mock data toggle for testing
-
-- **Phase 3 Task 2:** Waveform Audio Player
-  - `WaveformAudioPlayer` built on WaveSurfer.js, replacing `CustomAudioPlayer`
-    on the dashboard
-  - Fallback UI when the audio file fails to load (404 / network error)
-
-- **Phase 3 Task 3:** Patients Registry UX Improvements
-  - `PatientFormModal` — working Edit modal (Add still uses `/register-patient`,
-    which the ESP32 QR flow links to directly)
-  - Fixed Delete returning 401 (missing auth header) and the always-empty
-    Device ID column
-
-- **Admin-only audio diagnostics**
-  - Mic signal levels moved off the caregiver alert card to
-    `/admin/audio-diagnostics`
-  - `useAdminGuard` hook verifies the role against the backend instead of
-    `localStorage`
-
-- **Backend:** `PUT /api/patients/:id` with caregiver ownership check
-- **Hardware:** dual-mic TDOA direction finding in `firmwareV2`
-
-### 🚧 In Progress / Blocked
-- **`mic_levels` from the backend** — the diagnostics page is finished and runs
-  on mock data. It needs `mic_levels` added to the Alert model and populated by
-  the DSP pipeline.
-
-### 📝 Planned
-- Device Telemetry page (online/offline visualisation)
-- Migrate `history/` and `register-patient/` off `CustomAudioPlayer`
-- Redis as a high-performance queue replacing MQTT for some flows
+| ทีม | หน้าที่ |
+|---|---|
+| นนท์ | Product Lead / Frontend |
+| กิต | Backend Lead / Go + Redis + DevOps |
+| อัง | Hardware & AI — ESP32 + INMP441, DSP, BCResNet |
 
 ---
 
-## สถาปัตยกรรมระบบ (System Architecture)
+## ระบบทำงานอย่างไร
 
 ```
-┌─────────────────────────────────┐
-│  ESP32 + INMP441 Microphone     │
-│  (I2S 8kHz, 16-bit PCM)         │
-└────────────┬────────────────────┘
-             │ WiFi · MQTT topic: voice/audio/{deviceId}
-             ▼
-┌─────────────────────────────────┐
-│  Mosquitto MQTT Broker          │
-│  Port 1883 (TCP) / 9001 (WS)   │
-└────────────┬────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────┐
-│  MQTT Audio Receiver (Python)   │
-│  (Receives audio from MQTT)     │
-│  Forwards to AI Server          │
-└────────────┬────────────────────┘
-             │ HTTP POST /need-help
-             ▼
-┌─────────────────────────────────┐
-│  Python AI Server  (FastAPI)    │
-│  Port 8000                      │
-│  ├─ BCResNet binary classifier  │
-│  │   (best_sens_model.pth)      │
-│  └─ Fallback: Whisper + keyword │
-└────────────┬────────────────────┘
-             │ JSON result
-             ▼
-┌─────────────────────────────────┐
-│  Go Backend  (Fiber)            │
-│  Port 8080                      │
-│  ├─ Auth (Auth0 OAuth2)         │
-│  ├─ REST API                    │
-│  └─ SSE (Server-Sent Events)    │
-└────────────┬────────────────────┘
-             │ SSE Streams
-             ▼
-┌─────────────────────────────────┐
-│  Next.js Web Dashboard          │
-│  Port 3000                      │
-│  Dashboard / History / Devices  │
-│  + Real-time Alert Monitoring   │
-└─────────────────────────────────┘
+ESP32 (firmwareV2) + INMP441 x2 บน I2S เดียว (stereo L/R, 8 kHz, 16 บิต)
+    ส่งเสียงดิบ 2 ช่องทุก ~128 ms ไม่มี DSP บนบอร์ด
+    │  MQTT  voice/audio/{MAC}    PCM int16 สลับ L,R ก้อนละ 4096 byte
+    │        device/status/{MAC}  online / offline (LWT)
+    │  HTTPS GET /api/device/checkin  (ตอนได้ IP)
+    ▼
+MQTT broker (Mosquitto ในเครื่อง dev / EMQX บน production)
+    ▼
+Python AI  api/  (uvicorn :8000 โปรเซสเดียว)
+    ├─ mqtt_audio_receiver.py  หน้าต่าง 2 วิ เลื่อนทีละ 0.5 วิ ต่อบอร์ด
+    ├─ dsp.py                  HPF → AGC → VAD → GCC-PHAT → DAS+post-filter / MVDR → เสียงช่องเดียว
+    ├─ app.py                  log-Mel → BCResNet → P(ร้องขอความช่วยเหลือ)
+    └─ ตัดสินจากค่าเฉลี่ย 3 หน้าต่าง > 0.5 แล้วพัก 30 วิ ต่อบอร์ด
+    │  HTTP POST (X-Internal-Key)  /api/audio/emergency  พร้อมไฟล์ WAV + ระดับไมค์ L/R
+    ▼
+Go backend  backend/  (Fiber :8080) — PostgreSQL + Redis
+    ├─ บันทึกเหตุลง detection_logs + ไฟล์เสียง
+    ├─ แจ้ง LINE / Telegram (ไม่เกิน 1 ครั้งต่อนาทีต่อบอร์ด) พร้อมลิงก์หน้า /alert
+    └─ REST API + SSE
+    ▼
+Next.js frontend  frontend/  (:3000) — แดชบอร์ด, ประวัติ, ปฏิทิน, จัดการผู้ป่วย/อุปกรณ์, หน้าแอดมิน
 ```
+
+รายละเอียดทุก endpoint, ตาราง, topic, env และข้อจำกัดที่รู้ อยู่ใน [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)
+และสรุปสำหรับนักพัฒนาใน [`CLAUDE.md`](CLAUDE.md)
+
+## โครงสร้าง repo
+
+| โฟลเดอร์ | คืออะไร | เอกสาร |
+|---|---|---|
+| `frontend/` | Next.js 16 (App Router) + Tailwind 4 | [`frontend/README.md`](frontend/README.md) |
+| `backend/` | Go + Fiber + GORM, ข้อมูลตัวอย่าง `cmd/seed` | [`backend/README.md`](backend/README.md) |
+| `api/` | Python FastAPI: ตัวรับ MQTT + DSP 2 ไมค์ + โมเดล + เครื่องมือทดสอบ | [`api/README.md`](api/README.md) |
+| `firmwareV2/` | firmware ESP32 ไมค์ 2 ตัว (ตัวที่ใช้งาน) | [`firmwareV2/README.md`](firmwareV2/README.md) |
+| `firmwareV1/` | firmware ไมค์เดียวรุ่นแรก เก็บไว้อ้างอิง | [`firmwareV1/README.md`](firmwareV1/README.md) |
+| `mosquitto/` | config MQTT broker สำหรับ Docker | [`mosquitto/README.md`](mosquitto/README.md) |
+| `tests/api/` | เทสต์ API แบบ black-box (Jest + Supertest) TC-01–TC-57 | [`tests/api/README.md`](tests/api/README.md) |
+| `design/` | mockup HTML ทุกหน้าสำหรับนำเข้า Figma | [`design/figma-mockups/README.md`](design/figma-mockups/README.md) |
+| `docs/` | `ARCHITECTURE.md` เอกสารสถาปัตยกรรมที่ตรวจกับโค้ดแล้ว | |
+
+## สถานะ
+
+**เสร็จแล้ว**
+- firmware ส่งเสียงไมค์ 2 ตัวแยกช่อง, DSP 2 ไมค์ฝั่งเซิร์ฟเวอร์ (DAS+post-filter / MVDR), ตัดสินจากหลายหน้าต่าง + ช่วงพัก
+- ระบบแจ้งเตือนครบเส้นทาง: แดชบอร์ด SSE, LINE, Telegram, หน้า `/alert` รับทราบเหตุจากลิงก์
+- ล็อกอินอีเมล/รหัสผ่าน + Google, ตรวจสิทธิ์ทุก route, admin กับผู้ดูแลแยกสิทธิ์
+- ระดับสัญญาณไมค์ซ้าย/ขวาของทุกเหตุ ดูได้ที่ `/admin/audio-diagnostics`
+- ผู้ดูแลผูกบอร์ดได้เฉพาะบอร์ดที่กำลังส่งเสียงเข้าระบบ (กันการผูกบอร์ดคนอื่นจาก MAC)
+- หน้าเว็บทุกหน้าใช้ดีไซน์ Tabler รองรับมือถือและโหมดมืด
+- ทดสอบทั้งระบบโดยไม่มีบอร์ดได้ด้วย `api/tools/mqtt_simulate.py`
+
+**ยังค้าง**
+- ตรวจลำดับไมค์ L/R และทดลองระยะ 1–5 เมตรกับบอร์ดจริง (อัง)
+- แฟลชบอร์ดบน production เป็น firmwareV2 แล้วสลับ receiver เป็นรุ่น 2 ไมค์ (ดูหัวข้อ production)
+- รหัสยืนยันตอนผูกบอร์ดที่ firmware แสดง (ต้องแก้ firmware)
+- Redis เป็นคิวแทน MQTT บางเส้นทาง (แผน)
 
 ---
 
-## Data Flow (รายละเอียด)
+## รันบนเครื่อง (Windows)
 
-```
-1. ESP32 บันทึกเสียง I2S 8kHz
-   └── publish binary PCM ทุก 2 วินาที
-       MQTT topic: voice/audio/{deviceId}
+### ต้องมี
 
-2. Mosquitto MQTT Broker รับ message
+- Docker Desktop (เปิดไว้), Go 1.26+, Node.js 20+, Python 3.12+ กับ [uv](https://docs.astral.sh/uv/)
+- ESP-IDF 5.5.2 เฉพาะถ้าจะ build firmware
 
-3. MQTT Audio Receiver (mqtt_audio_receiver.py)
-   ├── subscribe voice/audio/#
-   ├── รับ binary PCM data
-   └── ส่ง HTTP POST ไปยัง AI Server (/need-help)
+### ตั้งค่าครั้งแรก
 
-4. Python AI Server (app.py / model.py)
-   ├── โหลด audio → resample → MelSpectrogram
-   ├── BCResNet inference → probability score
-   └── return JSON: {"detected": "yes"|"no", "probability": 0.9998}
-
-5. Go Backend (services/mqtt_service.go)
-   ├── รับ JSON จาก AI Server
-   ├── บันทึกลง PostgreSQL
-   ├── ส่ง SSE (Server-Sent Events) ไปยัง Next.js frontend
-   └── ส่ง LINE Bot / Telegram notifications
-
-6. Next.js Frontend
-   ├── รับ SSE streams: /api/alerts/stream, /api/patients/stream, /api/device/stream
-   └── แสดงผลข้อมูลแบบ Real-time บน Dashboard (ไฟกะพริบแดง + พิกัดผู้ป่วย)
-```
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.12+, Go 1.26+, Node.js 20+
-- Docker (สำหรับ Mosquitto MQTT Broker)
-- PostgreSQL 14+ (สำหรับ Go Backend)
-- `best_sens_model.pth` วางไว้ที่ `api/models`
-
-### One-Click Launcher (Windows)
+1. ก๊อปไฟล์ env แล้วใส่ค่า (แต่ละไฟล์อธิบายทุกตัวแปรไว้แล้ว)
+   - `backend/.env.example` → `backend/.env` — `JWT_SECRET` ต้องยาว ≥ 32 ตัว
+   - `api/.env.example` → `api/.env` — `INTERNAL_API_KEY` ต้องตรงกับใน `backend/.env`
+   - `frontend/.env.example` → `frontend/.env.local`
+2. สร้างไฟล์รหัสผ่านและ cert ของ Mosquitto ตาม [`mosquitto/README.md`](mosquitto/README.md)
+   (บน Windows ต้อง `chown 1883` ตามขั้นที่เขียนไว้ ไม่งั้น broker restart วน)
+3. ติดตั้ง dependency
 
 ```powershell
-# รันทุกบริการพร้อมกัน (MQTT + Python + Go + Next.js)
-start_guardian.bat
+uv sync --directory api --group dev
 ```
-
-> ⚠️ สคริปต์นี้ยังไม่อัปเดตหลังเปลี่ยนชื่อโฟลเดอร์ (ยัง hardcode `D:\backend_golang`
-> และชื่อเก่า `backend_ai` / `go_backend`) ระหว่างนี้ให้เริ่มทีละบริการตามด้านล่าง
-
-### Manual Startup
-
-#### 1. เริ่ม MQTT Broker
 
 ```powershell
-docker-compose up -d
+npm --prefix frontend install
 ```
 
-#### 2. เริ่ม Python AI Server
+### เปิดทั้งระบบ
 
 ```powershell
-cd api
-# Activate virtual environment first
-uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+.\start_guardian.bat
 ```
 
-#### 3. เริ่ม Go Backend
+สคริปต์ตรวจของที่ต้องมี เปิด Postgres (127.0.0.1:5433), Redis, Mosquitto ใน Docker แล้วเปิดหน้าต่าง Python, Go และ Next.js
+หรือเปิดทีละตัว (รันจากโฟลเดอร์ราก คนละหน้าต่าง):
 
 ```powershell
-cd backend
-go run .
-# Listening on :8080
+docker compose --env-file backend/.env up -d
 ```
-
-#### 4. เริ่ม Next.js Frontend
 
 ```powershell
-cd frontend
-npm install  # first time only
-npm run dev
-# http://localhost:3000
+uv run --directory api uvicorn app:app --host 0.0.0.0 --port 8000
 ```
-
-### Testing
-
-#### ทดสอบ AI Server โดยตรง
 
 ```powershell
-python -c "
-import requests
-r = requests.post('http://localhost:8000/need-help',
-    files={'sound': ('help.wav', open('help.wav','rb'), 'audio/wav')})
-print(r.json())
-"
+go -C backend run .
 ```
 
-ผลลัพธ์ที่คาดหวัง:
-
-```json
-{ "detected": "yes", "probability": 0.9998 }
+```powershell
+npm --prefix frontend run dev
 ```
+
+เปิด http://localhost:3000 — บัญชี admin แรกถูกสร้างจาก `ADMIN_EMAIL` / `ADMIN_PASSWORD` ใน `backend/.env` (ไม่มีรหัสตั้งต้นในโค้ด)
+
+### ข้อมูลตัวอย่างและการจำลองบอร์ด
+
+ใส่ผู้ใช้ ผู้ป่วย 4 คน อุปกรณ์ 4 ตัว และประวัติ 30 วัน (รหัสผ่านจาก `SEED_*` ใน `backend/.env`):
+
+```powershell
+go -C backend run ./cmd/seed
+```
+
+ส่งเสียงจากไฟล์ WAV เข้า MQTT ในนามบอร์ด — ถ้าเป็นเสียงขอความช่วยเหลือ การ์ดแจ้งเตือนจะขึ้นในแดชบอร์ดภายในไม่กี่วินาที:
+
+```powershell
+uv run --directory api python tools/mqtt_simulate.py --mac 02:5E:ED:00:00:01 --wav path\to\help.wav --repeat 2
+```
+
+### ทดสอบ
+
+| ส่วน | คำสั่ง | หมายเหตุ |
+|---|---|---|
+| Python | `uv run --directory api --group dev pytest` | สัญญาณสังเคราะห์ ไม่ต้องต่อ broker |
+| Go | `go -C backend test ./...` | บางเทสต์ใช้ sqlite ต้องมี cgo (gcc) — ถ้าไม่มีให้รันใน container `golang:1.26` |
+| API ทั้งระบบ | `npm --prefix tests/api test` | ต้องเปิด backend + DB จริง ตั้ง `tests/api/.env.test` ก่อน |
+| Frontend | `npm run lint` และ `npx tsc --noEmit` ในโฟลเดอร์ `frontend/` | |
+
+ทดสอบโมเดลตรง ๆ: ส่งไฟล์ WAV ไปที่ `POST http://localhost:8000/need-help` (field `sound`) ได้ผล `{"detected": "yes", "probability": 0.99}`
 
 ---
 
-## 🎯 Key Features
+## Production
 
-### Phase 3 (Current)
-- **Real-time Alert Monitoring** with SSE (Server-Sent Events)
-- **Blinking Alert Cards** with red pulsing borders for emergency situations
-- **Direction Compass** with rotating needle showing patient coordinates (angle + distance)
-- **Mic Signal Levels** on an admin-only diagnostics page (`/admin/audio-diagnostics`)
-- **Mock Data Toggle** for frontend testing without backend
-- **Dark Mode Support** across all components
+โดเมน: หน้าเว็บ `https://kws.wattanapong.com`, backend `https://kwsb.wattanapong.com` ไม่มี CI/CD ต้อง deploy เอง
 
-### Core Features
-- **AI-Powered Voice Detection** using BCResNet binary classifier
-- **Multi-Device Management** with ESP32 + INMP441 microphones
-- **PostgreSQL Database** for persistent storage
-- **LINE Bot & Telegram Notifications** for caregivers
-- **User Authentication** with JWT + Auth0 OAuth2
-- **Audio Playback** for emergency evidence review
-
----
-
-## API Reference
-
-### Python AI Server (`POST /need-help`)
-
-| Field        | Value                                        |
-| ------------ | -------------------------------------------- |
-| Method       | `POST`                                       |
-| URL          | `http://localhost:8000/need-help`            |
-| Content-Type | `multipart/form-data`                        |
-| Form field   | `sound` — WAV file (8kHz, mono, 16-bit PCM)  |
-
-**Response:**
-
-```json
-{ "detected": "yes", "probability": 0.9998 }
+```bash
+git pull origin main
 ```
 
-### Go Backend
+```bash
+go -C backend build -o main .
+```
 
-| Route | Method | Description |
-| :--- | :---: | :--- |
-| **[Authentication]** | | |
-| `/api/auth/login` | `POST` | เข้าสู่ระบบด้วย Email / Password (ระบบของตัวเอง) |
-| `/api/auth/google` | `POST` | เข้าสู่ระบบด้วย Google Sign-In (ส่ง ID Token มาทวนสอบ) |
-| `/api/auth/logout` | `POST` | ออกจากระบบ (ล้าง Token / Session) |
-| `/api/user/profile` | `GET`  | ดึงข้อมูลโปรไฟล์ผู้ใช้งาน (ต้องแนบ JWT Token) |
-| | | |
-| **[Audio Management]** | | |
-| `/api/audio/emergency` | `POST` | รับไฟล์เสียงฉุกเฉินจาก Python AI มาบันทึก และส่งแจ้งเตือน |
-| `/api/audio/negative` | `POST` | รับไฟล์เสียงปกติจาก Python AI มาบันทึก (คุมโควตา 10 ไฟล์ล่าสุดอัตโนมัติ) |
-| `/api/audio` | `GET`  | ดึงรายชื่อไฟล์เสียง .wav ทั้งหมดเพื่อไปแสดงบนหน้าเว็บ |
-| `/api/audio/:filename` | `GET`  | สตรีมมิ่ง/กดเล่นไฟล์เสียงจากหน้าเว็บ Dashboard |
-| `/api/audio/:filename` | `DELETE`| ลบไฟล์เสียงออกจากระบบผ่านหน้าเว็บ |
+```bash
+npm --prefix frontend ci && npm --prefix frontend run build
+```
+
+ข้อควรรู้ก่อน deploy
+- **firmware กับ receiver (`api/`) ต้องรุ่นเดียวกัน** receiver ใน `main` ต้องการเสียง 2 ช่องจาก firmwareV2 ถ้าบอร์ดยังเป็นรุ่นไมค์เดียว ให้รัน receiver จาก tag `v1.0-mono` (ดูหัวข้อถัดไป)
+- **backend ต้องมี `INTERNAL_API_KEY` และ receiver ต้องส่งค่าเดียวกัน** ไม่งั้นเส้นทางแจ้งเหตุตอบ 503/401 และไม่มีการแจ้งเตือน
+- Go อ่านเฉพาะ `backend/.env` (ไม่อ่าน `.env.production`) — ตั้ง `APP_ENV=production`, `FRONTEND_URL`, `JWT_SECRET` ≥ 32 ตัว, `ADMIN_EMAIL`/`ADMIN_PASSWORD`
+- `next build` อ่าน `frontend/.env.production` และฝังค่า `NEXT_PUBLIC_*` ตอน build — เปลี่ยนค่าแล้วต้อง build ใหม่
+- backend เพิ่มคอลัมน์ใหม่ให้เองตอนเริ่ม (GORM AutoMigrate) ไม่ต้อง migrate มือ
+- ห้าม commit `.env`, `firmware*/main/secrets.h`, `mosquitto/config/passwd`, `mosquitto/certs/`
+
 ---
 
-## ESP32 Firmware
+## ESP32 firmware
 
-**Hardware:**
+ESP32 DevKit V1 + INMP441 2 ตัวบนบัส I2S เดียวกัน (ตัวหนึ่ง L/R ต่อ GND อีกตัวต่อ 3.3V) — 8 kHz, 16 บิต
 
-- ESP32 DevKit V1
-- INMP441 MEMS Microphone (I2S)
+| ขา | GPIO | หน้าที่ |
+|---|---|---|
+| SCK | 26 | I2S clock (ใช้ร่วมกัน 2 ไมค์) |
+| WS | 25 | เลือกช่อง L/R |
+| DIN | 22 | ข้อมูลเสียง |
+| Status LED | 2 | ไฟแดง — ต่อ Wi-Fi แล้ว |
+| Record LED | 4 | ไฟเขียว — กำลังส่งเสียง |
+| SoftAP LED | 16 | โหมดตั้งค่า Wi-Fi |
+| STATUS_BORD_PIN | 14 | ตั้งเป็น high ตอนบูต |
 
-**Pin Configuration:**
+ตั้งค่า Wi-Fi: บอร์ดเปิด Soft-AP ชื่อ `Smartvoice-XXXXXX` (6 ตัวท้ายของ MAC) หน้าตั้งค่าที่ `192.168.4.1`
+พอต่อ Wi-Fi สำเร็จจะแสดงลิงก์หน้า `/register-patient?mac=...` ให้ผูกบอร์ดกับผู้ป่วย
 
-| Pin                | GPIO | หน้าที่                   |
-| ------------------ | ---- | ------------------------- |
-| SCK (Serial Clock) | 26   | I2S Clock                 |
-| WS (Word Select)   | 25   | L/R Channel               |
-| DIN (Data In)      | 22   | Audio data จาก INMP441    |
-| Status LED         | 2    | RED LED — WiFi connected  |
-| Record LED         | 4    | GREEN LED — กำลังบันทึก     |
-| SoftAP LED         | 14   | YELLOW LED — SoftAP Mode  |
+```powershell
+cd firmwareV2
+copy main\secrets.h.example main\secrets.h   # ใส่ user/รหัส MQTT ครั้งแรก
+idf.py build flash monitor
+```
 
-**Network:** ESP32 สร้าง Soft-AP (`SmartVoice_AP`) → PC เชื่อมต่อ → ESP32 ได้ IP `192.168.4.1`  
-**MQTT Broker:** `192.168.4.2:1883`  
-**Audio Specs:** 8kHz, mono, 16-bit PCM (อ่าน 32-bit I2S แล้ว shift เป็น 16-bit)
+เลือก broker/backend ปลายทางด้วย `DEPLOY_ENV` ใน `main/main.c` (`ENV_LOCAL` / `ENV_SERVER` / `ENV_LAB`)
 
 ---
 
@@ -318,13 +240,13 @@ uv run uvicorn app:app --host 0.0.0.0 --port 8000
 
 ---
 
-## Branch Strategy
+## Branch
 
-| Branch             | เนื้อหา                                              |
-| ------------------ | ---------------------------------------------------- |
-| `main`             | Production-ready code รวมทุกส่วน                     |
-| `python-ai-server` | Python AI server + Go backend + ESP32 + mobile (แยก) |
-| `golangBackend`    | Go backend เก่า                                      |
-| `dev`              | Development branch                                   |
+| Branch | เนื้อหา |
+|---|---|
+| `main` | โค้ดล่าสุดที่ใช้ deploy รวมทุกส่วน |
+| `python-ai-server` | Python AI + Go backend + ESP32 + mobile (แยก, เก่า) |
+| `golangBackend` | Go backend เก่า |
+| `dev` | Development branch |
 
----
+Tag `v1.0-mono` และ `v2.0-2mic-untested` ใช้ย้อนเวอร์ชันตามหัวข้อด้านบน
