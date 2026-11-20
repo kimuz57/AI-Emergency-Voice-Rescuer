@@ -479,6 +479,14 @@ Mic spacing for the server-side GCC-PHAT search is `DSP_GCC_MAX_LAG`
 - The broker is fixed at build time; the `/host` page and the NVS `mqtt_uri`
   value are not used, and `/admin` says so.
 - Wi-Fi credentials are saved to NVS only after `IP_EVENT_STA_GOT_IP`.
+- Provisioning flow (`wifi.html`): `POST /connect` answers `OK` at once, the page
+  polls `GET /status` (`{state: idle|connecting|connected|failed, ip,
+  register_url}`). After a web-triggered connect succeeds the Soft-AP stays up
+  for 60 s (`AP_GRACE_US`) so the phone learns the result; `GET /finish` closes
+  it after 1.5 s, then the page waits for real internet and opens
+  `register_url`. A boot with saved credentials still drops the AP at once.
+  Captive-portal sheets (iOS/Android) close when the AP goes away, so the page
+  also offers copy-link. `config.max_uri_handlers = 12` (the default 8 was full).
 - SNTP, the Go check-in and the MQTT restart run in a short-lived task after
   GOT_IP, not in the event handler. The MQTT client handle is guarded by
   `s_mqtt_mutex`.

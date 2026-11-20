@@ -132,6 +132,15 @@ static char s_pending_pass[65] = {0};
 static bool s_pending_creds = false;
 static portMUX_TYPE s_pending_mux = portMUX_INITIALIZER_UNLOCKED;
 
+// 📲 ผลการตั้งค่า Wi-Fi จากหน้า provisioning (PROV_* ใน web_server.h) ให้มือถือถามได้ทาง GET /status
+// ต่อ Wi-Fi บ้านได้แล้วจะเปิดฮอตสปอตค้างไว้อีก AP_GRACE_US ก่อนปิด ไม่งั้นมือถือยังไม่ทันรู้ผลหรือได้ลิงก์ลงทะเบียน
+// (หน้า captive portal ของ iOS/Android ปิดตัวเองทันทีที่ฮอตสปอตหายไป)
+#define AP_GRACE_US       (60LL * 1000 * 1000)
+#define AP_FINISH_US      (1500LL * 1000)       // หลังกด "ไปหน้าลงทะเบียน" รอให้คำตอบ HTTP ถึงมือถือก่อนปิดฮอตสปอต
+static volatile int s_prov_state = PROV_IDLE;
+static char s_prov_ip[16] = {0};
+static esp_timer_handle_t s_ap_off_timer = NULL;
+
 static bool s_sntp_started = false;   // เรียก esp_sntp_init() แค่ครั้งเดียว
 
 // ==========================================
@@ -366,6 +375,10 @@ static void fill_sta_config(wifi_config_t *cfg, const char *ssid, const char *pa
 }
 
 void connect_to_sta(const char* ssid, const char* password) {
+    if (s_ap_off_timer != NULL) {
+        esp_timer_stop(s_ap_off_timer);   // ตั้งค่าใหม่ระหว่างช่วงพัก: อย่าเพิ่งปิดฮอตสปอต
+    }
+    s_prov_state = PROV_CONNECTING;
     esp_wifi_set_mode(WIFI_MODE_APSTA);
 
     wifi_config_t wifi_sta_config = {0};
@@ -418,6 +431,48 @@ void trigger_wifi_reconnect(void) {
         connect_to_sta(saved_ssid, saved_pass);
     } else {
         ESP_LOGW(TAG, "ไม่พบประวัติ Wi-Fi ในระบบ ไม่สามารถ Reconnect ได้");
+    }
+}
+
+// ==========================================
+// 📲 สถานะ provisioning ให้ web_server.h (GET /status, GET /finish)
+// ==========================================
+int provisioning_state(void) {
+    return s_prov_state;
+}
+
+void provisioning_ip(char *out, size_t out_len) {
+    snprintf(out, out_len, "%s", s_prov_ip);
+}
+
+// ปิดฮอตสปอตเมื่อพ้นช่วงพัก — เฉพาะตอนที่ยังต่อ Wi-Fi บ้านอยู่ (ถ้าหลุดไปแล้ว event handler เปิด APSTA ไว้ให้ตั้งค่าใหม่)
+static void ap_off_timer_cb(void *arg) {
+    wifi_ap_record_t ap_info;
+    if (s_prov_state != PROV_CONNECTED || esp_wifi_sta_get_ap_info(&ap_info) != ESP_OK) {
+        return;
+    }
+    ESP_LOGI(TAG, "ปิดฮอตสปอตตั้งค่าแล้ว (ใช้ Wi-Fi บ้านอย่างเดียว)");
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    set_softap_led(0);
+}
+
+static void schedule_ap_off(int64_t delay_us) {
+    if (s_ap_off_timer == NULL) {
+        const esp_timer_create_args_t args = { .callback = ap_off_timer_cb, .name = "ap_off" };
+        if (esp_timer_create(&args, &s_ap_off_timer) != ESP_OK) {
+            ESP_LOGE(TAG, "❌ สร้าง timer ปิดฮอตสปอตไม่สำเร็จ ปิดทันที");
+            esp_wifi_set_mode(WIFI_MODE_STA);
+            return;
+        }
+    }
+    esp_timer_stop(s_ap_off_timer);   // คืน ESP_ERR_INVALID_STATE ถ้ายังไม่ได้เริ่ม ไม่เป็นไร
+    esp_timer_start_once(s_ap_off_timer, delay_us);
+}
+
+// มือถือได้ลิงก์แล้ว (กดปุ่มไปหน้าลงทะเบียน): ปิดฮอตสปอตเร็วขึ้น ให้มือถือกลับไปใช้เน็ตปกติ
+void provisioning_finish(void) {
+    if (s_prov_state == PROV_CONNECTED) {
+        schedule_ap_off(AP_FINISH_US);
     }
 }
 
@@ -500,7 +555,10 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
                     ESP_LOGW(TAG, "เชื่อมต่อ Wi-Fi บ้านไม่สำเร็จ กำลังลองใหม่ครั้งที่ %d...", s_retry_num);
                 } else {
                     ESP_LOGE(TAG, "หา Wi-Fi ไม่เจอ! เปิดฮอตสปอต (AP) และเตรียมเรดาร์ (STA) รอคนมาตั้งค่า...");
-                    esp_wifi_set_mode(WIFI_MODE_APSTA); 
+                    if (s_prov_state == PROV_CONNECTING) {
+                        s_prov_state = PROV_FAILED;   // หน้าตั้งค่าบนมือถือจะบอกให้ตรวจรหัสผ่าน
+                    }
+                    esp_wifi_set_mode(WIFI_MODE_APSTA);
                     // 🟢 เมื่อกลับมา AP อย่างเดียว ให้เปิดไฟ SoftAP ค้างไว้
                     set_softap_led(1);
                     set_status_led(0);
@@ -516,11 +574,18 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
         s_retry_num = 0;               // ต่อติดแล้ว: เริ่มนับ retry ใหม่สำหรับการหลุดครั้งถัดไป
         persist_pending_wifi_creds();  // รหัสใช้ได้จริงแล้ว ค่อยบันทึกลง NVS
 
-        // 🟢 ต่อ Wi-Fi บ้านสำเร็จแล้ว ให้ปิดไฟ SoftAP และเปิดไฟสถานะระบบ
-        set_softap_led(0);
+        snprintf(s_prov_ip, sizeof(s_prov_ip), "%s", ip_str);
         set_status_led(1);
-        
-        esp_wifi_set_mode(WIFI_MODE_STA);
+
+        if (s_prov_state == PROV_CONNECTING) {
+            // 📲 เพิ่งตั้งค่าจากหน้าเว็บ: เปิดฮอตสปอตค้างไว้ช่วงหนึ่งให้มือถือรู้ผลและได้ลิงก์ลงทะเบียน
+            s_prov_state = PROV_CONNECTED;
+            schedule_ap_off(AP_GRACE_US);
+        } else {
+            // 🟢 บูตด้วยรหัสที่บันทึกไว้ (ไม่มีใครรอหน้าตั้งค่าอยู่) ปิดฮอตสปอตทันทีเหมือนเดิม
+            set_softap_led(0);
+            esp_wifi_set_mode(WIFI_MODE_STA);
+        }
 
         network_up_args_t *args = (network_up_args_t *)calloc(1, sizeof(network_up_args_t));
         if (args == NULL) {

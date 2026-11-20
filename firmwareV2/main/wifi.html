@@ -5,30 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ตั้งค่า Wi-Fi สำหรับ ESP32</title>
     <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background-color: #f4f7f6; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            margin: 0; 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
         }
-        .container { 
-            background-color: white; 
-            padding: 30px; 
-            border-radius: 10px; 
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             text-align: center;
             width: 100%;
             max-width: 350px;
+            box-sizing: border-box;
         }
-        select, input { 
-            width: 90%; 
-            padding: 10px; 
-            margin: 10px 0; 
-            border: 1px solid #ccc; 
-            border-radius: 5px; 
+        select, input {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
             font-size: 16px;
             box-sizing: border-box;
         }
@@ -36,15 +37,15 @@
             cursor: pointer;
             background-color: #fff;
         }
-        button { 
-            width: 95%; 
-            background-color: #28a745; 
-            color: white; 
-            border: none; 
-            padding: 12px; 
-            font-size: 16px; 
-            border-radius: 5px; 
-            cursor: pointer; 
+        button {
+            width: 95%;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 12px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
             margin-top: 10px;
             transition: background 0.3s;
         }
@@ -61,31 +62,94 @@
             margin: 0 0 10px 0;
         }
         .refresh-btn:hover { background-color: #e6f2ff; }
+        .hidden { display: none; }
+        .spinner {
+            width: 36px; height: 36px; margin: 10px auto;
+            border: 4px solid #e3e3e3; border-top-color: #007bff; border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .ok-title { color: #28a745; margin-top: 0; }
+        .err-title { color: #dc3545; margin-top: 0; }
+        .link-box {
+            background: #e9ecef; padding: 12px; border-radius: 8px; border: 2px dashed #007bff;
+            word-break: break-all; font-size: 15px; font-weight: bold; color: #007bff;
+            user-select: all; -webkit-user-select: all; margin: 10px 0;
+        }
+        .secondary { background-color: #fff; color: #007bff; border: 1px solid #007bff; }
+        .secondary:hover { background-color: #e6f2ff; }
+        .hint { font-size: 13px; color: #666; line-height: 1.6; text-align: left; margin-top: 15px; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>เชื่อมต่อเครือข่าย Wi-Fi</h2>
-        
-        <button class="refresh-btn" type="button" onclick="scanWifi()">🔄 สแกนหา Wi-Fi</button>
-        
-        <form id="wifiForm">
-            <select id="ssid" required>
-                <option value="">-- กำลังค้นหา Wi-Fi ⏳ --</option>
-            </select>
-            
-            <input type="password" id="password" maxlength="64" placeholder="รหัสผ่าน Wi-Fi (เว้นว่างได้ถ้าไม่มี)">
-            <button type="submit" id="submitBtn" disabled>เชื่อมต่อ Wi-Fi</button>
-        </form>
+        <!-- ขั้นที่ 1: เลือก Wi-Fi + รหัส -->
+        <div id="formView">
+            <h2>เชื่อมต่อเครือข่าย Wi-Fi</h2>
 
-        <p id="statusMessage"></p>
+            <button class="refresh-btn" type="button" onclick="scanWifi()">🔄 สแกนหา Wi-Fi</button>
+
+            <form id="wifiForm">
+                <select id="ssid" required>
+                    <option value="">-- กำลังค้นหา Wi-Fi ⏳ --</option>
+                </select>
+
+                <input type="password" id="password" maxlength="64" placeholder="รหัสผ่าน Wi-Fi (เว้นว่างได้ถ้าไม่มี)">
+                <button type="submit" id="submitBtn" disabled>เชื่อมต่อ Wi-Fi</button>
+            </form>
+
+            <p id="statusMessage"></p>
+        </div>
+
+        <!-- ขั้นที่ 2: รอบอร์ดต่อ Wi-Fi บ้าน -->
+        <div id="connectingView" class="hidden">
+            <h2>กำลังเชื่อมต่อ Wi-Fi</h2>
+            <div class="spinner"></div>
+            <p id="connectingText">บอร์ดกำลังเชื่อมต่อ <b id="connectingSsid"></b> อาจใช้เวลาสักครู่</p>
+            <p class="hint">ระหว่างนี้มือถืออาจหลุดจาก Wi-Fi ของบอร์ดชั่วครู่ ไม่ต้องปิดหน้านี้</p>
+        </div>
+
+        <!-- ขั้นที่ 3: สำเร็จ -->
+        <div id="successView" class="hidden">
+            <h2 class="ok-title">เชื่อมต่อ Wi-Fi สำเร็จ</h2>
+            <p>ขั้นต่อไป: ลงทะเบียนผู้ป่วยและผูกบอร์ดนี้บนเว็บไซต์</p>
+            <div class="link-box" id="registerLink"></div>
+            <button type="button" id="goBtn">ไปหน้าลงทะเบียนผู้ป่วย</button>
+            <button type="button" id="copyBtn" class="secondary">คัดลอกลิงก์</button>
+            <p id="goStatus" style="font-weight:bold; color:#007bff; font-size:14px;"></p>
+            <div class="hint">
+                กด "ไปหน้าลงทะเบียนผู้ป่วย" แล้วบอร์ดจะปิด Wi-Fi ตั้งค่า มือถือจะกลับไปใช้อินเทอร์เน็ตปกติและเปิดหน้าเว็บให้เอง<br>
+                ถ้าหน้านี้ปิดไปก่อน (เช่นในหน้าต่างเข้าสู่ระบบ Wi-Fi ของ iPhone/Android) ให้เปิด Chrome หรือ Safari แล้ววางลิงก์ด้านบน
+                หรือสแกน QR บนสติกเกอร์ของบอร์ด
+            </div>
+        </div>
+
+        <!-- ต่อไม่สำเร็จ -->
+        <div id="failedView" class="hidden">
+            <h2 class="err-title">เชื่อมต่อ Wi-Fi ไม่สำเร็จ</h2>
+            <p id="failedText">ตรวจชื่อ Wi-Fi และรหัสผ่านอีกครั้ง แล้วลองใหม่</p>
+            <button type="button" id="retryBtn">ลองใหม่</button>
+        </div>
     </div>
 
     <script>
         const ssidSelect = document.getElementById('ssid');
         const submitBtn = document.getElementById('submitBtn');
         const statusText = document.getElementById('statusMessage');
+        const views = ['formView', 'connectingView', 'successView', 'failedView'];
+
+        function show(id) {
+            views.forEach(v => document.getElementById(v).classList.toggle('hidden', v !== id));
+        }
+
+        // fetch ที่มีเวลาจำกัด — ตอนฮอตสปอตย้ายช่องสัญญาณ request อาจค้างโดยไม่มีคำตอบ
+        function fetchWithTimeout(url, options, ms) {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), ms);
+            return fetch(url, Object.assign({}, options, { signal: ctrl.signal }))
+                .finally(() => clearTimeout(timer));
+        }
 
         // ฟังก์ชันไปดึงข้อมูลจาก ESP32
         async function scanWifi() {
@@ -96,12 +160,12 @@
             try {
                 const response = await fetch('/api/scan');
                 const networks = await response.json();
-                
+
                 // ตัดชื่อซ้ำออก
                 const uniqueNetworks = [...new Set(networks)];
-                
+
                 ssidSelect.innerHTML = '<option value="">-- กรุณาเลือก Wi-Fi --</option>';
-                
+
                 if (uniqueNetworks.length === 0) {
                     ssidSelect.innerHTML = '<option value="">ไม่พบ Wi-Fi บริเวณนี้</option>';
                 } else {
@@ -124,37 +188,159 @@
         // สั่งสแกนทันทีที่เปิดหน้าเว็บ
         window.onload = scanWifi;
 
-        // ฟังก์ชันส่งรหัสผ่าน (เหมือนของคุณเดิมเป๊ะๆ)
+        // ---------- ส่งรหัส แล้วถามผลจากบอร์ดทาง /status ----------
+        let registerUrl = '';
+        let polling = false;
+
         document.getElementById('wifiForm').addEventListener('submit', function(e) {
-            e.preventDefault(); 
+            e.preventDefault();
             var ssid = document.getElementById('ssid').value;
             var password = document.getElementById('password').value;
 
             statusText.style.color = "#007bff";
-            statusText.innerHTML = "กำลังส่งข้อมูลไปยังบอร์ด...";
+            statusText.textContent = "กำลังส่งข้อมูลไปยังบอร์ด...";
+            submitBtn.disabled = true;
 
-            fetch('/connect', {
+            fetchWithTimeout('/connect', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: 'ssid=' + encodeURIComponent(ssid) + '&password=' + encodeURIComponent(password)
-            })
+            }, 8000)
             .then(response => response.text().then(data => ({ ok: response.ok, data: data })))
             .then(({ ok, data }) => {
                 if (!ok) {
                     // ❌ บอร์ดปฏิเสธ (เช่น SSID/รหัสยาวเกิน) แสดงเป็นข้อความธรรมดา
                     statusText.style.color = "red";
                     statusText.textContent = "❌ " + data;
+                    submitBtn.disabled = false;
                     return;
                 }
-                // 🟢 สีเขียวถ้าส่งคำสั่งสำเร็จ
-                statusText.style.color = "#28a745"; 
-                statusText.innerHTML = data; 
+                document.getElementById('connectingSsid').textContent = ssid;
+                show('connectingView');
+                pollStatus();
             })
-            .catch(error => {
+            .catch(() => {
                 statusText.style.color = "red";
-                statusText.innerHTML = "❌ ไม่สามารถส่งคำสั่งเชื่อมต่อได้";
+                statusText.textContent = "❌ ไม่สามารถส่งคำสั่งเชื่อมต่อได้ ตรวจว่ามือถือยังต่อ Wi-Fi ของบอร์ดอยู่";
+                submitBtn.disabled = false;
             });
         });
+
+        async function pollStatus() {
+            if (polling) return;
+            polling = true;
+            const started = Date.now();
+            let misses = 0;
+            let connected = false;
+
+            while (polling) {
+                await new Promise(r => setTimeout(r, 1500));
+                let data = null;
+                try {
+                    const res = await fetchWithTimeout('/status', { cache: 'no-store' }, 3000);
+                    data = await res.json();
+                    misses = 0;
+                } catch (e) {
+                    misses++;
+                }
+
+                if (data) {
+                    if (data.register_url) registerUrl = data.register_url;
+                    if (data.state === 'connected' && !connected) {
+                        connected = true;
+                        showSuccess();
+                    } else if (data.state === 'failed') {
+                        polling = false;
+                        show('failedView');
+                    }
+                } else if (connected && misses >= 3) {
+                    // ฮอตสปอตปิดแล้ว (พ้นช่วงพัก) — ถ้าหน้านี้ยังเปิดอยู่ ไปหน้าเว็บให้เมื่อมือถือกลับมาใช้เน็ตได้
+                    polling = false;
+                    waitForInternetThenOpen();
+                } else if (!connected && misses >= 20) {
+                    polling = false;
+                    document.getElementById('failedText').textContent =
+                        'มือถือหลุดจาก Wi-Fi ของบอร์ด ถ้าไฟเขียวบนบอร์ดติดแปลว่าต่อสำเร็จแล้ว ให้ไปลงทะเบียนผู้ป่วยบนเว็บไซต์ ถ้าไฟ SoftAP ยังติด ให้ต่อ Wi-Fi ของบอร์ดแล้วลองใหม่';
+                    show('failedView');
+                }
+
+                if (!connected && Date.now() - started > 60000) {
+                    document.getElementById('connectingText').textContent =
+                        'ใช้เวลานานกว่าปกติ ถ้ารหัสผ่านผิด บอร์ดจะแจ้งผลในไม่ช้า';
+                }
+            }
+        }
+
+        function showSuccess() {
+            document.getElementById('registerLink').textContent = registerUrl;
+            show('successView');
+        }
+
+        // ---------- หลังต่อสำเร็จ ----------
+        document.getElementById('copyBtn').addEventListener('click', function() {
+            const done = () => { this.textContent = 'คัดลอกแล้ว'; };
+            const fallback = () => {
+                // http://192.168.4.1 ไม่ใช่ secure context: navigator.clipboard มักใช้ไม่ได้ ใช้ execCommand แทน
+                const ta = document.createElement('textarea');
+                ta.value = registerUrl;
+                ta.setAttribute('readonly', '');
+                ta.style.position = 'absolute';
+                ta.style.left = '-9999px';
+                document.body.appendChild(ta);
+                ta.select();
+                let ok = false;
+                try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+                document.body.removeChild(ta);
+                if (ok) done(); else this.textContent = 'กดค้างที่ลิงก์ด้านบนเพื่อคัดลอก';
+            };
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(registerUrl).then(done, fallback);
+            } else {
+                fallback();
+            }
+        });
+
+        document.getElementById('goBtn').addEventListener('click', function() {
+            this.disabled = true;
+            polling = false;
+            // บอกบอร์ดให้ปิดฮอตสปอต มือถือจะสลับกลับไปใช้ Wi-Fi บ้าน/เน็ตมือถือเอง
+            fetchWithTimeout('/finish', { cache: 'no-store' }, 3000).catch(() => {});
+            waitForInternetThenOpen();
+        });
+
+        document.getElementById('retryBtn').addEventListener('click', function() {
+            statusText.textContent = '';
+            submitBtn.disabled = false;
+            show('formView');
+        });
+
+        // ระหว่างยังต่อฮอตสปอตอยู่ DNS ของบอร์ดตอบทุกโดเมนเป็น 192.168.4.1 การลองเปิดเว็บจริงจึงล้มเหลว
+        // ลองซ้ำจนกว่ามือถือกลับมาใช้อินเทอร์เน็ตได้ แล้วค่อยพาไปหน้าลงทะเบียน
+        async function waitForInternetThenOpen() {
+            const goStatus = document.getElementById('goStatus');
+            if (!registerUrl) return;
+            show('successView');
+            document.getElementById('registerLink').textContent = registerUrl;
+            goStatus.textContent = 'กำลังรอมือถือกลับมาใช้อินเทอร์เน็ต...';
+            let origin;
+            try { origin = new URL(registerUrl).origin; } catch (e) { return; }
+
+            const deadline = Date.now() + 90000;
+            while (Date.now() < deadline) {
+                await new Promise(r => setTimeout(r, 2000));
+                try {
+                    // no-cors: แค่ได้คำตอบจากเซิร์ฟเวอร์จริงก็พอ (อ่านเนื้อหาไม่ได้ ไม่จำเป็น)
+                    await fetchWithTimeout(origin + '/?probe=' + Date.now(), { mode: 'no-cors', cache: 'no-store' }, 4000);
+                    goStatus.textContent = 'กำลังเปิดหน้าลงทะเบียน...';
+                    window.location.href = registerUrl;
+                    return;
+                } catch (e) {
+                    // ยังไม่มีเน็ต ลองใหม่
+                }
+            }
+            goStatus.style.color = '#dc3545';
+            goStatus.textContent = 'ยังเปิดเว็บไม่ได้ กรุณาเปิด Chrome หรือ Safari แล้ววางลิงก์ด้านบนเอง';
+        }
     </script>
 
 </body>

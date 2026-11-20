@@ -27,6 +27,15 @@ extern const uint8_t wifi_html_end[]   asm("_binary_wifi_html_end");
 
 extern void trigger_wifi_reconnect(void);
 
+// 📲 สถานะการตั้งค่า Wi-Fi จากหน้านี้ (main.c เป็นคนอัปเดต) — wifi.html ถามผ่าน GET /status
+#define PROV_IDLE       0   // ยังไม่ได้ตั้งค่าจากหน้าเว็บ
+#define PROV_CONNECTING 1   // กด "เชื่อมต่อ" แล้ว กำลังต่อ Wi-Fi บ้าน
+#define PROV_CONNECTED  2   // ได้ IP แล้ว ฮอตสปอตยังเปิดอยู่ช่วงพัก
+#define PROV_FAILED     3   // ลองครบแล้วต่อไม่ได้ (รหัสผิด / หาไม่เจอ)
+extern int provisioning_state(void);
+extern void provisioning_ip(char *out, size_t out_len);
+extern void provisioning_finish(void);
+
 static const char *WS_TAG = "WEB_SERVER";
 
 // HTML Templates
@@ -331,63 +340,50 @@ static esp_err_t connect_post_handler(httpd_req_t *req) {
         return ESP_OK;
     }
 
-    ESP_LOGI(WS_TAG, "รับค่า Wi-Fi เตรียมส่งหน้าจอให้ Copy ลิงก์ (Manual)");
+    ESP_LOGI(WS_TAG, "รับค่า Wi-Fi แล้ว เริ่มเชื่อมต่อ (หน้าเว็บจะถามผลทาง /status)");
 
-    char *response_html = (char *)malloc(4096);
-    if (response_html == NULL) {
-        return ESP_FAIL;
-    }
+    // 1. ตอบรับทันที — wifi.html แสดงสถานะเองจากการถาม GET /status เป็นระยะ
+    httpd_resp_set_type(req, "text/plain; charset=utf-8");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+
+    // 2. รอให้คำตอบถึงมือถือก่อน: ตอนต่อ Wi-Fi บ้าน ฮอตสปอตอาจย้ายช่องสัญญาณตามเราเตอร์ มือถือจะหลุดชั่วครู่
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    // 3. สั่งบอร์ดต่อเน็ตบ้าน (ฮอตสปอตยังเปิดอยู่ จนพ้นช่วงพักหลังต่อสำเร็จ)
+    connect_to_sta(ssid, password);
+
+    return ESP_OK;
+}
+
+// 🟢 Route /status (GET: ผลการตั้งค่า Wi-Fi + ลิงก์ลงทะเบียนผู้ป่วยของบอร์ดนี้) ตอบเป็น JSON
+static esp_err_t status_get_handler(httpd_req_t *req) {
+    static const char *names[] = { "idle", "connecting", "connected", "failed" };
+    int state = provisioning_state();
+    if (state < PROV_IDLE || state > PROV_FAILED) state = PROV_IDLE;
 
     uint8_t mac[6];
     esp_read_mac(mac, ESP_MAC_WIFI_STA);
     char mac_str[13];
     snprintf(mac_str, sizeof(mac_str), "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    char register_url[192];
+    snprintf(register_url, sizeof(register_url), SERVER_URL, mac_str);
+    char ip[16] = {0};
+    if (state == PROV_CONNECTED) provisioning_ip(ip, sizeof(ip));
 
-    // 1. สร้างหน้า HTML แบบให้กดค้างเพื่อ Copy เอง (ใช้ CSS ช่วยคลุมดำข้อความอัตโนมัติ)
-    snprintf(response_html, 4096,
-        "<!DOCTYPE html>"
-        "<html>"
-        "<head>"
-        "    <meta charset='utf-8'>"
-        "    <meta name='viewport' content='width=device-width, initial-scale=1'>"
-        "    <title>Setup Complete</title>"
-        "</head>"
-        "<body style='text-align:center; padding:20px; font-family:sans-serif; background-color:#f4f4f9;'>"
-        "    <div style='background:white; padding:25px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); max-width:400px; margin:auto;'>"
-        "        <h2 style='color:#28a745; margin-top:0;'>✅ บันทึก Wi-Fi สำเร็จ!</h2>"
-        "        <p style='color:#dc3545; font-size:13px; font-weight:bold; margin-bottom:10px;'>(ระบบมือถือไม่อนุญาตให้กดปุ่มคัดลอกอัตโนมัติ)</p>"
-        "        <p style='color:#555; font-size:15px; margin-bottom:15px;'>👇 <b>กรุณากดค้างที่ข้อความด้านล่าง</b> เพื่อคัดลอกด้วยตัวเอง</p>"
-        "        "
-        "        <!-- กล่องอัจฉริยะ: แค่แตะหรือกดค้าง CSS จะคลุมดำให้ทั้งประโยคทันที -->"
-        "        <div style='background:#e9ecef; padding:15px; border-radius:8px; border:2px dashed #007bff; margin-bottom:25px; word-break:break-all; font-size:16px; font-weight:bold; color:#007bff; user-select:all; -webkit-user-select:all;'>"
-        "            " SERVER_URL ""
-        "        </div>"
-        "        "
-        "        "
-        "        <div style='background:#fff3cd; padding:15px; border-radius:8px; text-align:left; border-left:4px solid #ffc107;'>"
-        "            <p style='font-weight:bold; color:#856404; margin:0 0 8px 0; font-size:14px;'>📌 ขั้นตอนต่อไป:</p>"
-        "            <ol style='margin:0; padding-left:20px; font-size:13px; color:#856404; line-height:1.6;'>"
-        "                <li>กด <b>คัดลอก (Copy)</b> ลิงก์ในกรอบประด้านบน</li>"
-        "                <li>กดคำว่า <b>เสร็จสิ้น (Done)</b> หรือ <b>ยกเลิก</b> ที่มุมขวาบนเพื่อปิดหน้านี้</li>"
-        "                <li>เปิดแอป <b>Safari หรือ Chrome</b> แล้ววางลิงก์เพื่อใช้งาน</li>"
-        "            </ol>"
-        "        </div>"
-        "    </div>"
-        "</body>"
-        "</html>", mac_str);
+    char json[320];
+    snprintf(json, sizeof(json), "{\"state\":\"%s\",\"ip\":\"%s\",\"register_url\":\"%s\"}",
+             names[state], ip, register_url);
+    httpd_resp_set_type(req, "application/json");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    return httpd_resp_send(req, json, HTTPD_RESP_USE_STRLEN);
+}
 
-    // 2. ตอบหน้าเว็บกลับไปให้มือถือทันที
-    httpd_resp_set_type(req, "text/html; charset=utf-8");
-    httpd_resp_send(req, response_html, HTTPD_RESP_USE_STRLEN);
-    
-    free(response_html);
-
-    // 3. ยืนรอ 2 วินาทีเพื่อให้ชัวร์ว่ามือถือโหลดหน้าเว็บเสร็จ
-    vTaskDelay(pdMS_TO_TICKS(2000));
-
-    // 4. สั่งบอร์ดสลับไปต่อเน็ตบ้าน
-    connect_to_sta(ssid, password);
-
+// 🟢 Route /finish (GET: มือถือได้ลิงก์แล้ว ปิดฮอตสปอตเร็วขึ้นให้มือถือกลับไปใช้อินเทอร์เน็ตปกติ)
+static esp_err_t finish_get_handler(httpd_req_t *req) {
+    httpd_resp_set_type(req, "text/plain; charset=utf-8");
+    httpd_resp_set_hdr(req, "Cache-Control", "no-store");
+    httpd_resp_send(req, "OK", HTTPD_RESP_USE_STRLEN);
+    provisioning_finish();
     return ESP_OK;
 }
 
@@ -502,6 +498,7 @@ httpd_handle_t start_web_server(void) {
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.lru_purge_enable = true;
+    config.max_uri_handlers = 12;   // ค่า default 8 เต็มแล้ว (มี 10 route) ตัวที่เกินจะลงทะเบียนไม่ติดแบบเงียบ ๆ
 
     ESP_LOGI(WS_TAG, "กำลังเริ่มระบบ HTTP Web Server บนพอร์ต: '%d'", config.server_port);
     if (httpd_start(&server, &config) == ESP_OK) {
@@ -532,6 +529,12 @@ httpd_handle_t start_web_server(void) {
 
         httpd_uri_t api_scan_get = { .uri = "/api/scan", .method = HTTP_GET, .handler = api_scan_get_handler, .user_ctx = NULL };
         httpd_register_uri_handler(server, &api_scan_get);
+
+        httpd_uri_t status_get = { .uri = "/status", .method = HTTP_GET, .handler = status_get_handler, .user_ctx = NULL };
+        httpd_register_uri_handler(server, &status_get);
+
+        httpd_uri_t finish_get = { .uri = "/finish", .method = HTTP_GET, .handler = finish_get_handler, .user_ctx = NULL };
+        httpd_register_uri_handler(server, &finish_get);
 
         // 🟢 ลงทะเบียน 404 Error ให้ทำหน้าที่เด้งป๊อปอัป
         httpd_register_err_handler(server, HTTPD_404_NOT_FOUND, captive_portal_404_handler);
